@@ -1,0 +1,31 @@
+[build]
+  # Build command - vacío para sitio estático
+  command = ""
+  
+  # Directorio que contiene el sitio estático listo para publicar
+  publish = "wellnest-landing"
+  
+  # Directorio base (raíz del proyecto)
+  base = "."
+
+# Configuración de headers para optimización y seguridad
+[[headers]]
+  # Para todos los archivos estáticos (CSS, JS, imágenes)
+  for = "/*"
+  [headers.values]
+    # Cachear recursos por 1 hora
+    Cache-Control = "public, max-age=3600"
+    # Seguridad básica
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+
+[[headers]]
+  # Para el HTML principal, no cachear
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Configuración de contexto
+[context.production.environment]
+  ENVIRONMENT = "production"
