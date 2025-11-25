@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Wellnest - Preview Estático</title>
+    <style>
+        :root {
+            --color-bg: #f7f1ea;
+            --color-warm-white: #faf8f5;
+            --color-primary: #b08968;
+            --color-primary-50: #f5f2ee;
+            --color-primary-100: #ede6d8;
+            --color-primary-600: #9d7653;
+            --color-accent: #8f9779;
+            --color-accent-50: #f4f5f1;
+            --color-accent-100: #e8eae1;
+            --color-nude: #e8dcc6;
+            --color-beige: #d4c5a0;
+            --color-earth-tone: #a67c52;
+            --color-text: #3b322a;
+            --color-text-light: #6b5b4f;
+            --color-text-muted: #8b7d71;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--color-warm-white);
+            border-bottom: 1px solid rgba(176, 137, 104, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--color-primary);
+            text-decoration: none;
+        }
+
+        .nav {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        .nav a {
+            color: var(--color-text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav a:hover {
+            color: var(--color-primary);
+        }
+
+        .auth-buttons {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-primary-600);
+        }
+
+        .btn-outline {
+            border: 2px solid var(--color-primary);
+            color: var(--color-primary);
+            background: transparent;
+        }
+
+        .btn-outline:hover {
+            background-color: var(--color-primary);
+            color: white;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 90vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-warm-white) 50%, var(--color-nude) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 5rem;
+            left: 2.5rem;
+            width: 8rem;
+            height: 8rem;
+            background-color: rgba(176, 137, 104, 0.05);
+            border-radius: 50%;
+            filter: blur(60px);
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: 8rem;
+            right: 4rem;
+            width: 12rem;
+            height: 12rem;
+            background-color: rgba(143, 151, 121, 0.05);
+            border-radius: 50%;
+            filter: blur(60px);
+        }
+
+        .hero-content {
+            text-align: center;
+            max-width: 800px;
+            z-index: 10;
+            position: relative;
+        }
+
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--color-text-light);
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .disciplines-preview {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 3rem;
+        }
+
+        .discipline-tag {
+            background-color: rgba(176, 137, 104, 0.1);
+            color: var(--color-text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .discipline-tag:nth-child(even) {
+            background-color: rgba(143, 151, 121, 0.1);
+        }
+
+        .cta-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .trust-indicator {
+            color: var(--color-text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Disciplines Section */
+        .disciplines {
+            padding: 6rem 0;
+            background-color: var(--color-warm-white);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            color: var(--color-text);
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            font-size: 1.125rem;
+            color: var(--color-text-light);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .disciplines-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .discipline-card {
+            background-color: var(--color-warm-white);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(176, 137, 104, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            min-height: 350px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .discipline-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.7) 100%);
+            z-index: 1;
+        }
+
+        .discipline-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .discipline-card:hover::before {
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.8) 100%);
+        }
+
+        .discipline-icon {
+            display: none;
+        }
+
+        .discipline-card h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: white;
+            position: relative;
+            z-index: 2;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .discipline-card p {
+            color: rgba(255, 255, 255, 0.95);
+            margin-bottom: 1.5rem;
+            position: relative;
+            z-index: 2;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .benefits {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .benefit-tag {
+            background-color: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 0.35rem 0.85rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Packages Section */
+        .packages {
+            padding: 6rem 0;
+            background-color: var(--color-bg);
+        }
+
+        .packages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .package-card {
+            background-color: var(--color-warm-white);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(176, 137, 104, 0.1);
+            position: relative;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .package-card.popular {
+            border: 2px solid var(--color-primary);
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .popular-badge {
+            position: absolute;
+            top: -1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--color-primary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 1rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .package-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .package-header h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .package-subtitle {
+            color: var(--color-text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .package-price {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--color-primary);
+            margin-bottom: 1rem;
+        }
+
+        .package-details {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            color: var(--color-text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+
+        .package-features {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+
+        .package-features li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            color: var(--color-text-light);
+        }
+
+        .check-icon {
+            color: var(--color-primary);
+            font-weight: bold;
+            flex-shrink: 0;
+            margin-top: 0.125rem;
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--color-primary);
+            color: white;
+            padding: 3rem 0 1rem;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-section h3 {
+            font-family: 'Playfair Display', serif;
+            margin-bottom: 1rem;
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-links a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            padding-top: 2rem;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav, .auth-buttons {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .disciplines-grid, .packages-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                text-align: center;
+                display: block;
+            }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="#" class="logo">The Wellnest</a>
+                <nav>
+                    <ul class="nav">
+                        <li><a href="#inicio">Inicio</a></li>
+                        <li><a href="#clases">Clases</a></li>
+                        <li><a href="#equipo">Equipo</a></li>
+                        <li><a href="#paquetes">Paquetes</a></li>
+                        <li><a href="#horarios">Horarios</a></li>
+                        <li><a href="#blog">Blog</a></li>
+                        <li><a href="#contacto">Contacto</a></li>
+                    </ul>
+                </nav>
+                <div class="auth-buttons">
+                    <a href="#" class="btn btn-outline">Iniciar Sesión</a>
+                    <a href="#" class="btn btn-primary">Registrarse</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="inicio">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Tu Santuario de <span class="gradient-text">Bienestar Integral</span></h1>
+                <p>Descubre un espacio donde conectar cuerpo, mente y energía. Vive una experiencia de lujo minimalista y cálida en The Wellnest.</p>
+                
+                <div class="disciplines-preview">
+                    <span class="discipline-tag">🧘‍♀️ Yoga</span>
+                    <span class="discipline-tag">💪 Pilates</span>
+                    <span class="discipline-tag">⭐ Pole</span>
+                    <span class="discipline-tag">🎵 Sound Healing</span>
+                    <span class="discipline-tag">🥗 Nutrición</span>
+                </div>
+
+                <div class="cta-buttons">
+                    <a href="#horarios" class="btn btn-primary">Ver Horarios</a>
+                    <a href="#paquetes" class="btn btn-outline">Conocer Paquetes</a>
+                </div>
+
+                <p class="trust-indicator">Más de 500 personas han encontrado su bienestar en The Wellnest</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Disciplines Section -->
+    <section class="disciplines" id="clases">
+        <div class="container">
+            <div class="section-header">
+                <h2>Qué Ofrecemos</h2>
+                <p>Descubre nuestras disciplinas cuidadosamente seleccionadas para tu transformación integral</p>
+            </div>
+
+            <div class="disciplines-grid">
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=80');">
+                    <h3>Yoga</h3>
+                    <p>Conecta con tu esencia interior a través de posturas fluidas y respiración consciente.</p>
+                    <div class="benefits">
+                        <span class="benefit-tag">Flexibilidad</span>
+                        <span class="benefit-tag">Equilibrio mental</span>
+                        <span class="benefit-tag">Fortaleza interior</span>
+                    </div>
+                </div>
+
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=80');">
+                    <h3>Pilates</h3>
+                    <p>Fortalece tu core y mejora tu postura con movimientos precisos y controlados.</p>
+                    <div class="benefits">
+                        <span class="benefit-tag">Fuerza funcional</span>
+                        <span class="benefit-tag">Postura corporal</span>
+                        <span class="benefit-tag">Coordinación</span>
+                    </div>
+                </div>
+
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1599839906797-3677e4ebc613?w=800&q=80');">
+                    <h3>Pole</h3>
+                    <p>Expresa tu creatividad y desarrolla fuerza de una manera divertida y empoderante.</p>
+                    <div class="benefits">
+                        <span class="benefit-tag">Confianza</span>
+                        <span class="benefit-tag">Fuerza superior</span>
+                        <span class="benefit-tag">Expresión artística</span>
+                    </div>
+                </div>
+
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800&q=80');">
+                    <h3>Sound Healing</h3>
+                    <p>Sumérgete en vibraciones sanadoras que calman la mente y el alma.</p>
+                    <div class="benefits">
+                        <span class="benefit-tag">Relajación profunda</span>
+                        <span class="benefit-tag">Reducción estrés</span>
+                        <span class="benefit-tag">Claridad mental</span>
+                    </div>
+                </div>
+
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&q=80');">
+                    <h3>Nutrición</h3>
+                    <p>Aprende a nutrir tu cuerpo desde adentro con orientación personalizada.</p>
+                    <div class="benefits">
+                        <span class="benefit-tag">Energía vital</span>
+                        <span class="benefit-tag">Bienestar digestivo</span>
+                        <span class="benefit-tag">Hábitos saludables</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <a href="#" class="btn btn-primary">Explorar Todas las Disciplinas</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Packages Section -->
+    <section class="packages" id="paquetes">
+        <div class="container">
+            <div class="section-header">
+                <h2>Paquetes de Bienestar</h2>
+                <p>Elige el paquete que mejor se adapte a tu ritmo de vida y objetivos de bienestar</p>
+            </div>
+
+            <div class="packages-grid">
+                <div class="package-card">
+                    <div class="package-header">
+                        <h3>Wellnest Starter</h3>
+                        <p class="package-subtitle">Perfecto para comenzar</p>
+                        <div class="package-price">$89</div>
+                        <div class="package-details">
+                            <span>5 créditos</span>
+                            <span>•</span>
+                            <span>60 días</span>
+                        </div>
+                    </div>
+                    <ul class="package-features">
+                        <li><span class="check-icon">✓</span> Acceso a todas las disciplinas</li>
+                        <li><span class="check-icon">✓</span> Válido por 60 días</li>
+                        <li><span class="check-icon">✓</span> Reservas flexibles</li>
+                        <li><span class="check-icon">✓</span> Introducción al bienestar</li>
+                    </ul>
+                    <a href="#" class="btn btn-outline" style="width: 100%; text-align: center;">Seleccionar Paquete</a>
+                </div>
+
+                <div class="package-card popular">
+                    <div class="popular-badge">⭐ Más Popular</div>
+                    <div class="package-header">
+                        <h3>Wellnest Essential</h3>
+                        <p class="package-subtitle">Nuestra opción más popular</p>
+                        <div class="package-price">$165</div>
+                        <div class="package-details">
+                            <span>10 créditos</span>
+                            <span>•</span>
+                            <span>90 días</span>
+                        </div>
+                    </div>
+                    <ul class="package-features">
+                        <li><span class="check-icon">✓</span> Acceso a todas las disciplinas</li>
+                        <li><span class="check-icon">✓</span> Válido por 90 días</li>
+                        <li><span class="check-icon">✓</span> Reservas prioritarias</li>
+                        <li><span class="check-icon">✓</span> Descuentos en talleres especiales</li>
+                        <li><span class="check-icon">✓</span> Consulta nutricional incluida</li>
+                    </ul>
+                    <a href="#" class="btn btn-primary" style="width: 100%; text-align: center;">Seleccionar Paquete</a>
+                </div>
+
+                <div class="package-card">
+                    <div class="package-header">
+                        <h3>Wellnest Premium</h3>
+                        <p class="package-subtitle">Experiencia completa</p>
+                        <div class="package-price">$280</div>
+                        <div class="package-details">
+                            <span>20 créditos</span>
+                            <span>•</span>
+                            <span>120 días</span>
+                        </div>
+                    </div>
+                    <ul class="package-features">
+                        <li><span class="check-icon">✓</span> Acceso ilimitado a todas las disciplinas</li>
+                        <li><span class="check-icon">✓</span> Válido por 120 días</li>
+                        <li><span class="check-icon">✓</span> Reservas garantizadas</li>
+                        <li><span class="check-icon">✓</span> Talleres especiales incluidos</li>
+                        <li><span class="check-icon">✓</span> Sesiones de coaching personal</li>
+                        <li><span class="check-icon">✓</span> Acceso a eventos exclusivos</li>
+                    </ul>
+                    <a href="#" class="btn btn-outline" style="width: 100%; text-align: center;">Seleccionar Paquete</a>
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <p style="color: var(--color-text-muted); margin-bottom: 1rem;">¿No estás seguro de qué paquete elegir?</p>
+                <a href="#" class="btn btn-outline">Habla con Nuestro Equipo</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>The Wellnest</h3>
+                    <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1.5rem;">
+                        Tu santuario de bienestar integral. Un espacio donde conectar cuerpo, mente y energía 
+                        en una experiencia de lujo minimalista y cálida.
+                    </p>
+                    <div style="display: flex; gap: 1rem;">
+                        <a href="#" style="color: rgba(255, 255, 255, 0.8);">📱</a>
+                        <a href="#" style="color: rgba(255, 255, 255, 0.8);">📧</a>
+                        <a href="#" style="color: rgba(255, 255, 255, 0.8);">🌐</a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Enlaces Rápidos</h3>
+                    <ul class="footer-links">
+                        <li><a href="#clases">Clases</a></li>
+                        <li><a href="#paquetes">Paquetes</a></li>
+                        <li><a href="#horarios">Horarios</a></li>
+                        <li><a href="#equipo">Equipo</a></li>
+                        <li><a href="#blog">Blog</a></li>
+                        <li><a href="#contacto">Contacto</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Disciplinas</h3>
+                    <ul class="footer-links">
+                        <li><a href="#yoga">Yoga</a></li>
+                        <li><a href="#pilates">Pilates</a></li>
+                        <li><a href="#pole">Pole</a></li>
+                        <li><a href="#soundhealing">Sound Healing</a></li>
+                        <li><a href="#nutricion">Nutrición</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>Contacto</h3>
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="margin-bottom: 0.5rem; color: rgba(255, 255, 255, 0.8);">📍 Calle Ejemplo 123, Ciudad</div>
+                        <div style="margin-bottom: 0.5rem; color: rgba(255, 255, 255, 0.8);">📞 +1 (555) 123-4567</div>
+                        <div style="margin-bottom: 0.5rem; color: rgba(255, 255, 255, 0.8);">✉️ info@thewellnest.com</div>
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom: 1rem;">Newsletter</h4>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="email" placeholder="Tu email" style="flex: 1; padding: 0.5rem; border-radius: 0.5rem; border: none; background: rgba(255,255,255,0.1); color: white;">
+                            <button class="btn btn-primary" style="padding: 0.5rem 1rem;">Suscribirse</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>© 2024 The Wellnest. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
