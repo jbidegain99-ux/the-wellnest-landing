@@ -51,6 +51,7 @@ coverage/
 # Deployment
 .vercel/
 .netlify/
+*.zip
 
 # Personal notes
 notes.md
