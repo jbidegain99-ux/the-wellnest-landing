@@ -1,12 +1,16 @@
 [build]
   # Build command - vacío para sitio estático
-  command = ""
-  
+  command = "echo 'Sitio estático - no requiere build'"
+
   # Directorio que contiene el sitio estático listo para publicar
   publish = "wellnest-landing"
-  
+
   # Directorio base (raíz del proyecto)
   base = "."
+
+[build.environment]
+  # Flags para evitar scripts de npm (como postinstall de Prisma)
+  NPM_FLAGS = "--ignore-scripts"
 
 # Configuración de headers para optimización y seguridad
 [[headers]]
