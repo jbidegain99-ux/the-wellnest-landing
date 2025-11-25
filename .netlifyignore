@@ -1,0 +1,23 @@
+# Ignorar archivos de Next.js para evitar auto-detección
+next.config.js
+next-env.d.ts
+
+# Ignorar archivos de configuración de desarrollo
+package.json
+package-lock.json
+tsconfig.json
+tailwind.config.ts
+
+# Ignorar archivos de base de datos
+prisma/
+
+# Ignorar código fuente de Next.js (no necesario para sitio estático)
+src/
+app/
+pages/
+components/
+
+# Ignorar archivos de desarrollo
+.env.example
+node_modules/
+.next/
