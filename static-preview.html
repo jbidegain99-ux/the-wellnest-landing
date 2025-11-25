@@ -258,59 +258,77 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
             border: 1px solid rgba(176, 137, 104, 0.1);
             transition: transform 0.3s, box-shadow 0.3s;
+            min-height: 350px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .discipline-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.7) 100%);
+            z-index: 1;
         }
 
         .discipline-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .discipline-card:hover::before {
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.8) 100%);
         }
 
         .discipline-icon {
-            width: 4rem;
-            height: 4rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            font-size: 2rem;
-        }
-
-        .discipline-icon.primary {
-            background-color: rgba(176, 137, 104, 0.1);
-            color: var(--color-primary);
-        }
-
-        .discipline-icon.accent {
-            background-color: rgba(143, 151, 121, 0.1);
-            color: var(--color-accent);
+            display: none;
         }
 
         .discipline-card h3 {
             font-family: 'Playfair Display', serif;
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             font-weight: 600;
             margin-bottom: 1rem;
-            color: var(--color-text);
+            color: white;
+            position: relative;
+            z-index: 2;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         .discipline-card p {
-            color: var(--color-text-light);
+            color: rgba(255, 255, 255, 0.95);
             margin-bottom: 1.5rem;
+            position: relative;
+            z-index: 2;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
         }
 
         .benefits {
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
+            position: relative;
+            z-index: 2;
         }
 
         .benefit-tag {
-            background-color: rgba(176, 137, 104, 0.05);
-            color: var(--color-text-muted);
-            padding: 0.25rem 0.75rem;
+            background-color: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 0.35rem 0.85rem;
             border-radius: 1rem;
             font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
         /* Packages Section */
@@ -538,8 +556,7 @@
             </div>
 
             <div class="disciplines-grid">
-                <div class="discipline-card">
-                    <div class="discipline-icon primary">🧘‍♀️</div>
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=80');">
                     <h3>Yoga</h3>
                     <p>Conecta con tu esencia interior a través de posturas fluidas y respiración consciente.</p>
                     <div class="benefits">
@@ -549,8 +566,7 @@
                     </div>
                 </div>
 
-                <div class="discipline-card">
-                    <div class="discipline-icon accent">💪</div>
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=80');">
                     <h3>Pilates</h3>
                     <p>Fortalece tu core y mejora tu postura con movimientos precisos y controlados.</p>
                     <div class="benefits">
@@ -560,8 +576,7 @@
                     </div>
                 </div>
 
-                <div class="discipline-card">
-                    <div class="discipline-icon primary">⭐</div>
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1599839906797-3677e4ebc613?w=800&q=80');">
                     <h3>Pole</h3>
                     <p>Expresa tu creatividad y desarrolla fuerza de una manera divertida y empoderante.</p>
                     <div class="benefits">
@@ -571,8 +586,7 @@
                     </div>
                 </div>
 
-                <div class="discipline-card">
-                    <div class="discipline-icon accent">🎵</div>
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800&q=80');">
                     <h3>Sound Healing</h3>
                     <p>Sumérgete en vibraciones sanadoras que calman la mente y el alma.</p>
                     <div class="benefits">
@@ -582,8 +596,7 @@
                     </div>
                 </div>
 
-                <div class="discipline-card">
-                    <div class="discipline-icon primary">🥗</div>
+                <div class="discipline-card" style="background-image: url('https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&q=80');">
                     <h3>Nutrición</h3>
                     <p>Aprende a nutrir tu cuerpo desde adentro con orientación personalizada.</p>
                     <div class="benefits">
