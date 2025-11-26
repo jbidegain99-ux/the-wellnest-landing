@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Usuario
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?
+  name          String
+  phone         String?
+  birthDate     DateTime?
+  gender        String?
+  height        Float?    // en metros
+  weight        Float?    // en kg
+  profileImage  String?
+  qrCode        String    @unique @default(cuid())
+  role          Role      @default(USER)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  purchases      Purchase[]
+  reservations   Reservation[]
+  waitlist       Waitlist[]
+  paymentMethods PaymentMethod[]
+  accounts       Account[]
+  sessions       Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// Disciplina
+model Discipline {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String  @db.Text
+  benefits    String  @db.Text
+  image       String?
+  icon        String?
+  order       Int     @default(0)
+  isActive    Boolean @default(true)
+
+  classes  Class[]
+  packages PackageDiscipline[]
+}
+
+// Instructor
+model Instructor {
+  id          String   @id @default(cuid())
+  name        String
+  bio         String   @db.Text
+  image       String?
+  disciplines String[] // disciplinas que imparte
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+
+  classes Class[]
+}
+
+// Paquete de clases
+model Package {
+  id               String   @id @default(cuid())
+  name             String
+  shortDescription String
+  fullDescription  String   @db.Text
+  classCount       Int      // número de clases
+  price            Float
+  validityDays     Int      // días de vigencia
+  image            String?
+  isActive         Boolean  @default(true)
+  isFeatured       Boolean  @default(false)
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  disciplines PackageDiscipline[]
+  purchases   Purchase[]
+}
+
+// Relación paquete-disciplina (qué disciplinas cubre cada paquete)
+model PackageDiscipline {
+  id           String     @id @default(cuid())
+  package      Package    @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  packageId    String
+  discipline   Discipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  disciplineId String
+
+  @@unique([packageId, disciplineId])
+}
+
+// Compra de paquete
+model Purchase {
+  id               String         @id @default(cuid())
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String
+  package          Package        @relation(fields: [packageId], references: [id])
+  packageId        String
+  classesRemaining Int
+  expiresAt        DateTime
+  discountCode     String?
+  originalPrice    Float
+  finalPrice       Float
+  status           PurchaseStatus @default(ACTIVE)
+  stripePaymentId  String?
+  createdAt        DateTime       @default(now())
+
+  reservations Reservation[]
+}
+
+enum PurchaseStatus {
+  ACTIVE
+  EXPIRED
+  DEPLETED
+}
+
+// Clase programada
+model Class {
+  id               String      @id @default(cuid())
+  discipline       Discipline  @relation(fields: [disciplineId], references: [id])
+  disciplineId     String
+  instructor       Instructor  @relation(fields: [instructorId], references: [id])
+  instructorId     String
+  dateTime         DateTime
+  duration         Int         // minutos
+  maxCapacity      Int
+  currentCount     Int         @default(0)
+  isRecurring      Boolean     @default(false)
+  recurringPattern String?     // weekly, biweekly, etc.
+  isCancelled      Boolean     @default(false)
+  notes            String?
+
+  reservations Reservation[]
+  waitlist     Waitlist[]
+}
+
+// Reservación
+model Reservation {
+  id         String            @id @default(cuid())
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  class      Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId    String
+  purchase   Purchase          @relation(fields: [purchaseId], references: [id])
+  purchaseId String
+  status     ReservationStatus @default(CONFIRMED)
+  createdAt  DateTime          @default(now())
+  checkedIn  Boolean           @default(false)
+  checkedInAt DateTime?
+
+  @@unique([userId, classId])
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+// Lista de espera
+model Waitlist {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId   String
+  position  Int
+  createdAt DateTime @default(now())
+
+  @@unique([userId, classId])
+}
+
+// Código de descuento
+model DiscountCode {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  percentage   Float     // 0-100
+  maxUses      Int?
+  currentUses  Int       @default(0)
+  validFrom    DateTime
+  validUntil   DateTime
+  isActive     Boolean   @default(true)
+  applicableTo String[]  // package IDs, vacío = todos
+  createdAt    DateTime  @default(now())
+}
+
+// Método de pago guardado
+model PaymentMethod {
+  id                    String  @id @default(cuid())
+  user                  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String
+  type                  String  // card, etc.
+  last4                 String
+  brand                 String
+  expiryMonth           Int
+  expiryYear            Int
+  isDefault             Boolean @default(false)
+  stripePaymentMethodId String
+}
+
+// Artículo de blog
+model BlogPost {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  content     String     @db.Text
+  excerpt     String
+  coverImage  String?
+  category    String?
+  tags        String[]
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// Suscriptor newsletter
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+// Imagen de galería
+model GalleryImage {
+  id        String   @id @default(cuid())
+  url       String
+  alt       String
+  caption   String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+// Mensaje de contacto
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Testimonios (fase 2)
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  content   String   @db.Text
+  image     String?
+  rating    Int      @default(5)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// Carrito de compras (temporal)
+model CartItem {
+  id        String   @id @default(cuid())
+  sessionId String
+  packageId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionId, packageId])
+}
