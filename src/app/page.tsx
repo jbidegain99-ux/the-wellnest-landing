@@ -1,40 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, Leaf, Heart, Sparkles, Users, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent } from '@/components/ui/Card'
-
-const disciplines = [
-  {
-    name: 'Yoga',
-    description: 'Encuentra tu equilibrio interior a través de posturas, respiración y meditación.',
-    icon: '🧘',
-    href: '/clases#yoga',
-  },
-  {
-    name: 'Pilates Mat',
-    description: 'Fortalece tu core y mejora tu postura con ejercicios de bajo impacto.',
-    icon: '💪',
-    href: '/clases#pilates',
-  },
-  {
-    name: 'Pole Sport',
-    description: 'Desafía tu fuerza y flexibilidad en un ambiente empoderador.',
-    icon: '✨',
-    href: '/clases#pole',
-  },
-  {
-    name: 'Sound Healing',
-    description: 'Sumérgete en frecuencias sanadoras para una relajación profunda.',
-    icon: '🎵',
-    href: '/clases#soundhealing',
-  },
-  {
-    name: 'Nutrición',
-    description: 'Consultas personalizadas para nutrir tu cuerpo desde adentro.',
-    icon: '🥗',
-    href: '/clases#nutricion',
-  },
-]
+import { DisciplinesSection } from '@/components/home/DisciplinesSection'
 
 const benefits = [
   {
@@ -106,45 +73,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Disciplines Section */}
-      <section className="py-24 bg-cream">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="font-serif text-4xl md:text-5xl font-semibold text-foreground mb-4">
-              Nuestras Disciplinas
-            </h2>
-            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              Explora nuestras diferentes prácticas y encuentra la que mejor se adapte
-              a tu momento. Con un solo paquete, accede a todas.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {disciplines.map((discipline) => (
-              <Link key={discipline.name} href={discipline.href}>
-                <Card className="h-full hover:scale-[1.02] transition-transform duration-300 cursor-pointer group">
-                  <CardContent className="p-8">
-                    <span className="text-4xl mb-4 block">{discipline.icon}</span>
-                    <h3 className="font-serif text-2xl font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
-                      {discipline.name}
-                    </h3>
-                    <p className="text-gray-600">{discipline.description}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-
-          <div className="text-center mt-12">
-            <Link href="/clases">
-              <Button variant="outline" size="lg">
-                Conoce más sobre nuestras clases
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/* Disciplines Section - New Interactive Design */}
+      <DisciplinesSection />
 
       {/* Why Choose Us Section */}
       <section className="py-24 bg-beige">
