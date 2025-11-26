@@ -10,14 +10,14 @@ const contactInfo = [
   {
     icon: MapPin,
     title: 'Dirección',
-    content: 'Colonia Escalón, San Salvador, El Salvador',
-    link: 'https://maps.google.com',
+    content: 'Av. De La Revolución, San Salvador, Presidente Plaza, Local #1234',
+    link: 'https://maps.app.goo.gl/YXoEbMqUfaKGuBPvW',
   },
   {
     icon: Phone,
     title: 'Teléfono',
-    content: '+503 1234 5678',
-    link: 'tel:+50312345678',
+    content: '+503 7525 2802',
+    link: 'tel:+50375252802',
   },
   {
     icon: Mail,
@@ -108,7 +108,7 @@ export default function ContactoPage() {
 
               {/* WhatsApp CTA */}
               <a
-                href="https://wa.me/50312345678"
+                href="https://wa.me/50375252802"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 p-6 bg-[#25D366] text-white rounded-xl hover:opacity-90 transition-opacity"
@@ -125,20 +125,16 @@ export default function ContactoPage() {
               {/* Map */}
               <div className="mt-8">
                 <div className="h-64 rounded-xl overflow-hidden bg-beige-dark">
-                  <div className="w-full h-full flex items-center justify-center text-gray-500">
-                    <div className="text-center">
-                      <MapPin className="h-8 w-8 mx-auto mb-2" />
-                      <p>Mapa del estudio</p>
-                      <a
-                        href="https://maps.google.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary text-sm hover:underline"
-                      >
-                        Ver en Google Maps
-                      </a>
-                    </div>
-                  </div>
+                  <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3876.4!2d-89.2!3d13.7!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTPCsDQyJzAwLjAiTiA4OcKwMTInMDAuMCJX!5e0!3m2!1ses!2ssv!4v1700000000000"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="Ubicación The Wellnest - Presidente Plaza"
+                  />
                 </div>
               </div>
             </div>

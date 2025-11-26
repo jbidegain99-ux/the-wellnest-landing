@@ -1,40 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, Leaf, Heart, Sparkles, Users, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Card, CardContent } from '@/components/ui/Card'
-
-const disciplines = [
-  {
-    name: 'Yoga',
-    description: 'Encuentra tu equilibrio interior a través de posturas, respiración y meditación.',
-    icon: '🧘',
-    href: '/clases#yoga',
-  },
-  {
-    name: 'Pilates Mat',
-    description: 'Fortalece tu core y mejora tu postura con ejercicios de bajo impacto.',
-    icon: '💪',
-    href: '/clases#pilates',
-  },
-  {
-    name: 'Pole Sport',
-    description: 'Desafía tu fuerza y flexibilidad en un ambiente empoderador.',
-    icon: '✨',
-    href: '/clases#pole',
-  },
-  {
-    name: 'Sound Healing',
-    description: 'Sumérgete en frecuencias sanadoras para una relajación profunda.',
-    icon: '🎵',
-    href: '/clases#soundhealing',
-  },
-  {
-    name: 'Nutrición',
-    description: 'Consultas personalizadas para nutrir tu cuerpo desde adentro.',
-    icon: '🥗',
-    href: '/clases#nutricion',
-  },
-]
+import { DisciplinesSection } from '@/components/home/DisciplinesSection'
 
 const benefits = [
   {
@@ -106,45 +73,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Disciplines Section */}
-      <section className="py-24 bg-cream">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="font-serif text-4xl md:text-5xl font-semibold text-foreground mb-4">
-              Nuestras Disciplinas
-            </h2>
-            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              Explora nuestras diferentes prácticas y encuentra la que mejor se adapte
-              a tu momento. Con un solo paquete, accede a todas.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {disciplines.map((discipline) => (
-              <Link key={discipline.name} href={discipline.href}>
-                <Card className="h-full hover:scale-[1.02] transition-transform duration-300 cursor-pointer group">
-                  <CardContent className="p-8">
-                    <span className="text-4xl mb-4 block">{discipline.icon}</span>
-                    <h3 className="font-serif text-2xl font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
-                      {discipline.name}
-                    </h3>
-                    <p className="text-gray-600">{discipline.description}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-
-          <div className="text-center mt-12">
-            <Link href="/clases">
-              <Button variant="outline" size="lg">
-                Conoce más sobre nuestras clases
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/* Disciplines Section - New Interactive Design */}
+      <DisciplinesSection />
 
       {/* Why Choose Us Section */}
       <section className="py-24 bg-beige">
@@ -231,7 +161,7 @@ export default function HomePage() {
               <div className="space-y-4 text-gray-600">
                 <p className="flex items-center gap-2">
                   <span className="font-medium">Dirección:</span>
-                  San Salvador, El Salvador
+                  Av. De La Revolución, San Salvador, Presidente Plaza, Local #1234
                 </p>
                 <p className="flex items-center gap-2">
                   <span className="font-medium">Horario:</span>
@@ -248,13 +178,16 @@ export default function HomePage() {
               </div>
             </div>
             <div className="relative h-80 lg:h-96 rounded-2xl overflow-hidden bg-beige-dark">
-              {/* Map placeholder */}
-              <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <div className="text-4xl mb-2">📍</div>
-                  <p>Mapa del estudio</p>
-                </div>
-              </div>
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3876.4!2d-89.2!3d13.7!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTPCsDQyJzAwLjAiTiA4OcKwMTInMDAuMCJX!5e0!3m2!1ses!2ssv!4v1700000000000"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Ubicación The Wellnest - Presidente Plaza, San Salvador"
+              />
             </div>
           </div>
         </div>
