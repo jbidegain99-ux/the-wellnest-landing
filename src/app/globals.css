@@ -5,16 +5,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Colores principales - tonos tierra y neutros cálidos */
+  /* Colores principales - The Wellnest Brand */
   --color-beige: #F5F0E8;
   --color-beige-dark: #E8E0D4;
-  --color-cream: #FAF8F5;
+  --color-cream: #FFF8EF;
+  --color-brown-dark: #453C34;
   --color-brown-light: #C4A77D;
-  --color-brown: #8B7355;
+  --color-brown: #5D4E42;
   --color-green-sage: #9CAF88;
   --color-green-dark: #6B7F5E;
   --color-white: #FFFFFF;
-  --color-black: #2D2D2D;
+  --color-black: #353723;
   --color-gray: #6B6B6B;
 
   /* Estados */
@@ -32,11 +33,11 @@
   --color-accent-50: #faf8f5;
   --color-accent-100: #f5f0e8;
 
-  --color-bg: #FAF8F5;
-  --color-text: #2D2D2D;
+  --color-bg: #FFF8EF;
+  --color-text: #453C34;
   --color-warm-white: #FFFFFF;
   --color-nude: #E8E0D4;
-  --color-earth-tone: #8B7355;
+  --color-earth-tone: #5D4E42;
 }
 
 @layer base {

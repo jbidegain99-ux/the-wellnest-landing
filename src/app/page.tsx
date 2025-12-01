@@ -38,13 +38,29 @@ export default function HomePage() {
 
         {/* Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center text-white">
-          <h1 className="font-serif text-5xl md:text-7xl font-semibold mb-6 animate-fade-in">
-            Tu Santuario de Bienestar
+          {/* Logo */}
+          <h1
+            className="text-6xl md:text-8xl lg:text-9xl font-light tracking-wide mb-6 animate-fade-in"
+            style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+          >
+            wellnest.
           </h1>
-          <p className="text-xl md:text-2xl text-white/90 mb-8 max-w-2xl mx-auto animate-slide-up">
-            Un espacio donde cuerpo, mente y espíritu encuentran armonía.
-            Múltiples disciplinas, un solo propósito: tu bienestar.
+
+          {/* Tagline */}
+          <p className="text-sm md:text-base font-medium tracking-[0.3em] uppercase text-white/80 mb-4 animate-fade-in">
+            The Soul Hub
           </p>
+
+          {/* Slogan */}
+          <p className="text-xl md:text-2xl text-white/90 mb-6 max-w-2xl mx-auto animate-slide-up font-light">
+            Donde cuerpo, mente y energía se reencuentran.
+          </p>
+
+          {/* Disciplines */}
+          <p className="text-sm md:text-base tracking-[0.15em] text-white/70 mb-10 animate-slide-up">
+            MAT PILATES &nbsp;|&nbsp; YOGA &nbsp;|&nbsp; POLE &nbsp;|&nbsp; SOUND BATH &nbsp;|&nbsp; NUTRITION
+          </p>
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up">
             <Link href="/paquetes">
               <Button size="lg" className="w-full sm:w-auto">
@@ -84,7 +100,7 @@ export default function HomePage() {
               ¿Por Qué Elegirnos?
             </h2>
             <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              En The Wellnest creemos que el bienestar es un viaje único para cada persona.
+              En wellnest creemos que el bienestar es un viaje único para cada persona.
             </p>
           </div>
 
