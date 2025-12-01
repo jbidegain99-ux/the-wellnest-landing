@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, Leaf, Heart, Sparkles, Users, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { DisciplinesSection } from '@/components/home/DisciplinesSection'
+import { DisciplinesCarousel } from '@/components/home/DisciplinesCarousel'
 
 const benefits = [
   {
@@ -73,8 +73,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Disciplines Section - New Interactive Design */}
-      <DisciplinesSection />
+      {/* Disciplines Section - Carousel with Hover Reveal */}
+      <DisciplinesCarousel />
 
       {/* Why Choose Us Section */}
       <section className="py-24 bg-beige">
