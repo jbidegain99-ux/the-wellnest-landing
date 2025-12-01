@@ -54,4 +54,8 @@ coverage/
 
 # Personal notes
 notes.md
-TODO.mdtsconfig.tsbuildinfo
+TODO.md
+
+# TypeScript
+tsconfig.tsbuildinfo
+*.tsbuildinfo
