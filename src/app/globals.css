@@ -2,8 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fonts: Quicksand for logo/brand, Cormorant Garamond for headings, Inter for body */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Quicksand:wght@300;400;500;600;700&display=swap');
+/* Fonts: Quicksand for logo/headings, Inter for body */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Quicksand:wght@300;400;500;600;700&display=swap');
 
 :root {
   /* Colores principales - The Wellnest Brand */
@@ -52,7 +52,8 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 500;
   }
 }
 

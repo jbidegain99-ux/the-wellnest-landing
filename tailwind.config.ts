@@ -31,7 +31,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        serif: ['Cormorant Garamond', 'serif'],
+        serif: ['Quicksand', 'sans-serif'],
         logo: ['Quicksand', 'sans-serif'],
       },
       spacing: {
