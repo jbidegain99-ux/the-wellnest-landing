@@ -87,11 +87,16 @@ export default function AdminLayout({
           {/* Logo */}
           <div className="p-6 border-b border-beige">
             <Link href="/admin" className="flex items-center gap-2">
-              <span className="font-serif text-xl font-semibold text-foreground">
-                The Wellnest
+              <span
+                className="text-2xl font-light tracking-wide text-[#453C34]"
+                style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+              >
+                wellnest.
               </span>
             </Link>
-            <p className="text-sm text-gray-500 mt-1">Panel de Administración</p>
+            <p className="text-xs font-medium tracking-[0.15em] text-gray-400 uppercase mt-1">
+              Panel Admin
+            </p>
           </div>
 
           {/* Navigation */}

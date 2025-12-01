@@ -38,13 +38,18 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-2">
             <Link href="/" className="inline-block">
-              <span className="font-serif text-2xl font-semibold text-foreground">
-                The Wellnest
+              <span
+                className="text-3xl font-light tracking-wide text-[#453C34]"
+                style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+              >
+                wellnest.
               </span>
             </Link>
+            <p className="mt-2 text-xs font-medium tracking-[0.25em] text-[#453C34]/60 uppercase">
+              The Soul Hub
+            </p>
             <p className="mt-4 text-gray-600 max-w-sm">
-              Tu santuario de bienestar integral en El Salvador. Un espacio donde
-              cuerpo, mente y espíritu encuentran armonía.
+              Donde cuerpo, mente y energía se reencuentran. Tu santuario de bienestar integral en El Salvador.
             </p>
             <div className="mt-6 flex space-x-4">
               {socialLinks.map((social) => {
@@ -147,7 +152,7 @@ export function Footer() {
         <div className="mt-12 pt-8 border-t border-beige-dark">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-gray-600">
-              © {new Date().getFullYear()} The Wellnest. Todos los derechos reservados.
+              © {new Date().getFullYear()} wellnest. Todos los derechos reservados.
             </p>
             <div className="flex flex-wrap gap-4 text-sm">
               {navigation.legal.map((item) => (

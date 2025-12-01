@@ -57,11 +57,12 @@ export function Navbar() {
           <Link href="/" className="flex items-center">
             <span
               className={cn(
-                'font-serif text-2xl font-semibold transition-colors',
-                isScrolled || !isHomePage ? 'text-foreground' : 'text-white'
+                'text-2xl font-light tracking-wide transition-colors',
+                isScrolled || !isHomePage ? 'text-[#453C34]' : 'text-white'
               )}
+              style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
             >
-              The Wellnest
+              wellnest.
             </span>
           </Link>
 
