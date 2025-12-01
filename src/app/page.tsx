@@ -39,10 +39,7 @@ export default function HomePage() {
         {/* Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center text-white">
           {/* Logo */}
-          <h1
-            className="text-6xl md:text-8xl lg:text-9xl font-light tracking-wide mb-6 animate-fade-in"
-            style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
-          >
+          <h1 className="font-logo text-6xl md:text-8xl lg:text-9xl font-light tracking-[0.1em] mb-6 animate-fade-in">
             wellnest.
           </h1>
 
