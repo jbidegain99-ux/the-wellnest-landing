@@ -1,11 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
-import { Card, CardContent } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import {
   Select,
   SelectContent,
@@ -22,29 +21,47 @@ import {
 } from '@/components/ui/Modal'
 import { cn, getWeekDays, getMonthName } from '@/lib/utils'
 
-const disciplines = [
-  { id: '1', name: 'Yoga' },
-  { id: '2', name: 'Pilates Mat' },
-  { id: '3', name: 'Pole Sport' },
-  { id: '4', name: 'Sound Healing' },
-]
+interface Discipline {
+  id: string
+  name: string
+  slug: string
+}
 
-const instructors = [
-  { id: '1', name: 'María García' },
-  { id: '2', name: 'Ana Martínez' },
-  { id: '3', name: 'Carolina López' },
-  { id: '4', name: 'Sofía Hernández' },
-  { id: '5', name: 'Laura Vega' },
-]
+interface Instructor {
+  id: string
+  name: string
+  disciplines: string[]
+}
 
-// Mock schedule data
-const initialClasses = [
+interface ClassItem {
+  id: string
+  disciplineId: string
+  discipline: string
+  instructorId: string
+  instructor: string
+  time: string
+  duration: number
+  maxCapacity: number
+  dayOfWeek: number
+  isRecurring: boolean
+}
+
+const disciplineColors: Record<string, string> = {
+  yoga: 'bg-[#9CAF88]',
+  pilates: 'bg-[#C4A77D]',
+  pole: 'bg-[#D4A574]',
+  soundbath: 'bg-[#8B7355]',
+  nutricion: 'bg-[#6B7F5E]',
+}
+
+// Mock schedule data - in a real app, this would come from an API
+const initialClasses: ClassItem[] = [
   {
     id: '1',
-    disciplineId: '1',
+    disciplineId: 'discipline-yoga',
     discipline: 'Yoga',
-    instructorId: '1',
-    instructor: 'María García',
+    instructorId: 'instructor-nicole',
+    instructor: 'Nicole Soundy',
     time: '06:00',
     duration: 60,
     maxCapacity: 15,
@@ -53,10 +70,10 @@ const initialClasses = [
   },
   {
     id: '2',
-    disciplineId: '2',
+    disciplineId: 'discipline-pilates',
     discipline: 'Pilates Mat',
-    instructorId: '2',
-    instructor: 'Ana Martínez',
+    instructorId: 'instructor-florence',
+    instructor: 'Florence Cervantes',
     time: '08:00',
     duration: 55,
     maxCapacity: 12,
@@ -65,10 +82,10 @@ const initialClasses = [
   },
   {
     id: '3',
-    disciplineId: '3',
+    disciplineId: 'discipline-pole',
     discipline: 'Pole Sport',
-    instructorId: '3',
-    instructor: 'Carolina López',
+    instructorId: 'instructor-denisse',
+    instructor: 'Denisse Soundy',
     time: '18:00',
     duration: 60,
     maxCapacity: 8,
@@ -77,17 +94,16 @@ const initialClasses = [
   },
 ]
 
-const disciplineColors: Record<string, string> = {
-  Yoga: 'bg-[#9CAF88]',
-  'Pilates Mat': 'bg-[#C4A77D]',
-  'Pole Sport': 'bg-[#D4A574]',
-  'Sound Healing': 'bg-[#8B7355]',
-}
-
 export default function AdminHorariosPage() {
-  const [classes, setClasses] = React.useState(initialClasses)
+  // Data from database
+  const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
+  const [instructors, setInstructors] = React.useState<Instructor[]>([])
+  const [isDataLoading, setIsDataLoading] = React.useState(true)
+
+  // Local state for classes (would be from API in production)
+  const [classes, setClasses] = React.useState<ClassItem[]>(initialClasses)
   const [isModalOpen, setIsModalOpen] = React.useState(false)
-  const [editingClass, setEditingClass] = React.useState<typeof initialClasses[0] | null>(null)
+  const [editingClass, setEditingClass] = React.useState<ClassItem | null>(null)
   const [selectedDay, setSelectedDay] = React.useState<number | null>(null)
   const [isLoading, setIsLoading] = React.useState(false)
   const [currentWeekStart, setCurrentWeekStart] = React.useState(() => {
@@ -96,6 +112,34 @@ export default function AdminHorariosPage() {
     const diff = today.getDate() - day + (day === 0 ? -6 : 1)
     return new Date(today.setDate(diff))
   })
+
+  // Fetch disciplines and instructors from database
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [disciplinesRes, instructorsRes] = await Promise.all([
+          fetch('/api/disciplines'),
+          fetch('/api/instructors'),
+        ])
+
+        if (disciplinesRes.ok) {
+          const disciplinesData = await disciplinesRes.json()
+          setDisciplines(disciplinesData)
+        }
+
+        if (instructorsRes.ok) {
+          const instructorsData = await instructorsRes.json()
+          setInstructors(instructorsData)
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      } finally {
+        setIsDataLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   const weekDays = getWeekDays()
 
@@ -129,13 +173,18 @@ export default function AdminHorariosPage() {
       .sort((a, b) => a.time.localeCompare(b.time))
   }
 
+  const getDisciplineColor = (disciplineName: string) => {
+    const discipline = disciplines.find(d => d.name === disciplineName)
+    return discipline ? (disciplineColors[discipline.slug] || 'bg-primary') : 'bg-primary'
+  }
+
   const handleCreate = (dayOfWeek?: number) => {
     setEditingClass(null)
     setSelectedDay(dayOfWeek ?? null)
     setIsModalOpen(true)
   }
 
-  const handleEdit = (cls: typeof initialClasses[0]) => {
+  const handleEdit = (cls: ClassItem) => {
     setEditingClass(cls)
     setSelectedDay(null)
     setIsModalOpen(true)
@@ -149,7 +198,7 @@ export default function AdminHorariosPage() {
     const disciplineId = formData.get('disciplineId') as string
     const instructorId = formData.get('instructorId') as string
 
-    const data = {
+    const data: Omit<ClassItem, 'id'> = {
       disciplineId,
       discipline: disciplines.find((d) => d.id === disciplineId)?.name || '',
       instructorId,
@@ -161,6 +210,7 @@ export default function AdminHorariosPage() {
       isRecurring: formData.get('isRecurring') === 'on',
     }
 
+    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     if (editingClass) {
@@ -184,6 +234,14 @@ export default function AdminHorariosPage() {
     if (confirm('¿Estás segura de eliminar esta clase?')) {
       setClasses((prev) => prev.filter((c) => c.id !== id))
     }
+  }
+
+  if (isDataLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -251,7 +309,7 @@ export default function AdminHorariosPage() {
                     key={cls.id}
                     className={cn(
                       'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
-                      disciplineColors[cls.discipline]
+                      getDisciplineColor(cls.discipline)
                     )}
                     onClick={() => handleEdit(cls)}
                   >

@@ -2,8 +2,8 @@
 
 import * as React from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Clock, User, Users, Check, Loader2, AlertCircle } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ChevronLeft, ChevronRight, Clock, User, Users, Check, Loader2, AlertCircle, Package } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -53,9 +53,17 @@ interface ActivePurchase {
   hasActivePackage: boolean
   classesRemaining: number
   expiresAt?: string
+  purchaseId?: string
   package?: {
     name: string
   }
+}
+
+interface SelectedPurchase {
+  id: string
+  packageName: string
+  classesRemaining: number
+  expiresAt: string
 }
 
 // Modal states - separate state for each modal type to prevent conflicts
@@ -72,11 +80,14 @@ const disciplineColors: Record<string, string> = {
 export default function ReservarPage() {
   const { data: session } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const packageIdFromUrl = searchParams.get('packageId')
 
   // Data states
   const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
   const [classes, setClasses] = React.useState<ClassData[]>([])
   const [activePurchase, setActivePurchase] = React.useState<ActivePurchase | null>(null)
+  const [selectedPurchase, setSelectedPurchase] = React.useState<SelectedPurchase | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
 
   // Filter and navigation
@@ -138,6 +149,32 @@ export default function ReservarPage() {
     fetchDisciplines()
     fetchActivePurchase()
   }, [fetchActivePurchase])
+
+  // Fetch specific purchase if packageId is in URL
+  React.useEffect(() => {
+    const fetchSelectedPurchase = async () => {
+      if (!packageIdFromUrl) {
+        setSelectedPurchase(null)
+        return
+      }
+
+      try {
+        const response = await fetch('/api/user/purchases')
+        if (response.ok) {
+          const data = await response.json()
+          const purchase = data.activePurchases.find(
+            (p: SelectedPurchase) => p.id === packageIdFromUrl
+          )
+          if (purchase) {
+            setSelectedPurchase(purchase)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching selected purchase:', error)
+      }
+    }
+    fetchSelectedPurchase()
+  }, [packageIdFromUrl])
 
   // Fetch classes for current week
   React.useEffect(() => {
@@ -227,10 +264,16 @@ export default function ReservarPage() {
     setBookingError(null)
 
     try {
+      // Use selected purchase if available (from URL), otherwise API will use best available
+      const purchaseIdToUse = selectedPurchase?.id || activePurchase?.purchaseId
+
       const response = await fetch('/api/reservations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ classId: selectedClass.id }),
+        body: JSON.stringify({
+          classId: selectedClass.id,
+          purchaseId: purchaseIdToUse,
+        }),
       })
 
       const data = await response.json()
@@ -238,6 +281,13 @@ export default function ReservarPage() {
       if (response.ok) {
         // Refresh active purchase to update class count
         await fetchActivePurchase()
+        // Refresh selected purchase if applicable
+        if (selectedPurchase) {
+          setSelectedPurchase({
+            ...selectedPurchase,
+            classesRemaining: Math.max(0, selectedPurchase.classesRemaining - 1),
+          })
+        }
         // Refresh classes to update spot counts
         const startDate = format(currentWeekStart, 'yyyy-MM-dd')
         const endDate = format(weekEnd, 'yyyy-MM-dd')
@@ -282,24 +332,46 @@ export default function ReservarPage() {
         </p>
       </div>
 
-      {/* User's available classes */}
+      {/* User's available classes - show selected package if from URL, otherwise show general info */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Clases disponibles</p>
-              <p className="text-2xl font-serif font-semibold text-primary">
-                {activePurchase?.classesRemaining ?? '-'}
-              </p>
+          {selectedPurchase ? (
+            // Show specific package from URL
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Package className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Usando paquete</p>
+                  <p className="font-medium text-foreground">{selectedPurchase.packageName}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-serif font-semibold text-primary">
+                  {selectedPurchase.classesRemaining}
+                </p>
+                <p className="text-xs text-gray-500">clases restantes</p>
+              </div>
             </div>
-            {activePurchase?.hasActivePackage ? (
-              <Badge variant="success">Paquete activo</Badge>
-            ) : (
-              <Badge variant="secondary" className="cursor-pointer" onClick={() => router.push('/paquetes')}>
-                Sin paquete activo
-              </Badge>
-            )}
-          </div>
+          ) : (
+            // Show general active purchase info
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Clases disponibles</p>
+                <p className="text-2xl font-serif font-semibold text-primary">
+                  {activePurchase?.classesRemaining ?? '-'}
+                </p>
+              </div>
+              {activePurchase?.hasActivePackage ? (
+                <Badge variant="success">Paquete activo</Badge>
+              ) : (
+                <Badge variant="secondary" className="cursor-pointer" onClick={() => router.push('/paquetes')}>
+                  Sin paquete activo
+                </Badge>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -447,11 +519,24 @@ export default function ReservarPage() {
                   ¡Reserva Confirmada!
                 </h3>
                 <p className="text-gray-600">
-                  Tu lugar en la clase ha sido reservado. Te quedan{' '}
-                  <span className="font-semibold text-primary">
-                    {activePurchase?.classesRemaining ?? 0}
-                  </span>{' '}
-                  clases disponibles.
+                  Tu lugar en la clase ha sido reservado.
+                  {selectedPurchase ? (
+                    <>
+                      {' '}En tu paquete <span className="font-semibold">{selectedPurchase.packageName}</span> te quedan{' '}
+                      <span className="font-semibold text-primary">
+                        {selectedPurchase.classesRemaining}
+                      </span>{' '}
+                      clases.
+                    </>
+                  ) : (
+                    <>
+                      {' '}Te quedan{' '}
+                      <span className="font-semibold text-primary">
+                        {activePurchase?.classesRemaining ?? 0}
+                      </span>{' '}
+                      clases disponibles.
+                    </>
+                  )}
                 </p>
               </div>
               <ModalFooter>
@@ -534,14 +619,28 @@ export default function ReservarPage() {
 
                 <div className="p-3 bg-beige rounded-lg text-sm">
                   <p className="text-gray-600">
-                    Se descontará 1 clase de tu paquete activo.
-                    {activePurchase && (
-                      <span className="block mt-1">
-                        Clases restantes después de reservar:{' '}
-                        <span className="font-semibold">
-                          {Math.max(0, (activePurchase.classesRemaining || 0) - 1)}
+                    {selectedPurchase ? (
+                      <>
+                        Se descontará 1 clase de tu paquete <span className="font-semibold">{selectedPurchase.packageName}</span>.
+                        <span className="block mt-1">
+                          Clases restantes después de reservar:{' '}
+                          <span className="font-semibold">
+                            {Math.max(0, selectedPurchase.classesRemaining - 1)}
+                          </span>
                         </span>
-                      </span>
+                      </>
+                    ) : (
+                      <>
+                        Se descontará 1 clase de tu paquete activo.
+                        {activePurchase && (
+                          <span className="block mt-1">
+                            Clases restantes después de reservar:{' '}
+                            <span className="font-semibold">
+                              {Math.max(0, (activePurchase.classesRemaining || 0) - 1)}
+                            </span>
+                          </span>
+                        )}
+                      </>
                     )}
                   </p>
                 </div>

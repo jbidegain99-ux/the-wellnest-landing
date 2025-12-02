@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Pencil, Trash2, Search, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -14,102 +14,73 @@ import {
   ModalTitle,
 } from '@/components/ui/Modal'
 
-const disciplineOptions = [
-  'Yoga',
-  'Pilates Mat',
-  'Pole Sport',
-  'Sound Healing',
-  'Nutrición',
-]
-
-type Instructor = {
+interface Discipline {
   id: string
   name: string
-  role: string
+  slug: string
+}
+
+interface Instructor {
+  id: string
+  name: string
   bio: string
   disciplines: string[]
   image: string | null
-  email: string
-  phone: string
-  active: boolean
+  isActive: boolean
+  order: number
 }
 
-// Initial mock data based on the real team
-const initialInstructors: Instructor[] = [
-  {
-    id: '1',
-    name: 'Nicole Soundy',
-    role: 'Instructora de Yoga & Nutricionista',
-    bio: 'Nicole combina su pasión por el yoga con su conocimiento en nutrición para ofrecer un enfoque integral de bienestar. Su práctica se centra en la conexión mente-cuerpo y hábitos alimenticios saludables.',
-    disciplines: ['Yoga', 'Nutrición'],
-    image: null,
-    email: 'nicole@thewellnest.sv',
-    phone: '+503 7000 0001',
-    active: true,
-  },
-  {
-    id: '2',
-    name: 'Florence Cervantes',
-    role: 'Instructora de Yoga & Pilates Mat',
-    bio: 'Florence fusiona su formación en yoga Vinyasa y Pilates Mat para ofrecer clases dinámicas que fortalecen y flexibilizan. Su energía contagiosa motiva a todos a dar lo mejor de sí.',
-    disciplines: ['Yoga', 'Pilates Mat'],
-    image: null,
-    email: 'florence@thewellnest.sv',
-    phone: '+503 7000 0002',
-    active: true,
-  },
-  {
-    id: '3',
-    name: 'Adriana Lopez',
-    role: 'Terapeuta de Sound Healing & Nutricionista',
-    bio: 'Adriana guía experiencias de Soundbath que transportan a estados profundos de relajación. También ofrece consultas nutricionales personalizadas con un enfoque holístico.',
-    disciplines: ['Sound Healing', 'Nutrición'],
-    image: null,
-    email: 'adriana@thewellnest.sv',
-    phone: '+503 7000 0003',
-    active: true,
-  },
-  {
-    id: '4',
-    name: 'Denisse Soundy',
-    role: 'Instructora de Pole Sport',
-    bio: 'Denisse crea un ambiente empoderador donde cada estudiante puede explorar su fuerza y creatividad. Sus clases son desafiantes pero siempre accesibles para todos los niveles.',
-    disciplines: ['Pole Sport'],
-    image: null,
-    email: 'denisse@thewellnest.sv',
-    phone: '+503 7000 0004',
-    active: true,
-  },
-  {
-    id: '5',
-    name: 'Kevin Cano',
-    role: 'Instructor de Pole Sport',
-    bio: 'Kevin combina técnica y expresión artística en sus clases de Pole Sport. Su enfoque se centra en el desarrollo de fuerza funcional y confianza personal.',
-    disciplines: ['Pole Sport'],
-    image: null,
-    email: 'kevin@thewellnest.sv',
-    phone: '+503 7000 0005',
-    active: true,
-  },
-]
-
 export default function AdminInstructoresPage() {
-  const [instructors, setInstructors] = React.useState<Instructor[]>(initialInstructors)
+  // Data from database
+  const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
+  const [instructors, setInstructors] = React.useState<Instructor[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
+
+  // UI state
   const [searchQuery, setSearchQuery] = React.useState('')
   const [isModalOpen, setIsModalOpen] = React.useState(false)
   const [editingInstructor, setEditingInstructor] = React.useState<Instructor | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null)
+  const [isSaving, setIsSaving] = React.useState(false)
 
   // Form state
   const [formData, setFormData] = React.useState({
     name: '',
-    role: '',
     bio: '',
     disciplines: [] as string[],
-    email: '',
-    phone: '',
-    active: true,
+    isActive: true,
   })
+
+  // Fetch data from database
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [disciplinesRes, instructorsRes] = await Promise.all([
+          fetch('/api/disciplines'),
+          fetch('/api/instructors'),
+        ])
+
+        if (disciplinesRes.ok) {
+          const disciplinesData = await disciplinesRes.json()
+          setDisciplines(disciplinesData)
+        }
+
+        if (instructorsRes.ok) {
+          const instructorsData = await instructorsRes.json()
+          setInstructors(instructorsData)
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  // Get discipline names for the form options
+  const disciplineOptions = disciplines.map(d => d.name)
 
   const filteredInstructors = instructors.filter(
     (instructor) =>
@@ -119,28 +90,41 @@ export default function AdminInstructoresPage() {
       )
   )
 
+  // Generate role from disciplines
+  const generateRole = (disciplinesList: string[]): string => {
+    if (disciplinesList.length === 0) return 'Instructor'
+
+    const disciplineRoles: Record<string, string> = {
+      'yoga': 'Instructor/a de Yoga',
+      'pilates mat': 'Instructor/a de Pilates',
+      'pole sport': 'Instructor/a de Pole Sport',
+      'sound healing': 'Terapeuta de Sound Healing',
+      'nutrición': 'Nutricionista',
+    }
+
+    const roles = disciplinesList
+      .map(d => disciplineRoles[d.toLowerCase()] || `Instructor/a de ${d}`)
+      .filter((v, i, a) => a.indexOf(v) === i)
+
+    return roles.join(' & ')
+  }
+
   const openModal = (instructor?: Instructor) => {
     if (instructor) {
       setEditingInstructor(instructor)
       setFormData({
         name: instructor.name,
-        role: instructor.role,
         bio: instructor.bio,
         disciplines: instructor.disciplines,
-        email: instructor.email,
-        phone: instructor.phone,
-        active: instructor.active,
+        isActive: instructor.isActive,
       })
     } else {
       setEditingInstructor(null)
       setFormData({
         name: '',
-        role: '',
         bio: '',
         disciplines: [],
-        email: '',
-        phone: '',
-        active: true,
+        isActive: true,
       })
     }
     setIsModalOpen(true)
@@ -151,20 +135,21 @@ export default function AdminInstructoresPage() {
     setEditingInstructor(null)
     setFormData({
       name: '',
-      role: '',
       bio: '',
       disciplines: [],
-      email: '',
-      phone: '',
-      active: true,
+      isActive: true,
     })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSaving(true)
+
+    // In a production app, this would call an API to save the instructor
+    // For now, we update local state to demonstrate the UI
+    await new Promise(resolve => setTimeout(resolve, 500))
 
     if (editingInstructor) {
-      // Update existing instructor
       setInstructors((prev) =>
         prev.map((i) =>
           i.id === editingInstructor.id
@@ -173,19 +158,21 @@ export default function AdminInstructoresPage() {
         )
       )
     } else {
-      // Add new instructor
       const newInstructor: Instructor = {
-        id: String(Date.now()),
+        id: `temp-${Date.now()}`,
         ...formData,
         image: null,
+        order: instructors.length,
       }
       setInstructors((prev) => [...prev, newInstructor])
     }
 
+    setIsSaving(false)
     closeModal()
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    // In a production app, this would call an API to delete the instructor
     setInstructors((prev) => prev.filter((i) => i.id !== id))
     setDeleteConfirmId(null)
   }
@@ -197,6 +184,14 @@ export default function AdminInstructoresPage() {
         ? prev.disciplines.filter((d) => d !== discipline)
         : [...prev.disciplines, discipline],
     }))
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -243,9 +238,6 @@ export default function AdminInstructoresPage() {
                     Disciplinas
                   </th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    Contacto
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Estado
                   </th>
                   <th className="text-right py-3 px-4 text-sm font-medium text-gray-600">
@@ -268,7 +260,9 @@ export default function AdminInstructoresPage() {
                           <p className="font-medium text-foreground">
                             {instructor.name}
                           </p>
-                          <p className="text-sm text-gray-500">{instructor.role}</p>
+                          <p className="text-sm text-gray-500">
+                            {generateRole(instructor.disciplines)}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -282,14 +276,8 @@ export default function AdminInstructoresPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-sm">
-                        <p className="text-gray-600">{instructor.email}</p>
-                        <p className="text-gray-500">{instructor.phone}</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge variant={instructor.active ? 'success' : 'error'}>
-                        {instructor.active ? 'Activo' : 'Inactivo'}
+                      <Badge variant={instructor.isActive ? 'success' : 'error'}>
+                        {instructor.isActive ? 'Activo' : 'Inactivo'}
                       </Badge>
                     </td>
                     <td className="py-3 px-4">
@@ -319,7 +307,7 @@ export default function AdminInstructoresPage() {
         </CardContent>
       </Card>
 
-      {filteredInstructors.length === 0 && (
+      {filteredInstructors.length === 0 && !isLoading && (
         <div className="text-center py-12 text-gray-500">
           No se encontraron instructores
         </div>
@@ -341,16 +329,6 @@ export default function AdminInstructoresPage() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, name: e.target.value }))
               }
-              required
-            />
-
-            <Input
-              label="Rol / Título"
-              value={formData.role}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, role: e.target.value }))
-              }
-              placeholder="Ej: Instructora de Yoga"
               required
             />
 
@@ -391,32 +369,13 @@ export default function AdminInstructoresPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, email: e.target.value }))
-                }
-              />
-              <Input
-                label="Teléfono"
-                type="tel"
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, phone: e.target.value }))
-                }
-              />
-            </div>
-
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 id="active"
-                checked={formData.active}
+                checked={formData.isActive}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, active: e.target.checked }))
+                  setFormData((prev) => ({ ...prev, isActive: e.target.checked }))
                 }
                 className="w-4 h-4 rounded border-beige-dark text-primary focus:ring-primary"
               />
@@ -429,7 +388,7 @@ export default function AdminInstructoresPage() {
               <Button type="button" variant="outline" onClick={closeModal} className="flex-1">
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1">
+              <Button type="submit" className="flex-1" isLoading={isSaving}>
                 {editingInstructor ? 'Guardar Cambios' : 'Agregar Instructor'}
               </Button>
             </div>

@@ -35,6 +35,7 @@ export async function GET() {
 
     return NextResponse.json({
       hasActivePackage: true,
+      purchaseId: purchase.id,
       classesRemaining: purchase.classesRemaining,
       expiresAt: purchase.expiresAt,
       package: purchase.package,
