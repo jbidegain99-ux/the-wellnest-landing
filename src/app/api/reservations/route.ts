@@ -48,12 +48,13 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
+    const userId = session.user.id
     const body = await request.json()
-    const { classId } = body
+    const { classId, purchaseId: requestedPurchaseId } = body
 
     // Check if class exists and has capacity
     const classData = await prisma.class.findUnique({
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
     const existingReservation = await prisma.reservation.findUnique({
       where: {
         userId_classId: {
-          userId: session.user.id,
+          userId,
           classId,
         },
       },
@@ -94,29 +95,52 @@ export async function POST(request: Request) {
       )
     }
 
-    // Find active purchase with remaining classes
-    const purchase = await prisma.purchase.findFirst({
-      where: {
-        userId: session.user.id,
-        status: 'ACTIVE',
-        classesRemaining: { gt: 0 },
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { expiresAt: 'asc' },
-    })
+    // Find the purchase to use - either the specified one or the best available
+    let purchase
 
-    if (!purchase) {
-      return NextResponse.json(
-        { error: 'No tienes clases disponibles' },
-        { status: 400 }
-      )
+    if (requestedPurchaseId) {
+      // Use the specific purchase requested (from "Mis Paquetes" page)
+      purchase = await prisma.purchase.findFirst({
+        where: {
+          id: requestedPurchaseId,
+          userId, // Security: ensure it belongs to this user
+          status: 'ACTIVE',
+          classesRemaining: { gt: 0 },
+          expiresAt: { gt: new Date() },
+        },
+      })
+
+      if (!purchase) {
+        return NextResponse.json(
+          { error: 'El paquete seleccionado no está disponible o no tiene clases restantes' },
+          { status: 400 }
+        )
+      }
+    } else {
+      // Find the best available purchase (expires soonest)
+      purchase = await prisma.purchase.findFirst({
+        where: {
+          userId,
+          status: 'ACTIVE',
+          classesRemaining: { gt: 0 },
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { expiresAt: 'asc' },
+      })
+
+      if (!purchase) {
+        return NextResponse.json(
+          { error: 'No tienes clases disponibles. Compra un paquete para reservar.' },
+          { status: 400 }
+        )
+      }
     }
 
     // Create reservation and update counts
     const [reservation] = await prisma.$transaction([
       prisma.reservation.create({
         data: {
-          userId: session.user.id,
+          userId,
           classId,
           purchaseId: purchase.id,
           status: 'CONFIRMED',

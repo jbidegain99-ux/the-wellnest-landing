@@ -1,48 +1,6 @@
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
-
-const team = [
-  {
-    id: 1,
-    name: 'Nicole Soundy',
-    role: 'Instructora de Yoga & Nutricionista',
-    bio: 'Nicole combina su pasión por el yoga con su conocimiento en nutrición para ofrecer un enfoque integral de bienestar. Su práctica se centra en la conexión mente-cuerpo y hábitos alimenticios saludables.',
-    disciplines: ['Yoga', 'Nutrición'],
-    image: null,
-  },
-  {
-    id: 2,
-    name: 'Florence Cervantes',
-    role: 'Instructora de Yoga & Pilates Mat',
-    bio: 'Florence fusiona su formación en yoga Vinyasa y Pilates Mat para ofrecer clases dinámicas que fortalecen y flexibilizan. Su energía contagiosa motiva a todos a dar lo mejor de sí.',
-    disciplines: ['Yoga', 'Pilates Mat'],
-    image: null,
-  },
-  {
-    id: 3,
-    name: 'Adriana Lopez',
-    role: 'Terapeuta de Sound Healing & Nutricionista',
-    bio: 'Adriana guía experiencias de Soundbath que transportan a estados profundos de relajación. También ofrece consultas nutricionales personalizadas con un enfoque holístico.',
-    disciplines: ['Sound Healing', 'Nutrición'],
-    image: null,
-  },
-  {
-    id: 4,
-    name: 'Denisse Soundy',
-    role: 'Instructora de Pole Sport',
-    bio: 'Denisse crea un ambiente empoderador donde cada estudiante puede explorar su fuerza y creatividad. Sus clases son desafiantes pero siempre accesibles para todos los niveles.',
-    disciplines: ['Pole Sport'],
-    image: null,
-  },
-  {
-    id: 5,
-    name: 'Kevin Cano',
-    role: 'Instructor de Pole Sport',
-    bio: 'Kevin combina técnica y expresión artística en sus clases de Pole Sport. Su enfoque se centra en el desarrollo de fuerza funcional y confianza personal.',
-    disciplines: ['Pole Sport'],
-    image: null,
-  },
-]
+import { prisma } from '@/lib/prisma'
 
 export const metadata = {
   title: 'Nuestro Equipo | The Wellnest',
@@ -50,7 +8,36 @@ export const metadata = {
     'Conoce al equipo de instructores y profesionales de The Wellnest. Expertos apasionados por tu bienestar.',
 }
 
-export default function EquipoPage() {
+// Generate role from disciplines
+function generateRole(disciplines: string[]): string {
+  if (disciplines.length === 0) return 'Instructor'
+
+  const disciplineRoles: Record<string, string> = {
+    'yoga': 'Instructor/a de Yoga',
+    'pilates': 'Instructor/a de Pilates',
+    'pole': 'Instructor/a de Pole Sport',
+    'soundbath': 'Terapeuta de Sound Healing',
+    'nutricion': 'Nutricionista',
+  }
+
+  const roles = disciplines
+    .map(d => disciplineRoles[d.toLowerCase()] || `Instructor/a de ${d}`)
+    .filter((v, i, a) => a.indexOf(v) === i) // unique roles
+
+  return roles.join(' & ')
+}
+
+export default async function EquipoPage() {
+  // Fetch instructors from database
+  const instructors = await prisma.instructor.findMany({
+    where: {
+      isActive: true,
+    },
+    orderBy: {
+      order: 'asc',
+    },
+  })
+
   return (
     <>
       {/* Hero */}
@@ -70,38 +57,46 @@ export default function EquipoPage() {
       {/* Team Grid */}
       <section className="py-16 bg-cream">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {team.map((member) => (
-              <div
-                key={member.id}
-                className="bg-white rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow duration-300"
-              >
-                <div className="flex flex-col items-center text-center">
-                  <Avatar
-                    src={member.image}
-                    alt={member.name}
-                    fallback={member.name}
-                    size="xl"
-                    className="mb-4"
-                  />
-                  <h3 className="font-serif text-2xl font-semibold text-foreground mb-1">
-                    {member.name}
-                  </h3>
-                  <p className="text-primary font-medium mb-3">{member.role}</p>
-                  <div className="flex flex-wrap justify-center gap-2 mb-4">
-                    {member.disciplines.map((discipline) => (
-                      <Badge key={discipline} variant="secondary">
-                        {discipline}
-                      </Badge>
-                    ))}
+          {instructors.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">No hay instructores disponibles en este momento.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {instructors.map((instructor) => (
+                <div
+                  key={instructor.id}
+                  className="bg-white rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow duration-300"
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <Avatar
+                      src={instructor.image}
+                      alt={instructor.name}
+                      fallback={instructor.name}
+                      size="xl"
+                      className="mb-4"
+                    />
+                    <h3 className="font-serif text-2xl font-semibold text-foreground mb-1">
+                      {instructor.name}
+                    </h3>
+                    <p className="text-primary font-medium mb-3">
+                      {generateRole(instructor.disciplines)}
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2 mb-4">
+                      {instructor.disciplines.map((discipline) => (
+                        <Badge key={discipline} variant="secondary">
+                          {discipline}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      {instructor.bio}
+                    </p>
                   </div>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {member.bio}
-                  </p>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
