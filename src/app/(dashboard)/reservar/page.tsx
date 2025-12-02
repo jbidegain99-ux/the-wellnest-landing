@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { useSession } from 'next-auth/react'
-import { ChevronLeft, ChevronRight, Clock, User, Users, Check } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ChevronLeft, ChevronRight, Clock, User, Users, Check, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -21,119 +22,172 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select'
-import { cn, formatDate, formatTime, getWeekDays, getMonthName } from '@/lib/utils'
+import { cn, getWeekDays, getMonthName } from '@/lib/utils'
+import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
 
-// Sample data
-const sampleClasses = [
-  {
-    id: '1',
-    discipline: 'Yoga',
-    instructor: 'María García',
-    time: '06:00',
-    duration: 60,
-    maxCapacity: 15,
-    currentCount: 12,
-    dayOfWeek: 1,
-  },
-  {
-    id: '2',
-    discipline: 'Pilates Mat',
-    instructor: 'Ana Martínez',
-    time: '08:00',
-    duration: 55,
-    maxCapacity: 12,
-    currentCount: 8,
-    dayOfWeek: 1,
-  },
-  {
-    id: '3',
-    discipline: 'Yoga',
-    instructor: 'Laura Vega',
-    time: '10:00',
-    duration: 75,
-    maxCapacity: 15,
-    currentCount: 6,
-    dayOfWeek: 2,
-  },
-  {
-    id: '4',
-    discipline: 'Pole Sport',
-    instructor: 'Carolina López',
-    time: '18:00',
-    duration: 60,
-    maxCapacity: 8,
-    currentCount: 5,
-    dayOfWeek: 3,
-  },
-  {
-    id: '5',
-    discipline: 'Sound Healing',
-    instructor: 'Sofía Hernández',
-    time: '19:30',
-    duration: 90,
-    maxCapacity: 20,
-    currentCount: 15,
-    dayOfWeek: 4,
-  },
-]
+interface Discipline {
+  id: string
+  name: string
+  slug: string
+}
+
+interface Instructor {
+  id: string
+  name: string
+}
+
+interface ClassData {
+  id: string
+  dateTime: string
+  duration: number
+  maxCapacity: number
+  currentCount: number
+  discipline: Discipline
+  instructor: Instructor
+  _count?: {
+    reservations: number
+  }
+}
+
+interface ActivePurchase {
+  hasActivePackage: boolean
+  classesRemaining: number
+  expiresAt?: string
+  package?: {
+    name: string
+  }
+}
+
+// Modal states - separate state for each modal type to prevent conflicts
+type ModalState = 'closed' | 'confirm' | 'success' | 'error'
 
 const disciplineColors: Record<string, string> = {
-  Yoga: 'bg-[#9CAF88] border-[#9CAF88]',
-  'Pilates Mat': 'bg-[#C4A77D] border-[#C4A77D]',
-  'Pole Sport': 'bg-[#D4A574] border-[#D4A574]',
-  'Sound Healing': 'bg-[#8B7355] border-[#8B7355]',
+  yoga: 'bg-[#9CAF88]',
+  pilates: 'bg-[#C4A77D]',
+  pole: 'bg-[#D4A574]',
+  soundbath: 'bg-[#8B7355]',
+  nutricion: 'bg-[#6B7F5E]',
 }
 
 export default function ReservarPage() {
   const { data: session } = useSession()
+  const router = useRouter()
+
+  // Data states
+  const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
+  const [classes, setClasses] = React.useState<ClassData[]>([])
+  const [activePurchase, setActivePurchase] = React.useState<ActivePurchase | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
+
+  // Filter and navigation
   const [selectedDiscipline, setSelectedDiscipline] = React.useState('all')
-  const [selectedClass, setSelectedClass] = React.useState<typeof sampleClasses[0] | null>(null)
-  const [showConfirmation, setShowConfirmation] = React.useState(false)
-  const [isBooking, setIsBooking] = React.useState(false)
-  const [bookingSuccess, setBookingSuccess] = React.useState(false)
   const [currentWeekStart, setCurrentWeekStart] = React.useState(() => {
-    const today = new Date()
-    const day = today.getDay()
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1)
-    return new Date(today.setDate(diff))
+    return startOfWeek(new Date(), { weekStartsOn: 1 })
   })
+
+  // Modal states - using single state to prevent duplicate modals
+  const [modalState, setModalState] = React.useState<ModalState>('closed')
+  const [selectedClass, setSelectedClass] = React.useState<ClassData | null>(null)
+  const [isBooking, setIsBooking] = React.useState(false)
+  const [bookingError, setBookingError] = React.useState<string | null>(null)
 
   const weekDays = getWeekDays()
 
   const getWeekDates = () => {
     const dates = []
     for (let i = 0; i < 7; i++) {
-      const date = new Date(currentWeekStart)
-      date.setDate(currentWeekStart.getDate() + i)
-      dates.push(date)
+      dates.push(addDays(currentWeekStart, i))
     }
     return dates
   }
 
   const weekDates = getWeekDates()
 
+  // Memoize weekEnd to prevent infinite loop
+  const weekEnd = React.useMemo(
+    () => endOfWeek(currentWeekStart, { weekStartsOn: 1 }),
+    [currentWeekStart]
+  )
+
+  // Fetch active purchase
+  const fetchActivePurchase = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/user/active-purchase')
+      if (response.ok) {
+        const data = await response.json()
+        setActivePurchase(data)
+      }
+    } catch (error) {
+      console.error('Error fetching active purchase:', error)
+    }
+  }, [])
+
+  // Fetch disciplines on mount
+  React.useEffect(() => {
+    const fetchDisciplines = async () => {
+      try {
+        const response = await fetch('/api/disciplines')
+        if (response.ok) {
+          const data = await response.json()
+          setDisciplines(data)
+        }
+      } catch (error) {
+        console.error('Error fetching disciplines:', error)
+      }
+    }
+    fetchDisciplines()
+    fetchActivePurchase()
+  }, [fetchActivePurchase])
+
+  // Fetch classes for current week
+  React.useEffect(() => {
+    const fetchClasses = async () => {
+      setIsLoading(true)
+      try {
+        const startDate = format(currentWeekStart, 'yyyy-MM-dd')
+        const endDate = format(weekEnd, 'yyyy-MM-dd')
+
+        let url = `/api/classes?startDate=${startDate}&endDate=${endDate}`
+        if (selectedDiscipline !== 'all') {
+          const discipline = disciplines.find(d => d.slug === selectedDiscipline)
+          if (discipline) {
+            url += `&disciplineId=${discipline.id}`
+          }
+        }
+
+        const response = await fetch(url)
+        if (response.ok) {
+          const data = await response.json()
+          setClasses(data)
+        }
+      } catch (error) {
+        console.error('Error fetching classes:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchClasses()
+  }, [currentWeekStart, selectedDiscipline, disciplines, weekEnd])
+
   const goToPreviousWeek = () => {
-    const newDate = new Date(currentWeekStart)
-    newDate.setDate(currentWeekStart.getDate() - 7)
-    setCurrentWeekStart(newDate)
+    setCurrentWeekStart(addDays(currentWeekStart, -7))
   }
 
   const goToNextWeek = () => {
-    const newDate = new Date(currentWeekStart)
-    newDate.setDate(currentWeekStart.getDate() + 7)
-    setCurrentWeekStart(newDate)
+    setCurrentWeekStart(addDays(currentWeekStart, 7))
   }
 
-  const getClassesForDay = (dayIndex: number) => {
-    return sampleClasses
+  const getClassesForDay = (date: Date) => {
+    return classes
       .filter((cls) => {
-        const matchesDay = cls.dayOfWeek === dayIndex
-        const matchesDiscipline =
-          selectedDiscipline === 'all' ||
-          cls.discipline.toLowerCase().replace(' ', '') === selectedDiscipline
-        return matchesDay && matchesDiscipline
+        const classDate = new Date(cls.dateTime)
+        return (
+          classDate.getDate() === date.getDate() &&
+          classDate.getMonth() === date.getMonth() &&
+          classDate.getFullYear() === date.getFullYear()
+        )
       })
-      .sort((a, b) => a.time.localeCompare(b.time))
+      .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
   }
 
   const isToday = (date: Date) => {
@@ -145,27 +199,76 @@ export default function ReservarPage() {
     )
   }
 
-  const handleSelectClass = (cls: typeof sampleClasses[0]) => {
-    const isFull = cls.currentCount >= cls.maxCapacity
+  const formatClassTime = (dateTime: string) => {
+    const date = new Date(dateTime)
+    return format(date, 'HH:mm')
+  }
+
+  const formatClassDate = (dateTime: string) => {
+    const date = new Date(dateTime)
+    return format(date, 'EEEE, d MMMM')
+  }
+
+  const handleSelectClass = (cls: ClassData) => {
+    const reservationCount = cls._count?.reservations ?? cls.currentCount
+    const isFull = reservationCount >= cls.maxCapacity
+
     if (!isFull) {
       setSelectedClass(cls)
-      setShowConfirmation(true)
+      setBookingError(null)
+      setModalState('confirm')
     }
   }
 
   const handleConfirmBooking = async () => {
+    if (!selectedClass) return
+
     setIsBooking(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsBooking(false)
-    setBookingSuccess(true)
+    setBookingError(null)
+
+    try {
+      const response = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classId: selectedClass.id }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // Refresh active purchase to update class count
+        await fetchActivePurchase()
+        // Refresh classes to update spot counts
+        const startDate = format(currentWeekStart, 'yyyy-MM-dd')
+        const endDate = format(weekEnd, 'yyyy-MM-dd')
+        const classesResponse = await fetch(`/api/classes?startDate=${startDate}&endDate=${endDate}`)
+        if (classesResponse.ok) {
+          const classesData = await classesResponse.json()
+          setClasses(classesData)
+        }
+        setModalState('success')
+      } else {
+        setBookingError(data.error || 'Error al crear la reserva')
+        setModalState('error')
+      }
+    } catch (error) {
+      console.error('Error booking class:', error)
+      setBookingError('Error de conexión. Por favor intenta de nuevo.')
+      setModalState('error')
+    } finally {
+      setIsBooking(false)
+    }
   }
 
-  const closeModal = () => {
-    setShowConfirmation(false)
-    setSelectedClass(null)
-    setBookingSuccess(false)
-  }
+  // Single close handler that completely resets modal state
+  const closeModal = React.useCallback(() => {
+    setModalState('closed')
+    // Delay clearing selectedClass to prevent flash during close animation
+    setTimeout(() => {
+      setSelectedClass(null)
+      setBookingError(null)
+    }, 150)
+  }, [])
 
   return (
     <div className="space-y-8">
@@ -185,9 +288,17 @@ export default function ReservarPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Clases disponibles</p>
-              <p className="text-2xl font-serif font-semibold text-primary">5</p>
+              <p className="text-2xl font-serif font-semibold text-primary">
+                {activePurchase?.classesRemaining ?? '-'}
+              </p>
             </div>
-            <Badge variant="success">Paquete activo</Badge>
+            {activePurchase?.hasActivePackage ? (
+              <Badge variant="success">Paquete activo</Badge>
+            ) : (
+              <Badge variant="secondary" className="cursor-pointer" onClick={() => router.push('/paquetes')}>
+                Sin paquete activo
+              </Badge>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -224,10 +335,11 @@ export default function ReservarPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las disciplinas</SelectItem>
-            <SelectItem value="yoga">Yoga</SelectItem>
-            <SelectItem value="pilatesmat">Pilates Mat</SelectItem>
-            <SelectItem value="polesport">Pole Sport</SelectItem>
-            <SelectItem value="soundhealing">Sound Healing</SelectItem>
+            {disciplines.map((discipline) => (
+              <SelectItem key={discipline.id} value={discipline.slug}>
+                {discipline.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -259,65 +371,73 @@ export default function ReservarPage() {
 
         {/* Classes grid */}
         <div className="grid grid-cols-7 min-h-[400px]">
-          {weekDates.map((date, dayIndex) => {
-            const classes = getClassesForDay(date.getDay())
-            return (
-              <div
-                key={dayIndex}
-                className={cn(
-                  'border-r last:border-r-0 border-beige p-2 space-y-2',
-                  isToday(date) && 'bg-primary/5'
-                )}
-              >
-                {classes.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-4">
-                    Sin clases
-                  </p>
-                ) : (
-                  classes.map((cls) => {
-                    const isFull = cls.currentCount >= cls.maxCapacity
-                    const spotsLeft = cls.maxCapacity - cls.currentCount
+          {isLoading ? (
+            <div className="col-span-7 flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            weekDates.map((date, dayIndex) => {
+              const dayClasses = getClassesForDay(date)
+              return (
+                <div
+                  key={dayIndex}
+                  className={cn(
+                    'border-r last:border-r-0 border-beige p-2 space-y-2',
+                    isToday(date) && 'bg-primary/5'
+                  )}
+                >
+                  {dayClasses.length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-4">
+                      Sin clases
+                    </p>
+                  ) : (
+                    dayClasses.map((cls) => {
+                      const reservationCount = cls._count?.reservations ?? cls.currentCount
+                      const isFull = reservationCount >= cls.maxCapacity
+                      const spotsLeft = cls.maxCapacity - reservationCount
 
-                    return (
-                      <button
-                        key={cls.id}
-                        onClick={() => handleSelectClass(cls)}
-                        disabled={isFull}
-                        className={cn(
-                          'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
-                          disciplineColors[cls.discipline]?.split(' ')[0],
-                          isFull
-                            ? 'opacity-50 cursor-not-allowed'
-                            : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
-                        )}
-                      >
-                        <p className="font-medium">{cls.discipline}</p>
-                        <p className="flex items-center gap-1 opacity-90">
-                          <Clock className="h-3 w-3" />
-                          {cls.time}
-                        </p>
-                        <p className="flex items-center gap-1 opacity-90">
-                          <User className="h-3 w-3" />
-                          {cls.instructor.split(' ')[0]}
-                        </p>
-                        <p className="flex items-center gap-1 mt-1">
-                          <Users className="h-3 w-3" />
-                          {isFull ? 'Lleno' : `${spotsLeft} cupos`}
-                        </p>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            )
-          })}
+                      return (
+                        <button
+                          key={cls.id}
+                          onClick={() => handleSelectClass(cls)}
+                          disabled={isFull}
+                          className={cn(
+                            'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
+                            disciplineColors[cls.discipline.slug] || 'bg-primary',
+                            isFull
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
+                          )}
+                        >
+                          <p className="font-medium">{cls.discipline.name}</p>
+                          <p className="flex items-center gap-1 opacity-90">
+                            <Clock className="h-3 w-3" />
+                            {formatClassTime(cls.dateTime)}
+                          </p>
+                          <p className="flex items-center gap-1 opacity-90">
+                            <User className="h-3 w-3" />
+                            {cls.instructor.name.split(' ')[0]}
+                          </p>
+                          <p className="flex items-center gap-1 mt-1">
+                            <Users className="h-3 w-3" />
+                            {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                          </p>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              )
+            })
+          )}
         </div>
       </Card>
 
-      {/* Confirmation Modal */}
-      <Modal open={showConfirmation} onOpenChange={closeModal}>
+      {/* Confirmation Modal - Single modal with different content based on state */}
+      <Modal open={modalState !== 'closed'} onOpenChange={(open) => !open && closeModal()}>
         <ModalContent>
-          {bookingSuccess ? (
+          {/* Success State */}
+          {modalState === 'success' && (
             <>
               <div className="text-center py-6">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
@@ -327,8 +447,11 @@ export default function ReservarPage() {
                   ¡Reserva Confirmada!
                 </h3>
                 <p className="text-gray-600">
-                  Tu lugar en la clase ha sido reservado. Recibirás un email de
-                  confirmación.
+                  Tu lugar en la clase ha sido reservado. Te quedan{' '}
+                  <span className="font-semibold text-primary">
+                    {activePurchase?.classesRemaining ?? 0}
+                  </span>{' '}
+                  clases disponibles.
                 </p>
               </div>
               <ModalFooter>
@@ -337,7 +460,33 @@ export default function ReservarPage() {
                 </Button>
               </ModalFooter>
             </>
-          ) : (
+          )}
+
+          {/* Error State */}
+          {modalState === 'error' && (
+            <>
+              <div className="text-center py-6">
+                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="h-8 w-8 text-red-600" />
+                </div>
+                <h3 className="font-serif text-2xl font-semibold text-foreground mb-2">
+                  Error en la Reserva
+                </h3>
+                <p className="text-gray-600">{bookingError}</p>
+              </div>
+              <ModalFooter>
+                <Button variant="ghost" onClick={closeModal}>
+                  Cerrar
+                </Button>
+                <Button onClick={() => setModalState('confirm')}>
+                  Intentar de nuevo
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+
+          {/* Confirmation State */}
+          {modalState === 'confirm' && selectedClass && (
             <>
               <ModalHeader>
                 <ModalTitle>Confirmar Reserva</ModalTitle>
@@ -346,50 +495,60 @@ export default function ReservarPage() {
                 </ModalDescription>
               </ModalHeader>
 
-              {selectedClass && (
-                <div className="space-y-4">
-                  <div
-                    className={cn(
-                      'p-4 rounded-xl text-white',
-                      disciplineColors[selectedClass.discipline]?.split(' ')[0]
-                    )}
-                  >
-                    <p className="font-serif text-xl font-semibold">
-                      {selectedClass.discipline}
-                    </p>
-                  </div>
+              <div className="space-y-4">
+                <div
+                  className={cn(
+                    'p-4 rounded-xl text-white',
+                    disciplineColors[selectedClass.discipline.slug] || 'bg-primary'
+                  )}
+                >
+                  <p className="font-serif text-xl font-semibold">
+                    {selectedClass.discipline.name}
+                  </p>
+                </div>
 
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Instructor</span>
-                      <span className="font-medium">{selectedClass.instructor}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Hora</span>
-                      <span className="font-medium">{selectedClass.time}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Duración</span>
-                      <span className="font-medium">{selectedClass.duration} min</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Cupos disponibles</span>
-                      <span className="font-medium">
-                        {selectedClass.maxCapacity - selectedClass.currentCount}
-                      </span>
-                    </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Fecha</span>
+                    <span className="font-medium">{formatClassDate(selectedClass.dateTime)}</span>
                   </div>
-
-                  <div className="p-3 bg-beige rounded-lg text-sm">
-                    <p className="text-gray-600">
-                      Se descontará 1 clase de tu paquete activo.
-                    </p>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Instructor</span>
+                    <span className="font-medium">{selectedClass.instructor.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Hora</span>
+                    <span className="font-medium">{formatClassTime(selectedClass.dateTime)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Duración</span>
+                    <span className="font-medium">{selectedClass.duration} min</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Cupos disponibles</span>
+                    <span className="font-medium">
+                      {selectedClass.maxCapacity - (selectedClass._count?.reservations ?? selectedClass.currentCount)}
+                    </span>
                   </div>
                 </div>
-              )}
+
+                <div className="p-3 bg-beige rounded-lg text-sm">
+                  <p className="text-gray-600">
+                    Se descontará 1 clase de tu paquete activo.
+                    {activePurchase && (
+                      <span className="block mt-1">
+                        Clases restantes después de reservar:{' '}
+                        <span className="font-semibold">
+                          {Math.max(0, (activePurchase.classesRemaining || 0) - 1)}
+                        </span>
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
 
               <ModalFooter>
-                <Button variant="ghost" onClick={closeModal}>
+                <Button variant="ghost" onClick={closeModal} disabled={isBooking}>
                   Cancelar
                 </Button>
                 <Button onClick={handleConfirmBooking} isLoading={isBooking}>

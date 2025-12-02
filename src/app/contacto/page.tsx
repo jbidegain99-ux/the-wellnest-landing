@@ -1,10 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { MapPin, Phone, Mail, Clock, MessageCircle, Send } from 'lucide-react'
+import { MapPin, Phone, Mail, Clock, MessageCircle, Send, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
+
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || '50375252802'
 
 const contactInfo = [
   {
@@ -36,16 +38,63 @@ const contactInfo = [
 export default function ContactoPage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [isSubmitted, setIsSubmitted] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const formRef = React.useRef<HTMLFormElement>(null)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setError(null)
 
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    const formData = new FormData(e.currentTarget)
+    const data = {
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      phone: formData.get('phone') as string,
+      subject: formData.get('subject') as string,
+      message: formData.get('message') as string,
+    }
 
-    setIsSubmitting(false)
-    setIsSubmitted(true)
+    // Client-side validation
+    if (!data.name || !data.email || !data.subject || !data.message) {
+      setError('Por favor completa todos los campos requeridos')
+      setIsSubmitting(false)
+      return
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(data.email)) {
+      setError('Por favor ingresa un email válido')
+      setIsSubmitting(false)
+      return
+    }
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        setIsSubmitted(true)
+        formRef.current?.reset()
+      } else {
+        setError(result.error || 'Error al enviar el mensaje')
+      }
+    } catch {
+      setError('Error de conexión. Por favor intenta de nuevo.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleNewMessage = () => {
+    setIsSubmitted(false)
+    setError(null)
   }
 
   return (
@@ -108,10 +157,10 @@ export default function ContactoPage() {
 
               {/* WhatsApp CTA */}
               <a
-                href="https://wa.me/50375252802"
+                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola, me gustaría obtener más información sobre wellnest.')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 p-6 bg-[#25D366] text-white rounded-xl hover:opacity-90 transition-opacity"
+                className="flex items-center gap-3 p-6 bg-[#25D366] text-white rounded-xl hover:bg-[#128C7E] transition-colors cursor-pointer"
               >
                 <MessageCircle className="h-8 w-8" />
                 <div>
@@ -156,12 +205,13 @@ export default function ContactoPage() {
                   <p className="text-gray-600 mb-6">
                     Gracias por contactarnos. Te responderemos lo antes posible.
                   </p>
-                  <Button onClick={() => setIsSubmitted(false)} variant="outline">
+                  <Button onClick={handleNewMessage} variant="outline">
                     Enviar otro mensaje
                   </Button>
                 </div>
               ) : (
                 <form
+                  ref={formRef}
                   onSubmit={handleSubmit}
                   className="bg-white p-8 rounded-2xl space-y-6"
                 >
@@ -203,8 +253,15 @@ export default function ContactoPage() {
                     className="min-h-[150px]"
                   />
 
+                  {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      {error}
+                    </div>
+                  )}
+
                   <Button type="submit" className="w-full" isLoading={isSubmitting}>
-                    Enviar Mensaje
+                    {isSubmitting ? 'Enviando...' : 'Enviar Mensaje'}
                   </Button>
                 </form>
               )}

@@ -68,9 +68,15 @@ export default function HorariosPage() {
   }
 
   const weekDates = getWeekDates()
-  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 })
 
-  // Fetch disciplines
+  // Memoize weekEnd to prevent infinite loop in useEffect
+  // (endOfWeek creates a new Date object on every render)
+  const weekEnd = React.useMemo(
+    () => endOfWeek(currentWeekStart, { weekStartsOn: 1 }),
+    [currentWeekStart]
+  )
+
+  // Fetch disciplines on mount
   React.useEffect(() => {
     const fetchDisciplines = async () => {
       try {
