@@ -3,9 +3,8 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import { ChevronLeft, ChevronRight, Clock, User, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, User, Users, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
 import {
   Select,
   SelectContent,
@@ -13,145 +12,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select'
-import { cn, formatTime, getWeekDays, getMonthName } from '@/lib/utils'
+import { cn, getWeekDays, getMonthName } from '@/lib/utils'
+import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
 
-// Sample schedule data
-const sampleClasses = [
-  {
-    id: '1',
-    discipline: 'Yoga',
-    disciplineSlug: 'yoga',
-    instructor: 'María García',
-    time: '06:00',
-    duration: 60,
-    maxCapacity: 15,
-    currentCount: 12,
-    dayOfWeek: 1,
-  },
-  {
-    id: '2',
-    discipline: 'Pilates Mat',
-    disciplineSlug: 'pilates',
-    instructor: 'Ana Martínez',
-    time: '08:00',
-    duration: 55,
-    maxCapacity: 12,
-    currentCount: 12,
-    dayOfWeek: 1,
-  },
-  {
-    id: '3',
-    discipline: 'Yoga',
-    disciplineSlug: 'yoga',
-    instructor: 'Laura Vega',
-    time: '10:00',
-    duration: 75,
-    maxCapacity: 15,
-    currentCount: 8,
-    dayOfWeek: 1,
-  },
-  {
-    id: '4',
-    discipline: 'Pole Sport',
-    disciplineSlug: 'pole',
-    instructor: 'Carolina López',
-    time: '18:00',
-    duration: 60,
-    maxCapacity: 8,
-    currentCount: 5,
-    dayOfWeek: 1,
-  },
-  {
-    id: '5',
-    discipline: 'Sound Healing',
-    disciplineSlug: 'soundhealing',
-    instructor: 'Sofía Hernández',
-    time: '19:30',
-    duration: 90,
-    maxCapacity: 20,
-    currentCount: 15,
-    dayOfWeek: 3,
-  },
-  {
-    id: '6',
-    discipline: 'Yoga',
-    disciplineSlug: 'yoga',
-    instructor: 'María García',
-    time: '07:00',
-    duration: 60,
-    maxCapacity: 15,
-    currentCount: 10,
-    dayOfWeek: 2,
-  },
-  {
-    id: '7',
-    discipline: 'Pilates Mat',
-    disciplineSlug: 'pilates',
-    instructor: 'Laura Vega',
-    time: '09:00',
-    duration: 55,
-    maxCapacity: 12,
-    currentCount: 9,
-    dayOfWeek: 2,
-  },
-  {
-    id: '8',
-    discipline: 'Pole Sport',
-    disciplineSlug: 'pole',
-    instructor: 'Carolina López',
-    time: '17:00',
-    duration: 60,
-    maxCapacity: 8,
-    currentCount: 6,
-    dayOfWeek: 4,
-  },
-  {
-    id: '9',
-    discipline: 'Yoga',
-    disciplineSlug: 'yoga',
-    instructor: 'María García',
-    time: '08:00',
-    duration: 60,
-    maxCapacity: 15,
-    currentCount: 14,
-    dayOfWeek: 6,
-  },
-  {
-    id: '10',
-    discipline: 'Sound Healing',
-    disciplineSlug: 'soundhealing',
-    instructor: 'Sofía Hernández',
-    time: '10:00',
-    duration: 90,
-    maxCapacity: 20,
-    currentCount: 18,
-    dayOfWeek: 6,
-  },
-]
+interface Discipline {
+  id: string
+  name: string
+  slug: string
+}
 
-const disciplines = [
-  { value: 'all', label: 'Todas las disciplinas' },
-  { value: 'yoga', label: 'Yoga' },
-  { value: 'pilates', label: 'Pilates Mat' },
-  { value: 'pole', label: 'Pole Sport' },
-  { value: 'soundhealing', label: 'Sound Healing' },
-]
+interface Instructor {
+  id: string
+  name: string
+}
+
+interface ClassData {
+  id: string
+  dateTime: string
+  duration: number
+  maxCapacity: number
+  currentCount: number
+  discipline: Discipline
+  instructor: Instructor
+  _count?: {
+    reservations: number
+  }
+}
 
 const disciplineColors: Record<string, string> = {
   yoga: 'bg-[#9CAF88]',
   pilates: 'bg-[#C4A77D]',
   pole: 'bg-[#D4A574]',
-  soundhealing: 'bg-[#8B7355]',
+  soundbath: 'bg-[#8B7355]',
+  nutricion: 'bg-[#6B7F5E]',
 }
 
 export default function HorariosPage() {
   const { data: session } = useSession()
   const [selectedDiscipline, setSelectedDiscipline] = React.useState('all')
+  const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
+  const [classes, setClasses] = React.useState<ClassData[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
   const [currentWeekStart, setCurrentWeekStart] = React.useState(() => {
-    const today = new Date()
-    const day = today.getDay()
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1)
-    return new Date(today.setDate(diff))
+    return startOfWeek(new Date(), { weekStartsOn: 1 })
   })
 
   const weekDays = getWeekDays()
@@ -159,37 +62,79 @@ export default function HorariosPage() {
   const getWeekDates = () => {
     const dates = []
     for (let i = 0; i < 7; i++) {
-      const date = new Date(currentWeekStart)
-      date.setDate(currentWeekStart.getDate() + i)
-      dates.push(date)
+      dates.push(addDays(currentWeekStart, i))
     }
     return dates
   }
 
   const weekDates = getWeekDates()
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 })
+
+  // Fetch disciplines
+  React.useEffect(() => {
+    const fetchDisciplines = async () => {
+      try {
+        const response = await fetch('/api/disciplines')
+        if (response.ok) {
+          const data = await response.json()
+          setDisciplines(data)
+        }
+      } catch (error) {
+        console.error('Error fetching disciplines:', error)
+      }
+    }
+    fetchDisciplines()
+  }, [])
+
+  // Fetch classes for current week
+  React.useEffect(() => {
+    const fetchClasses = async () => {
+      setIsLoading(true)
+      try {
+        const startDate = format(currentWeekStart, 'yyyy-MM-dd')
+        const endDate = format(weekEnd, 'yyyy-MM-dd')
+
+        let url = `/api/classes?startDate=${startDate}&endDate=${endDate}`
+        if (selectedDiscipline !== 'all') {
+          const discipline = disciplines.find(d => d.slug === selectedDiscipline)
+          if (discipline) {
+            url += `&disciplineId=${discipline.id}`
+          }
+        }
+
+        const response = await fetch(url)
+        if (response.ok) {
+          const data = await response.json()
+          setClasses(data)
+        }
+      } catch (error) {
+        console.error('Error fetching classes:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchClasses()
+  }, [currentWeekStart, selectedDiscipline, disciplines, weekEnd])
 
   const goToPreviousWeek = () => {
-    const newDate = new Date(currentWeekStart)
-    newDate.setDate(currentWeekStart.getDate() - 7)
-    setCurrentWeekStart(newDate)
+    setCurrentWeekStart(addDays(currentWeekStart, -7))
   }
 
   const goToNextWeek = () => {
-    const newDate = new Date(currentWeekStart)
-    newDate.setDate(currentWeekStart.getDate() + 7)
-    setCurrentWeekStart(newDate)
+    setCurrentWeekStart(addDays(currentWeekStart, 7))
   }
 
-  const getClassesForDay = (dayIndex: number) => {
-    return sampleClasses
+  const getClassesForDay = (date: Date) => {
+    return classes
       .filter((cls) => {
-        const matchesDay = cls.dayOfWeek === dayIndex
-        const matchesDiscipline =
-          selectedDiscipline === 'all' ||
-          cls.disciplineSlug === selectedDiscipline
-        return matchesDay && matchesDiscipline
+        const classDate = new Date(cls.dateTime)
+        return (
+          classDate.getDate() === date.getDate() &&
+          classDate.getMonth() === date.getMonth() &&
+          classDate.getFullYear() === date.getFullYear()
+        )
       })
-      .sort((a, b) => a.time.localeCompare(b.time))
+      .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
   }
 
   const isToday = (date: Date) => {
@@ -199,6 +144,11 @@ export default function HorariosPage() {
       date.getMonth() === today.getMonth() &&
       date.getFullYear() === today.getFullYear()
     )
+  }
+
+  const formatClassTime = (dateTime: string) => {
+    const date = new Date(dateTime)
+    return format(date, 'HH:mm')
   }
 
   return (
@@ -250,9 +200,10 @@ export default function HorariosPage() {
                 <SelectValue placeholder="Filtrar por disciplina" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">Todas las disciplinas</SelectItem>
                 {disciplines.map((discipline) => (
-                  <SelectItem key={discipline.value} value={discipline.value}>
-                    {discipline.label}
+                  <SelectItem key={discipline.id} value={discipline.slug}>
+                    {discipline.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -286,64 +237,71 @@ export default function HorariosPage() {
 
             {/* Classes grid */}
             <div className="grid grid-cols-7 min-h-[400px]">
-              {weekDates.map((date, dayIndex) => {
-                const classes = getClassesForDay(date.getDay())
-                return (
-                  <div
-                    key={dayIndex}
-                    className={cn(
-                      'border-r last:border-r-0 border-beige p-2 space-y-2',
-                      isToday(date) && 'bg-primary/5'
-                    )}
-                  >
-                    {classes.length === 0 ? (
-                      <p className="text-xs text-gray-400 text-center py-4">
-                        Sin clases
-                      </p>
-                    ) : (
-                      classes.map((cls) => {
-                        const isFull = cls.currentCount >= cls.maxCapacity
-                        const spotsLeft = cls.maxCapacity - cls.currentCount
+              {isLoading ? (
+                <div className="col-span-7 flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                weekDates.map((date, dayIndex) => {
+                  const dayClasses = getClassesForDay(date)
+                  return (
+                    <div
+                      key={dayIndex}
+                      className={cn(
+                        'border-r last:border-r-0 border-beige p-2 space-y-2',
+                        isToday(date) && 'bg-primary/5'
+                      )}
+                    >
+                      {dayClasses.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-4">
+                          Sin clases
+                        </p>
+                      ) : (
+                        dayClasses.map((cls) => {
+                          const reservationCount = cls._count?.reservations ?? cls.currentCount
+                          const isFull = reservationCount >= cls.maxCapacity
+                          const spotsLeft = cls.maxCapacity - reservationCount
 
-                        return (
-                          <div
-                            key={cls.id}
-                            className={cn(
-                              'p-2 rounded-lg text-white text-xs',
-                              disciplineColors[cls.disciplineSlug],
-                              isFull && 'opacity-60'
-                            )}
-                          >
-                            <p className="font-medium">{cls.discipline}</p>
-                            <p className="flex items-center gap-1 opacity-90">
-                              <Clock className="h-3 w-3" />
-                              {cls.time}
-                            </p>
-                            <p className="flex items-center gap-1 opacity-90">
-                              <User className="h-3 w-3" />
-                              {cls.instructor.split(' ')[0]}
-                            </p>
-                            <p className="flex items-center gap-1 mt-1">
-                              <Users className="h-3 w-3" />
-                              {isFull ? 'Lleno' : `${spotsLeft} cupos`}
-                            </p>
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                )
-              })}
+                          return (
+                            <div
+                              key={cls.id}
+                              className={cn(
+                                'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
+                                disciplineColors[cls.discipline.slug] || 'bg-primary',
+                                isFull && 'opacity-60'
+                              )}
+                            >
+                              <p className="font-medium">{cls.discipline.name}</p>
+                              <p className="flex items-center gap-1 opacity-90">
+                                <Clock className="h-3 w-3" />
+                                {formatClassTime(cls.dateTime)}
+                              </p>
+                              <p className="flex items-center gap-1 opacity-90">
+                                <User className="h-3 w-3" />
+                                {cls.instructor.name.split(' ')[0]}
+                              </p>
+                              <p className="flex items-center gap-1 mt-1">
+                                <Users className="h-3 w-3" />
+                                {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                              </p>
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
 
           {/* Legend */}
           <div className="flex flex-wrap gap-4 mt-6 justify-center">
-            {Object.entries(disciplineColors).map(([key, color]) => (
-              <div key={key} className="flex items-center gap-2">
-                <div className={cn('w-4 h-4 rounded', color)} />
-                <span className="text-sm text-gray-600 capitalize">
-                  {key === 'soundhealing' ? 'Sound Healing' : key}
+            {disciplines.map((discipline) => (
+              <div key={discipline.id} className="flex items-center gap-2">
+                <div className={cn('w-4 h-4 rounded', disciplineColors[discipline.slug] || 'bg-primary')} />
+                <span className="text-sm text-gray-600">
+                  {discipline.name}
                 </span>
               </div>
             ))}
