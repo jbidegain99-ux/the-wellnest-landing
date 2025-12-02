@@ -2,11 +2,19 @@
 
 import * as React from 'react'
 import { useSession } from 'next-auth/react'
-import { Camera, QrCode, Edit2, Save, X } from 'lucide-react'
+import { Camera, QrCode, Edit2, Save, X, Check, AlertCircle, Lock, CreditCard } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalDescription,
+  ModalFooter,
+} from '@/components/ui/Modal'
 import {
   Select,
   SelectContent,
@@ -20,6 +28,20 @@ export default function PerfilPage() {
   const [isEditing, setIsEditing] = React.useState(false)
   const [showQR, setShowQR] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
+
+  // Password change modal state
+  const [showPasswordModal, setShowPasswordModal] = React.useState(false)
+  const [passwordForm, setPasswordForm] = React.useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  })
+  const [passwordError, setPasswordError] = React.useState<string | null>(null)
+  const [passwordSuccess, setPasswordSuccess] = React.useState(false)
+  const [isChangingPassword, setIsChangingPassword] = React.useState(false)
+
+  // Payment modal state
+  const [showPaymentModal, setShowPaymentModal] = React.useState(false)
 
   // Mock user data - would come from API
   const userData = {
@@ -39,6 +61,53 @@ export default function PerfilPage() {
     await new Promise((resolve) => setTimeout(resolve, 1000))
     setIsLoading(false)
     setIsEditing(false)
+  }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError(null)
+    setIsChangingPassword(true)
+
+    // Client-side validation
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('La nueva contraseña debe tener al menos 6 caracteres')
+      setIsChangingPassword(false)
+      return
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('Las contraseñas no coinciden')
+      setIsChangingPassword(false)
+      return
+    }
+
+    try {
+      const response = await fetch('/api/user/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(passwordForm),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setPasswordSuccess(true)
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      } else {
+        setPasswordError(data.error || 'Error al cambiar la contraseña')
+      }
+    } catch {
+      setPasswordError('Error de conexión. Por favor intenta de nuevo.')
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
+  const closePasswordModal = () => {
+    setShowPasswordModal(false)
+    setPasswordError(null)
+    setPasswordSuccess(false)
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
   }
 
   return (
@@ -225,10 +294,15 @@ export default function PerfilPage() {
                 <div>
                   <p className="font-medium text-foreground">Contraseña</p>
                   <p className="text-sm text-gray-500">
-                    Última actualización hace 3 meses
+                    Cambia tu contraseña de acceso
                   </p>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPasswordModal(true)}
+                >
+                  <Lock className="h-4 w-4 mr-2" />
                   Cambiar
                 </Button>
               </div>
@@ -240,7 +314,12 @@ export default function PerfilPage() {
                   </p>
                   <p className="text-sm text-gray-500">Visa •••• 4242</p>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPaymentModal(true)}
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
                   Gestionar
                 </Button>
               </div>
@@ -248,6 +327,121 @@ export default function PerfilPage() {
           </div>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      <Modal open={showPasswordModal} onOpenChange={closePasswordModal}>
+        <ModalContent>
+          {passwordSuccess ? (
+            <>
+              <div className="text-center py-6">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Check className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-serif text-2xl font-semibold text-foreground mb-2">
+                  ¡Contraseña Actualizada!
+                </h3>
+                <p className="text-gray-600">
+                  Tu contraseña ha sido cambiada correctamente.
+                </p>
+              </div>
+              <ModalFooter>
+                <Button onClick={closePasswordModal} className="w-full">
+                  Entendido
+                </Button>
+              </ModalFooter>
+            </>
+          ) : (
+            <>
+              <ModalHeader>
+                <ModalTitle>Cambiar Contraseña</ModalTitle>
+                <ModalDescription>
+                  Ingresa tu contraseña actual y la nueva contraseña
+                </ModalDescription>
+              </ModalHeader>
+
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <Input
+                  label="Contraseña actual"
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Nueva contraseña"
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Confirmar nueva contraseña"
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  required
+                />
+
+                {passwordError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    {passwordError}
+                  </div>
+                )}
+
+                <ModalFooter>
+                  <Button type="button" variant="ghost" onClick={closePasswordModal}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" isLoading={isChangingPassword}>
+                    Cambiar Contraseña
+                  </Button>
+                </ModalFooter>
+              </form>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Payment Management Modal */}
+      <Modal open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Gestionar Método de Pago</ModalTitle>
+            <ModalDescription>
+              Administra tu forma de pago guardada
+            </ModalDescription>
+          </ModalHeader>
+
+          <div className="py-6">
+            <div className="p-4 bg-beige rounded-xl mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-8 bg-white rounded flex items-center justify-center">
+                  <span className="text-xs font-bold text-blue-600">VISA</span>
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">•••• •••• •••• 4242</p>
+                  <p className="text-sm text-gray-500">Expira 12/25</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                <strong>Próximamente:</strong> La gestión completa de métodos de pago
+                estará disponible pronto. Por ahora, si necesitas actualizar tu método
+                de pago, contáctanos por WhatsApp.
+              </p>
+            </div>
+          </div>
+
+          <ModalFooter>
+            <Button onClick={() => setShowPaymentModal(false)} className="w-full">
+              Entendido
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   )
 }
