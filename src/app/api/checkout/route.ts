@@ -93,14 +93,15 @@ async function validateDiscountCode(code: string, packageIds: string[]) {
       isActive: true,
       validFrom: { lte: new Date() },
       validUntil: { gte: new Date() },
-      OR: [
-        { maxUses: null },
-        { currentUses: { lt: prisma.discountCode.fields.maxUses } },
-      ],
     },
   })
 
   if (!discount) {
+    return null
+  }
+
+  // Check max uses (if set)
+  if (discount.maxUses !== null && discount.currentUses >= discount.maxUses) {
     return null
   }
 
