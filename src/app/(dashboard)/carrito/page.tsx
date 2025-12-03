@@ -3,71 +3,135 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Trash2, Plus, Minus, ShoppingBag, Tag, ArrowRight } from 'lucide-react'
+import { Trash2, Plus, Minus, ShoppingBag, Tag, ArrowRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/lib/utils'
 
-// Mock cart data
-const initialCartItems = [
-  {
-    id: '1',
-    packageId: '3',
-    packageName: '8 Clases',
-    classCount: 8,
-    price: 90,
-    quantity: 1,
-  },
-]
+interface CartItem {
+  id: string
+  packageId: string
+  quantity: number
+  package: {
+    id: string
+    name: string
+    classCount: number
+    price: number
+  }
+}
+
+interface AppliedDiscount {
+  code: string
+  percentage: number
+}
 
 export default function CarritoPage() {
   const router = useRouter()
-  const [cartItems, setCartItems] = React.useState(initialCartItems)
+  const [cartItems, setCartItems] = React.useState<CartItem[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
   const [discountCode, setDiscountCode] = React.useState('')
-  const [appliedDiscount, setAppliedDiscount] = React.useState<{
-    code: string
-    percentage: number
-  } | null>(null)
+  const [appliedDiscount, setAppliedDiscount] = React.useState<AppliedDiscount | null>(null)
   const [discountError, setDiscountError] = React.useState('')
   const [isApplyingDiscount, setIsApplyingDiscount] = React.useState(false)
+  const [isUpdating, setIsUpdating] = React.useState<string | null>(null)
+
+  // Fetch cart from API
+  React.useEffect(() => {
+    const fetchCart = async () => {
+      try {
+        const response = await fetch('/api/cart')
+        if (response.ok) {
+          const data = await response.json()
+          setCartItems(data)
+        }
+      } catch (error) {
+        console.error('Error fetching cart:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchCart()
+  }, [])
 
   const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + (item.package?.price || 0) * item.quantity,
     0
   )
   const discount = appliedDiscount ? (subtotal * appliedDiscount.percentage) / 100 : 0
   const total = subtotal - discount
 
-  const updateQuantity = (id: string, newQuantity: number) => {
+  const updateQuantity = async (id: string, newQuantity: number) => {
     if (newQuantity < 1) return
-    setCartItems((items) =>
-      items.map((item) =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    )
+    setIsUpdating(id)
+
+    try {
+      const response = await fetch('/api/cart', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: id, quantity: newQuantity }),
+      })
+
+      if (response.ok) {
+        setCartItems((items) =>
+          items.map((item) =>
+            item.id === id ? { ...item, quantity: newQuantity } : item
+          )
+        )
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error)
+    } finally {
+      setIsUpdating(null)
+    }
   }
 
-  const removeItem = (id: string) => {
-    setCartItems((items) => items.filter((item) => item.id !== id))
+  const removeItem = async (id: string) => {
+    setIsUpdating(id)
+
+    try {
+      const response = await fetch(`/api/cart?itemId=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setCartItems((items) => items.filter((item) => item.id !== id))
+      }
+    } catch (error) {
+      console.error('Error removing item:', error)
+    } finally {
+      setIsUpdating(null)
+    }
   }
 
   const applyDiscountCode = async () => {
     setDiscountError('')
     setIsApplyingDiscount(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const packageIds = cartItems.map((item) => item.packageId)
+      const response = await fetch('/api/discount/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: discountCode, packageIds }),
+      })
 
-    if (discountCode.toUpperCase() === 'WELCOME10') {
-      setAppliedDiscount({ code: discountCode.toUpperCase(), percentage: 10 })
-      setDiscountCode('')
-    } else {
-      setDiscountError('Código de descuento inválido')
+      const data = await response.json()
+
+      if (data.valid) {
+        setAppliedDiscount({ code: data.code, percentage: data.percentage })
+        setDiscountCode('')
+      } else {
+        setDiscountError(data.error || 'Código de descuento inválido')
+      }
+    } catch (error) {
+      console.error('Error validating discount:', error)
+      setDiscountError('Error al validar el código')
+    } finally {
+      setIsApplyingDiscount(false)
     }
-
-    setIsApplyingDiscount(false)
   }
 
   const removeDiscount = () => {
@@ -75,7 +139,21 @@ export default function CarritoPage() {
   }
 
   const handleCheckout = () => {
+    // Store discount in sessionStorage for checkout page
+    if (appliedDiscount) {
+      sessionStorage.setItem('cartDiscount', JSON.stringify(appliedDiscount))
+    } else {
+      sessionStorage.removeItem('cartDiscount')
+    }
     router.push('/checkout')
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   if (cartItems.length === 0) {
@@ -117,10 +195,10 @@ export default function CarritoPage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h3 className="font-serif text-xl font-semibold text-foreground">
-                      {item.packageName}
+                      {item.package?.name || 'Paquete'}
                     </h3>
                     <p className="text-gray-600 text-sm">
-                      {item.classCount} clases incluidas
+                      {item.package?.classCount || 0} clases incluidas
                     </p>
                   </div>
 
@@ -129,16 +207,22 @@ export default function CarritoPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        className="p-1 rounded-full hover:bg-beige transition-colors"
+                        disabled={isUpdating === item.id || item.quantity <= 1}
+                        className="p-1 rounded-full hover:bg-beige transition-colors disabled:opacity-50"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
                       <span className="w-8 text-center font-medium">
-                        {item.quantity}
+                        {isUpdating === item.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                        ) : (
+                          item.quantity
+                        )}
                       </span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        className="p-1 rounded-full hover:bg-beige transition-colors"
+                        disabled={isUpdating === item.id}
+                        className="p-1 rounded-full hover:bg-beige transition-colors disabled:opacity-50"
                       >
                         <Plus className="h-4 w-4" />
                       </button>
@@ -146,13 +230,14 @@ export default function CarritoPage() {
 
                     {/* Price */}
                     <p className="font-serif text-xl font-semibold text-foreground min-w-[80px] text-right">
-                      {formatPrice(item.price * item.quantity)}
+                      {formatPrice((item.package?.price || 0) * item.quantity)}
                     </p>
 
                     {/* Remove */}
                     <button
                       onClick={() => removeItem(item.id)}
-                      className="p-2 text-gray-400 hover:text-[var(--color-error)] transition-colors"
+                      disabled={isUpdating === item.id}
+                      className="p-2 text-gray-400 hover:text-[var(--color-error)] transition-colors disabled:opacity-50"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>

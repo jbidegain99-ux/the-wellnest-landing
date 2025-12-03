@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Pencil, Trash2, Search, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Loader2, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -42,6 +42,9 @@ export default function AdminInstructoresPage() {
   const [editingInstructor, setEditingInstructor] = React.useState<Instructor | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null)
   const [isSaving, setIsSaving] = React.useState(false)
+  const [isDeleting, setIsDeleting] = React.useState(false)
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
   // Form state
   const [formData, setFormData] = React.useState({
@@ -52,12 +55,24 @@ export default function AdminInstructoresPage() {
   })
 
   // Fetch data from database
+  const fetchInstructors = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/instructors')
+      if (response.ok) {
+        const data = await response.json()
+        setInstructors(data)
+      }
+    } catch (error) {
+      console.error('Error fetching instructors:', error)
+    }
+  }, [])
+
   React.useEffect(() => {
     const fetchData = async () => {
       try {
         const [disciplinesRes, instructorsRes] = await Promise.all([
           fetch('/api/disciplines'),
-          fetch('/api/instructors'),
+          fetch('/api/admin/instructors'),
         ])
 
         if (disciplinesRes.ok) {
@@ -141,40 +156,95 @@ export default function AdminInstructoresPage() {
     })
   }
 
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message)
+    setErrorMessage(null)
+    setTimeout(() => setSuccessMessage(null), 3000)
+  }
+
+  const showError = (message: string) => {
+    setErrorMessage(message)
+    setSuccessMessage(null)
+    setTimeout(() => setErrorMessage(null), 5000)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
+    setErrorMessage(null)
 
-    // In a production app, this would call an API to save the instructor
-    // For now, we update local state to demonstrate the UI
-    await new Promise(resolve => setTimeout(resolve, 500))
+    try {
+      if (editingInstructor) {
+        // Update existing instructor
+        const response = await fetch(`/api/admin/instructors/${editingInstructor.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        })
 
-    if (editingInstructor) {
-      setInstructors((prev) =>
-        prev.map((i) =>
-          i.id === editingInstructor.id
-            ? { ...i, ...formData }
-            : i
-        )
-      )
-    } else {
-      const newInstructor: Instructor = {
-        id: `temp-${Date.now()}`,
-        ...formData,
-        image: null,
-        order: instructors.length,
+        const data = await response.json()
+
+        if (!response.ok) {
+          showError(data.error || 'Error al actualizar el instructor')
+          return
+        }
+
+        showSuccess('Instructor actualizado correctamente')
+      } else {
+        // Create new instructor
+        const response = await fetch('/api/admin/instructors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          showError(data.error || 'Error al crear el instructor')
+          return
+        }
+
+        showSuccess('Instructor creado correctamente')
       }
-      setInstructors((prev) => [...prev, newInstructor])
-    }
 
-    setIsSaving(false)
-    closeModal()
+      // Refresh the instructors list
+      await fetchInstructors()
+      closeModal()
+    } catch (error) {
+      console.error('Error saving instructor:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleDelete = async (id: string) => {
-    // In a production app, this would call an API to delete the instructor
-    setInstructors((prev) => prev.filter((i) => i.id !== id))
-    setDeleteConfirmId(null)
+    setIsDeleting(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch(`/api/admin/instructors/${id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        showError(data.error || 'Error al eliminar el instructor')
+        setDeleteConfirmId(null)
+        return
+      }
+
+      showSuccess('Instructor eliminado correctamente')
+      await fetchInstructors()
+    } catch (error) {
+      console.error('Error deleting instructor:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsDeleting(false)
+      setDeleteConfirmId(null)
+    }
   }
 
   const toggleDiscipline = (discipline: string) => {
@@ -211,6 +281,21 @@ export default function AdminInstructoresPage() {
           Agregar Instructor
         </Button>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
+          <Check className="h-5 w-5" />
+          {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+          <AlertCircle className="h-5 w-5" />
+          {errorMessage}
+        </div>
+      )}
 
       {/* Search */}
       <div className="flex gap-4">
@@ -397,7 +482,7 @@ export default function AdminInstructoresPage() {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+      <Modal open={!!deleteConfirmId} onOpenChange={() => !isDeleting && setDeleteConfirmId(null)}>
         <ModalContent className="max-w-sm">
           <ModalHeader>
             <ModalTitle>Confirmar eliminación</ModalTitle>
@@ -411,12 +496,14 @@ export default function AdminInstructoresPage() {
                 variant="outline"
                 onClick={() => setDeleteConfirmId(null)}
                 className="flex-1"
+                disabled={isDeleting}
               >
                 Cancelar
               </Button>
               <Button
                 onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                isLoading={isDeleting}
               >
                 Eliminar
               </Button>
