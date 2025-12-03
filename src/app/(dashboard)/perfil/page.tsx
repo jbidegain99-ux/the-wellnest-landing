@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useSession } from 'next-auth/react'
-import { Camera, QrCode, Edit2, Save, X, Check, AlertCircle, Lock, CreditCard } from 'lucide-react'
+import { Camera, QrCode, Edit2, Save, X, Check, AlertCircle, Lock, CreditCard, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
@@ -22,12 +22,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select'
+import { format } from 'date-fns'
+
+interface UserProfile {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+  birthDate: string | null
+  gender: string | null
+  height: number | null
+  weight: number | null
+  profileImage: string | null
+  qrCode: string
+}
 
 export default function PerfilPage() {
   const { data: session } = useSession()
   const [isEditing, setIsEditing] = React.useState(false)
   const [showQR, setShowQR] = React.useState(false)
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [saveSuccess, setSaveSuccess] = React.useState(false)
+  const [saveError, setSaveError] = React.useState<string | null>(null)
+
+  // User profile data
+  const [userData, setUserData] = React.useState<UserProfile | null>(null)
+  const [formData, setFormData] = React.useState({
+    name: '',
+    phone: '',
+    birthDate: '',
+    gender: '',
+    height: '',
+    weight: '',
+  })
 
   // Password change modal state
   const [showPasswordModal, setShowPasswordModal] = React.useState(false)
@@ -43,24 +71,85 @@ export default function PerfilPage() {
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = React.useState(false)
 
-  // Mock user data - would come from API
-  const userData = {
-    name: session?.user?.name || 'Usuario',
-    email: session?.user?.email || '',
-    phone: '+503 1234 5678',
-    birthDate: '1990-05-15',
-    gender: 'female',
-    height: 1.65,
-    weight: 58,
-    qrCode: 'WN-ABC123XYZ',
-  }
+  // Fetch user profile on mount
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await fetch('/api/user/profile')
+        if (response.ok) {
+          const data = await response.json()
+          setUserData(data)
+          setFormData({
+            name: data.name || '',
+            phone: data.phone || '',
+            birthDate: data.birthDate ? format(new Date(data.birthDate), 'yyyy-MM-dd') : '',
+            gender: data.gender || '',
+            height: data.height?.toString() || '',
+            weight: data.weight?.toString() || '',
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchProfile()
+  }, [])
 
   const handleSave = async () => {
-    setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsLoading(false)
+    setIsSaving(true)
+    setSaveError(null)
+    setSaveSuccess(false)
+
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone || null,
+          birthDate: formData.birthDate || null,
+          gender: formData.gender || null,
+          height: formData.height ? parseFloat(formData.height) : null,
+          weight: formData.weight ? parseFloat(formData.weight) : null,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setUserData(data.user)
+        setSaveSuccess(true)
+        setIsEditing(false)
+        // Clear success message after 3 seconds
+        setTimeout(() => setSaveSuccess(false), 3000)
+      } else {
+        setSaveError(data.error || 'Error al guardar')
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error)
+      setSaveError('Error de conexión')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    // Reset form to original data
+    if (userData) {
+      setFormData({
+        name: userData.name || '',
+        phone: userData.phone || '',
+        birthDate: userData.birthDate ? format(new Date(userData.birthDate), 'yyyy-MM-dd') : '',
+        gender: userData.gender || '',
+        height: userData.height?.toString() || '',
+        weight: userData.weight?.toString() || '',
+      })
+    }
     setIsEditing(false)
+    setSaveError(null)
   }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -110,6 +199,14 @@ export default function PerfilPage() {
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -129,17 +226,33 @@ export default function PerfilPage() {
           </Button>
         ) : (
           <div className="flex gap-2">
-            <Button onClick={() => setIsEditing(false)} variant="ghost">
+            <Button onClick={handleCancel} variant="ghost">
               <X className="h-4 w-4 mr-2" />
               Cancelar
             </Button>
-            <Button onClick={handleSave} isLoading={isLoading}>
+            <Button onClick={handleSave} isLoading={isSaving}>
               <Save className="h-4 w-4 mr-2" />
               Guardar
             </Button>
           </div>
         )}
       </div>
+
+      {/* Success message */}
+      {saveSuccess && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
+          <Check className="h-5 w-5" />
+          Perfil actualizado correctamente
+        </div>
+      )}
+
+      {/* Error message */}
+      {saveError && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+          <AlertCircle className="h-5 w-5" />
+          {saveError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Profile Photo & QR */}
@@ -148,9 +261,9 @@ export default function PerfilPage() {
           <div className="bg-white rounded-2xl p-6 text-center">
             <div className="relative inline-block">
               <Avatar
-                src={session?.user?.image}
-                alt={session?.user?.name || ''}
-                fallback={session?.user?.name || 'U'}
+                src={userData?.profileImage || session?.user?.image}
+                alt={userData?.name || ''}
+                fallback={userData?.name || 'U'}
                 size="xl"
                 className="w-32 h-32"
               />
@@ -161,9 +274,9 @@ export default function PerfilPage() {
               )}
             </div>
             <h2 className="font-serif text-xl font-semibold text-foreground mt-4">
-              {userData.name}
+              {userData?.name || session?.user?.name}
             </h2>
-            <p className="text-gray-600 text-sm">{userData.email}</p>
+            <p className="text-gray-600 text-sm">{userData?.email || session?.user?.email}</p>
             <Badge variant="default" className="mt-2">
               Miembro Activo
             </Badge>
@@ -191,7 +304,7 @@ export default function PerfilPage() {
                   </div>
                 </div>
                 <p className="text-center font-mono text-sm text-gray-600">
-                  {userData.qrCode}
+                  {userData?.qrCode || 'WN-XXXXXX'}
                 </p>
                 <p className="text-xs text-gray-500 text-center">
                   Presenta este código al llegar al estudio para hacer check-in
@@ -215,25 +328,28 @@ export default function PerfilPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
                 label="Nombre completo"
-                defaultValue={userData.name}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 disabled={!isEditing}
               />
               <Input
                 label="Email"
                 type="email"
-                defaultValue={userData.email}
-                disabled={!isEditing}
+                value={userData?.email || ''}
+                disabled
               />
               <Input
                 label="Teléfono"
                 type="tel"
-                defaultValue={userData.phone}
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 disabled={!isEditing}
               />
               <Input
                 label="Fecha de nacimiento"
                 type="date"
-                defaultValue={userData.birthDate}
+                value={formData.birthDate}
+                onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                 disabled={!isEditing}
               />
 
@@ -242,7 +358,8 @@ export default function PerfilPage() {
                   Género (opcional)
                 </label>
                 <Select
-                  defaultValue={userData.gender}
+                  value={formData.gender}
+                  onValueChange={(value) => setFormData({ ...formData, gender: value })}
                   disabled={!isEditing}
                 >
                   <SelectTrigger>
@@ -264,14 +381,16 @@ export default function PerfilPage() {
                   label="Estatura (metros)"
                   type="number"
                   step="0.01"
-                  defaultValue={userData.height}
+                  value={formData.height}
+                  onChange={(e) => setFormData({ ...formData, height: e.target.value })}
                   disabled={!isEditing}
                 />
                 <Input
                   label="Peso (kg)"
                   type="number"
                   step="0.1"
-                  defaultValue={userData.weight}
+                  value={formData.weight}
+                  onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
                   disabled={!isEditing}
                 />
               </div>

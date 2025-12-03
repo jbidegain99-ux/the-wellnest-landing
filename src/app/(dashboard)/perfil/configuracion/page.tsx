@@ -2,24 +2,95 @@
 
 import * as React from 'react'
 import { signOut } from 'next-auth/react'
-import { Bell, Mail, Phone, Trash2, LogOut } from 'lucide-react'
+import { Bell, Mail, Phone, Trash2, LogOut, Loader2, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 
-export default function ConfiguracionPage() {
-  const [notifications, setNotifications] = React.useState({
-    email_reservations: true,
-    email_reminders: true,
-    email_promotions: false,
-    email_newsletter: true,
-    sms_reminders: false,
-  })
+interface NotificationSettings {
+  emailReservations: boolean
+  emailReminders: boolean
+  emailPromotions: boolean
+  emailNewsletter: boolean
+  smsReminders: boolean
+}
 
-  const handleToggle = (key: keyof typeof notifications) => {
+export default function ConfiguracionPage() {
+  const [notifications, setNotifications] = React.useState<NotificationSettings>({
+    emailReservations: true,
+    emailReminders: true,
+    emailPromotions: false,
+    emailNewsletter: true,
+    smsReminders: false,
+  })
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [saveSuccess, setSaveSuccess] = React.useState(false)
+  const [saveError, setSaveError] = React.useState<string | null>(null)
+
+  // Fetch notification settings on mount
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/user/notification-settings')
+        if (response.ok) {
+          const data = await response.json()
+          setNotifications(data)
+        }
+      } catch (error) {
+        console.error('Error fetching notification settings:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchSettings()
+  }, [])
+
+  const handleToggle = (key: keyof NotificationSettings) => {
     setNotifications((prev) => ({
       ...prev,
       [key]: !prev[key],
     }))
+    // Clear any previous success/error when making changes
+    setSaveSuccess(false)
+    setSaveError(null)
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    setSaveSuccess(false)
+    setSaveError(null)
+
+    try {
+      const response = await fetch('/api/user/notification-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notifications),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setSaveSuccess(true)
+        // Clear success message after 3 seconds
+        setTimeout(() => setSaveSuccess(false), 3000)
+      } else {
+        setSaveError(data.error || 'Error al guardar las preferencias')
+      }
+    } catch (error) {
+      console.error('Error saving notification settings:', error)
+      setSaveError('Error de conexión')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -43,6 +114,22 @@ export default function ConfiguracionPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Success message */}
+          {saveSuccess && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700 text-sm">
+              <Check className="h-4 w-4" />
+              Preferencias guardadas correctamente
+            </div>
+          )}
+
+          {/* Error message */}
+          {saveError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
+              <AlertCircle className="h-4 w-4" />
+              {saveError}
+            </div>
+          )}
+
           {/* Email notifications */}
           <div>
             <h3 className="font-medium text-foreground mb-4 flex items-center gap-2">
@@ -61,8 +148,8 @@ export default function ConfiguracionPage() {
                 </div>
                 <input
                   type="checkbox"
-                  checked={notifications.email_reservations}
-                  onChange={() => handleToggle('email_reservations')}
+                  checked={notifications.emailReservations}
+                  onChange={() => handleToggle('emailReservations')}
                   className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
                 />
               </label>
@@ -78,8 +165,8 @@ export default function ConfiguracionPage() {
                 </div>
                 <input
                   type="checkbox"
-                  checked={notifications.email_reminders}
-                  onChange={() => handleToggle('email_reminders')}
+                  checked={notifications.emailReminders}
+                  onChange={() => handleToggle('emailReminders')}
                   className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
                 />
               </label>
@@ -95,8 +182,8 @@ export default function ConfiguracionPage() {
                 </div>
                 <input
                   type="checkbox"
-                  checked={notifications.email_promotions}
-                  onChange={() => handleToggle('email_promotions')}
+                  checked={notifications.emailPromotions}
+                  onChange={() => handleToggle('emailPromotions')}
                   className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
                 />
               </label>
@@ -110,8 +197,8 @@ export default function ConfiguracionPage() {
                 </div>
                 <input
                   type="checkbox"
-                  checked={notifications.email_newsletter}
-                  onChange={() => handleToggle('email_newsletter')}
+                  checked={notifications.emailNewsletter}
+                  onChange={() => handleToggle('emailNewsletter')}
                   className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
                 />
               </label>
@@ -135,14 +222,19 @@ export default function ConfiguracionPage() {
               </div>
               <input
                 type="checkbox"
-                checked={notifications.sms_reminders}
-                onChange={() => handleToggle('sms_reminders')}
+                checked={notifications.smsReminders}
+                onChange={() => handleToggle('smsReminders')}
                 className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
               />
             </label>
           </div>
 
-          <Button variant="outline" className="w-full sm:w-auto">
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={handleSave}
+            isLoading={isSaving}
+          >
             Guardar preferencias
           </Button>
         </CardContent>

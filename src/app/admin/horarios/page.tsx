@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -39,11 +39,14 @@ interface ClassItem {
   discipline: string
   instructorId: string
   instructor: string
+  dateTime: string
   time: string
   duration: number
   maxCapacity: number
   dayOfWeek: number
   isRecurring: boolean
+  isCancelled?: boolean
+  reservationsCount?: number
 }
 
 const disciplineColors: Record<string, string> = {
@@ -54,58 +57,22 @@ const disciplineColors: Record<string, string> = {
   nutricion: 'bg-[#6B7F5E]',
 }
 
-// Mock schedule data - in a real app, this would come from an API
-const initialClasses: ClassItem[] = [
-  {
-    id: '1',
-    disciplineId: 'discipline-yoga',
-    discipline: 'Yoga',
-    instructorId: 'instructor-nicole',
-    instructor: 'Nicole Soundy',
-    time: '06:00',
-    duration: 60,
-    maxCapacity: 15,
-    dayOfWeek: 1,
-    isRecurring: true,
-  },
-  {
-    id: '2',
-    disciplineId: 'discipline-pilates',
-    discipline: 'Pilates Mat',
-    instructorId: 'instructor-florence',
-    instructor: 'Florence Cervantes',
-    time: '08:00',
-    duration: 55,
-    maxCapacity: 12,
-    dayOfWeek: 1,
-    isRecurring: true,
-  },
-  {
-    id: '3',
-    disciplineId: 'discipline-pole',
-    discipline: 'Pole Sport',
-    instructorId: 'instructor-denisse',
-    instructor: 'Denisse Soundy',
-    time: '18:00',
-    duration: 60,
-    maxCapacity: 8,
-    dayOfWeek: 3,
-    isRecurring: true,
-  },
-]
-
 export default function AdminHorariosPage() {
   // Data from database
   const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
   const [instructors, setInstructors] = React.useState<Instructor[]>([])
   const [isDataLoading, setIsDataLoading] = React.useState(true)
 
-  // Local state for classes (would be from API in production)
-  const [classes, setClasses] = React.useState<ClassItem[]>(initialClasses)
+  // Classes from database
+  const [classes, setClasses] = React.useState<ClassItem[]>([])
   const [isModalOpen, setIsModalOpen] = React.useState(false)
   const [editingClass, setEditingClass] = React.useState<ClassItem | null>(null)
   const [selectedDay, setSelectedDay] = React.useState<number | null>(null)
   const [isLoading, setIsLoading] = React.useState(false)
+  const [isDeleting, setIsDeleting] = React.useState(false)
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null)
   const [currentWeekStart, setCurrentWeekStart] = React.useState(() => {
     const today = new Date()
     const day = today.getDay()
@@ -113,13 +80,45 @@ export default function AdminHorariosPage() {
     return new Date(today.setDate(diff))
   })
 
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message)
+    setErrorMessage(null)
+    setTimeout(() => setSuccessMessage(null), 3000)
+  }
+
+  const showError = (message: string) => {
+    setErrorMessage(message)
+    setSuccessMessage(null)
+    setTimeout(() => setErrorMessage(null), 5000)
+  }
+
+  // Fetch classes for the current week
+  const fetchClasses = React.useCallback(async () => {
+    try {
+      const weekEnd = new Date(currentWeekStart)
+      weekEnd.setDate(weekEnd.getDate() + 6)
+      weekEnd.setHours(23, 59, 59, 999)
+
+      const response = await fetch(
+        `/api/admin/classes?startDate=${currentWeekStart.toISOString()}&endDate=${weekEnd.toISOString()}`
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        setClasses(data)
+      }
+    } catch (error) {
+      console.error('Error fetching classes:', error)
+    }
+  }, [currentWeekStart])
+
   // Fetch disciplines and instructors from database
   React.useEffect(() => {
     const fetchData = async () => {
       try {
         const [disciplinesRes, instructorsRes] = await Promise.all([
           fetch('/api/disciplines'),
-          fetch('/api/instructors'),
+          fetch('/api/admin/instructors'),
         ])
 
         if (disciplinesRes.ok) {
@@ -140,6 +139,13 @@ export default function AdminHorariosPage() {
 
     fetchData()
   }, [])
+
+  // Fetch classes when week changes
+  React.useEffect(() => {
+    if (!isDataLoading) {
+      fetchClasses()
+    }
+  }, [currentWeekStart, isDataLoading, fetchClasses])
 
   const weekDays = getWeekDays()
 
@@ -167,9 +173,17 @@ export default function AdminHorariosPage() {
     setCurrentWeekStart(newDate)
   }
 
-  const getClassesForDay = (dayIndex: number) => {
+  const getClassesForDay = (date: Date) => {
+    // Filter classes for this specific date
     return classes
-      .filter((cls) => cls.dayOfWeek === dayIndex)
+      .filter((cls) => {
+        const classDate = new Date(cls.dateTime)
+        return (
+          classDate.getDate() === date.getDate() &&
+          classDate.getMonth() === date.getMonth() &&
+          classDate.getFullYear() === date.getFullYear()
+        )
+      })
       .sort((a, b) => a.time.localeCompare(b.time))
   }
 
@@ -193,46 +207,100 @@ export default function AdminHorariosPage() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
+    setErrorMessage(null)
 
     const formData = new FormData(e.currentTarget)
     const disciplineId = formData.get('disciplineId') as string
     const instructorId = formData.get('instructorId') as string
 
-    const data: Omit<ClassItem, 'id'> = {
-      disciplineId,
-      discipline: disciplines.find((d) => d.id === disciplineId)?.name || '',
-      instructorId,
-      instructor: instructors.find((i) => i.id === instructorId)?.name || '',
-      time: formData.get('time') as string,
-      duration: parseInt(formData.get('duration') as string),
-      maxCapacity: parseInt(formData.get('maxCapacity') as string),
-      dayOfWeek: parseInt(formData.get('dayOfWeek') as string),
-      isRecurring: formData.get('isRecurring') === 'on',
+    try {
+      if (editingClass) {
+        // Update existing class
+        const response = await fetch(`/api/admin/classes/${editingClass.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            disciplineId,
+            instructorId,
+            time: formData.get('time') as string,
+            duration: parseInt(formData.get('duration') as string),
+            maxCapacity: parseInt(formData.get('maxCapacity') as string),
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          showError(data.error || 'Error al actualizar la clase')
+          return
+        }
+
+        showSuccess('Clase actualizada correctamente')
+      } else {
+        // Create new class(es)
+        const response = await fetch('/api/admin/classes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            disciplineId,
+            instructorId,
+            dayOfWeek: parseInt(formData.get('dayOfWeek') as string),
+            time: formData.get('time') as string,
+            duration: parseInt(formData.get('duration') as string),
+            maxCapacity: parseInt(formData.get('maxCapacity') as string),
+            isRecurring: formData.get('isRecurring') === 'on',
+            weeksAhead: formData.get('isRecurring') === 'on' ? 4 : 1,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          showError(data.error || 'Error al crear la clase')
+          return
+        }
+
+        showSuccess(data.message || 'Clase creada correctamente')
+      }
+
+      // Refresh classes
+      await fetchClasses()
+      setIsModalOpen(false)
+    } catch (error) {
+      console.error('Error saving class:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsLoading(false)
     }
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    if (editingClass) {
-      setClasses((prev) =>
-        prev.map((c) =>
-          c.id === editingClass.id ? { ...c, ...data } : c
-        )
-      )
-    } else {
-      setClasses((prev) => [
-        ...prev,
-        { id: Date.now().toString(), ...data },
-      ])
-    }
-
-    setIsLoading(false)
-    setIsModalOpen(false)
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Estás segura de eliminar esta clase?')) {
-      setClasses((prev) => prev.filter((c) => c.id !== id))
+    setIsDeleting(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch(`/api/admin/classes/${id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        showError(data.error || 'Error al eliminar la clase')
+        setDeleteConfirmId(null)
+        setIsModalOpen(false)
+        return
+      }
+
+      showSuccess('Clase eliminada correctamente')
+      await fetchClasses()
+      setIsModalOpen(false)
+    } catch (error) {
+      console.error('Error deleting class:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsDeleting(false)
+      setDeleteConfirmId(null)
     }
   }
 
@@ -261,6 +329,21 @@ export default function AdminHorariosPage() {
           Nueva Clase
         </Button>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
+          <Check className="h-5 w-5" />
+          {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+          <AlertCircle className="h-5 w-5" />
+          {errorMessage}
+        </div>
+      )}
 
       {/* Week Navigation */}
       <div className="flex items-center justify-center gap-4">
@@ -298,7 +381,7 @@ export default function AdminHorariosPage() {
         {/* Classes grid */}
         <div className="grid grid-cols-7 min-h-[500px]">
           {weekDates.map((date, dayIndex) => {
-            const dayClasses = getClassesForDay(date.getDay())
+            const dayClasses = getClassesForDay(date)
             return (
               <div
                 key={dayIndex}
@@ -309,14 +392,19 @@ export default function AdminHorariosPage() {
                     key={cls.id}
                     className={cn(
                       'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
-                      getDisciplineColor(cls.discipline)
+                      cls.isCancelled ? 'bg-gray-400' : getDisciplineColor(cls.discipline)
                     )}
                     onClick={() => handleEdit(cls)}
                   >
                     <p className="font-medium">{cls.discipline}</p>
                     <p className="opacity-90">{cls.time}</p>
                     <p className="opacity-90">{cls.instructor.split(' ')[0]}</p>
-                    <p className="opacity-90">{cls.maxCapacity} cupos</p>
+                    <p className="opacity-90">
+                      {cls.reservationsCount || 0}/{cls.maxCapacity} cupos
+                    </p>
+                    {cls.isCancelled && (
+                      <p className="text-[10px] font-medium uppercase mt-1">Cancelada</p>
+                    )}
                   </div>
                 ))}
                 <button
@@ -386,29 +474,29 @@ export default function AdminHorariosPage() {
                 </Select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Día de la semana
-                </label>
-                <Select
-                  name="dayOfWeek"
-                  defaultValue={
-                    editingClass?.dayOfWeek?.toString() || selectedDay?.toString()
-                  }
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar día" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {weekDays.map((day, index) => (
-                      <SelectItem key={index} value={index.toString()}>
-                        {day}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {!editingClass && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Día de la semana
+                  </label>
+                  <Select
+                    name="dayOfWeek"
+                    defaultValue={selectedDay?.toString()}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar día" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {weekDays.map((day, index) => (
+                        <SelectItem key={index} value={index.toString()}>
+                          {day}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -437,15 +525,24 @@ export default function AdminHorariosPage() {
                 required
               />
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="isRecurring"
-                  defaultChecked={editingClass?.isRecurring ?? true}
-                  className="rounded border-beige-dark text-primary focus:ring-primary"
-                />
-                <span className="text-sm">Clase recurrente (cada semana)</span>
-              </label>
+              {!editingClass && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="isRecurring"
+                    defaultChecked={true}
+                    className="rounded border-beige-dark text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm">Clase recurrente (crear para las próximas 4 semanas)</span>
+                </label>
+              )}
+
+              {editingClass && editingClass.reservationsCount && editingClass.reservationsCount > 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+                  <AlertCircle className="h-4 w-4 inline mr-2" />
+                  Esta clase tiene {editingClass.reservationsCount} reservación(es) activa(s).
+                </div>
+              )}
             </div>
 
             <ModalFooter>
@@ -453,8 +550,9 @@ export default function AdminHorariosPage() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => handleDelete(editingClass.id)}
+                  onClick={() => setDeleteConfirmId(editingClass.id)}
                   className="mr-auto text-[var(--color-error)]"
+                  disabled={isDeleting}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Eliminar
@@ -464,6 +562,7 @@ export default function AdminHorariosPage() {
                 type="button"
                 variant="ghost"
                 onClick={() => setIsModalOpen(false)}
+                disabled={isLoading}
               >
                 Cancelar
               </Button>
@@ -472,6 +571,37 @@ export default function AdminHorariosPage() {
               </Button>
             </ModalFooter>
           </form>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!deleteConfirmId} onOpenChange={() => !isDeleting && setDeleteConfirmId(null)}>
+        <ModalContent className="max-w-sm">
+          <ModalHeader>
+            <ModalTitle>Confirmar eliminación</ModalTitle>
+          </ModalHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              ¿Estás segura de que deseas eliminar esta clase? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1"
+                disabled={isDeleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                isLoading={isDeleting}
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
         </ModalContent>
       </Modal>
     </div>
