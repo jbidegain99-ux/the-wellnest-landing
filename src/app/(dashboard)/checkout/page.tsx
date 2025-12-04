@@ -100,6 +100,17 @@ export default function CheckoutPage() {
     discountCode: appliedDiscount?.code
   })
 
+  // Auto-redirect to mis-paquetes after success
+  React.useEffect(() => {
+    if (isComplete) {
+      console.log('[CHECKOUT] Purchase complete! Redirecting in 5 seconds...')
+      const timer = setTimeout(() => {
+        router.push('/perfil/paquetes')
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [isComplete, router])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsProcessing(true)
@@ -190,17 +201,6 @@ export default function CheckoutPage() {
       </div>
     )
   }
-
-  // Auto-redirect to mis-paquetes after success
-  React.useEffect(() => {
-    if (isComplete) {
-      console.log('[CHECKOUT] Purchase complete! Redirecting in 5 seconds...')
-      const timer = setTimeout(() => {
-        router.push('/perfil/paquetes')
-      }, 5000)
-      return () => clearTimeout(timer)
-    }
-  }, [isComplete, router])
 
   // Success state
   if (isComplete) {
