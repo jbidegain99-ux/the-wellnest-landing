@@ -184,6 +184,12 @@ export async function POST(request: Request) {
       if (discount) {
         discountPercentage = discount.percentage
         validatedDiscountCode = discount.code
+      } else {
+        // Discount code was provided but is invalid/expired/maxed out
+        return NextResponse.json(
+          { error: 'El código de descuento no es válido o ha expirado. Por favor, verifica el código e intenta de nuevo.' },
+          { status: 400 }
+        )
       }
     }
 

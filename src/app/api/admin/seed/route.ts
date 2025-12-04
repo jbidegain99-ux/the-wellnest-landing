@@ -248,6 +248,19 @@ export async function POST() {
       },
     })
 
+    // 100% discount code for testing free orders
+    await prisma.discountCode.upsert({
+      where: { code: 'GRATIS100' },
+      update: {},
+      create: {
+        code: 'GRATIS100',
+        percentage: 100,
+        maxUses: 1000,
+        validFrom: new Date(),
+        validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      },
+    })
+
     // Get discipline and instructor references
     const yoga = disciplines.find((d) => d.slug === 'yoga')!
     const pilates = disciplines.find((d) => d.slug === 'pilates')!
