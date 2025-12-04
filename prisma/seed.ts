@@ -276,6 +276,19 @@ async function main() {
     },
   })
 
+  // 100% discount code for testing free orders
+  await prisma.discountCode.upsert({
+    where: { code: 'GRATIS100' },
+    update: {},
+    create: {
+      code: 'GRATIS100',
+      percentage: 100,
+      maxUses: 1000,
+      validFrom: new Date(),
+      validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+    },
+  })
+
   console.log('Created discount codes')
 
   // Get discipline and instructor IDs

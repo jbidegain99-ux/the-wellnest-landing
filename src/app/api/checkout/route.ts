@@ -44,6 +44,7 @@ async function handleSuccessfulPayment({
   discountCode?: string
   discountPercentage?: number
 }) {
+  console.log('[CHECKOUT API] Creating purchase records for user:', userId)
   const purchases = []
 
   for (const item of items) {
@@ -52,6 +53,14 @@ async function handleSuccessfulPayment({
       const finalPrice = discountPercentage
         ? originalPrice * (1 - discountPercentage / 100)
         : originalPrice
+
+      console.log('[CHECKOUT API] Creating purchase:', {
+        packageId: item.packageId,
+        packageName: item.package.name,
+        classCount: item.package.classCount,
+        originalPrice,
+        finalPrice,
+      })
 
       const purchase = await prisma.purchase.create({
         data: {
@@ -63,11 +72,18 @@ async function handleSuccessfulPayment({
           finalPrice,
           discountCode: discountCode || null,
           status: 'ACTIVE',
-          stripePaymentId: isTestMode ? `test_${Date.now()}_${i}` : null,
+          stripePaymentId: isTestMode ? `test_${Date.now()}_${i}` : `free_${Date.now()}_${i}`,
         },
         include: {
           package: true,
         },
+      })
+
+      console.log('[CHECKOUT API] Purchase created:', {
+        id: purchase.id,
+        packageName: purchase.package.name,
+        classesRemaining: purchase.classesRemaining,
+        status: purchase.status,
       })
 
       purchases.push(purchase)
@@ -76,12 +92,14 @@ async function handleSuccessfulPayment({
 
   // Update discount code usage if used
   if (discountCode) {
+    console.log('[CHECKOUT API] Updating discount code usage:', discountCode)
     await prisma.discountCode.updateMany({
       where: { code: discountCode },
       data: { currentUses: { increment: 1 } },
     })
   }
 
+  console.log('[CHECKOUT API] Total purchases created:', purchases.length)
   return purchases
 }
 
@@ -119,10 +137,13 @@ async function validateDiscountCode(code: string, packageIds: string[]) {
 }
 
 export async function POST(request: Request) {
+  console.log('[CHECKOUT API] POST request received')
+
   try {
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
+      console.log('[CHECKOUT API] No authenticated user')
       return NextResponse.json(
         { error: 'Debes iniciar sesión para completar la compra' },
         { status: 401 }
@@ -132,6 +153,8 @@ export async function POST(request: Request) {
     const userId = session.user.id
     const body = await request.json()
     const { discountCode } = body
+
+    console.log('[CHECKOUT API] Request data:', { userId, discountCode })
 
     // Get cart items
     const cartSessionId = await getCartSessionId()
@@ -180,10 +203,19 @@ export async function POST(request: Request) {
     let validatedDiscountCode: string | undefined
 
     if (discountCode) {
+      console.log('[CHECKOUT API] Validating discount code:', discountCode)
       const discount = await validateDiscountCode(discountCode, packageIds)
       if (discount) {
         discountPercentage = discount.percentage
         validatedDiscountCode = discount.code
+        console.log('[CHECKOUT API] Discount valid:', { code: discount.code, percentage: discount.percentage })
+      } else {
+        console.log('[CHECKOUT API] Discount code invalid or expired')
+        // Discount code was provided but is invalid/expired/maxed out
+        return NextResponse.json(
+          { error: 'El código de descuento no es válido o ha expirado. Por favor, verifica el código e intenta de nuevo.' },
+          { status: 400 }
+        )
       }
     }
 
@@ -195,8 +227,19 @@ export async function POST(request: Request) {
     const discountAmount = subtotal * (discountPercentage / 100)
     const total = subtotal - discountAmount
 
-    if (isTestMode) {
-      // TEST MODE: Simulate successful payment and create purchases immediately
+    console.log('[CHECKOUT API] Order totals:', {
+      subtotal,
+      discountPercentage,
+      discountAmount,
+      total,
+      isTestMode,
+      isFreeOrder: total === 0,
+    })
+
+    // If total is 0 (100% discount) or in test mode, process immediately
+    if (total === 0 || isTestMode) {
+      console.log('[CHECKOUT API] Processing free/test order - no payment required')
+      // Process purchase immediately - no payment needed for $0 or test mode
       const purchases = await handleSuccessfulPayment({
         userId,
         items: itemsWithPackages,
@@ -205,14 +248,27 @@ export async function POST(request: Request) {
       })
 
       // Clear cart after successful purchase
+      console.log('[CHECKOUT API] Clearing cart for session:', cartSessionId)
       await prisma.cartItem.deleteMany({
         where: { sessionId: cartSessionId },
+      })
+      console.log('[CHECKOUT API] Cart cleared successfully')
+
+      console.log('[CHECKOUT API] Order completed successfully!', {
+        purchaseCount: purchases.length,
+        totalClasses: purchases.reduce((sum, p) => sum + p.classesRemaining, 0),
+        isFreeOrder: total === 0,
+        isTestMode,
       })
 
       return NextResponse.json({
         success: true,
-        testMode: true,
-        message: 'Paquete activado correctamente (modo prueba)',
+        mode: total === 0 ? 'free_purchase' : 'test_purchase',
+        testMode: isTestMode,
+        freeOrder: total === 0,
+        message: total === 0
+          ? 'Paquete asignado exitosamente sin procesar pago.'
+          : 'Paquete activado correctamente (modo prueba)',
         purchases: purchases.map((p) => ({
           id: p.id,
           packageName: p.package.name,

@@ -2,11 +2,16 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: Request) {
+  console.log('[DISCOUNT API] Validating discount code...')
+
   try {
     const body = await request.json()
     const { code, packageIds = [] } = body
 
+    console.log('[DISCOUNT API] Request:', { code, packageIds })
+
     if (!code) {
+      console.log('[DISCOUNT API] No code provided')
       return NextResponse.json(
         { valid: false, error: 'Código requerido' },
         { status: 400 }
@@ -21,6 +26,16 @@ export async function POST(request: Request) {
         validUntil: { gte: new Date() },
       },
     })
+
+    console.log('[DISCOUNT API] Discount found:', discount ? {
+      code: discount.code,
+      percentage: discount.percentage,
+      isActive: discount.isActive,
+      validFrom: discount.validFrom,
+      validUntil: discount.validUntil,
+      currentUses: discount.currentUses,
+      maxUses: discount.maxUses,
+    } : 'Not found')
 
     if (!discount) {
       return NextResponse.json({
