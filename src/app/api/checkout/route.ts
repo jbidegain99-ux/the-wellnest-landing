@@ -195,8 +195,9 @@ export async function POST(request: Request) {
     const discountAmount = subtotal * (discountPercentage / 100)
     const total = subtotal - discountAmount
 
-    if (isTestMode) {
-      // TEST MODE: Simulate successful payment and create purchases immediately
+    // If total is 0 (100% discount) or in test mode, process immediately
+    if (total === 0 || isTestMode) {
+      // Process purchase immediately - no payment needed for $0 or test mode
       const purchases = await handleSuccessfulPayment({
         userId,
         items: itemsWithPackages,
@@ -211,8 +212,11 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        testMode: true,
-        message: 'Paquete activado correctamente (modo prueba)',
+        testMode: isTestMode,
+        freeOrder: total === 0,
+        message: total === 0
+          ? '¡Paquete activado gratis con tu código de descuento!'
+          : 'Paquete activado correctamente (modo prueba)',
         purchases: purchases.map((p) => ({
           id: p.id,
           packageName: p.package.name,
