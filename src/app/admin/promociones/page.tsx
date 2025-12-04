@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Edit2, Trash2, Copy } from 'lucide-react'
+import { Plus, Edit2, Trash2, Copy, Loader2, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
@@ -15,48 +15,65 @@ import {
 } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
 
-// Mock promotions data
-const initialPromotions = [
-  {
-    id: '1',
-    code: 'WELCOME10',
-    percentage: 10,
-    maxUses: 100,
-    currentUses: 45,
-    validFrom: new Date('2024-01-01'),
-    validUntil: new Date('2024-12-31'),
-    isActive: true,
-  },
-  {
-    id: '2',
-    code: 'NEWYEAR20',
-    percentage: 20,
-    maxUses: 50,
-    currentUses: 50,
-    validFrom: new Date('2024-01-01'),
-    validUntil: new Date('2024-01-31'),
-    isActive: false,
-  },
-  {
-    id: '3',
-    code: 'FRIEND15',
-    percentage: 15,
-    maxUses: null,
-    currentUses: 23,
-    validFrom: new Date('2024-01-01'),
-    validUntil: new Date('2024-06-30'),
-    isActive: true,
-  },
-]
+interface DiscountCode {
+  id: string
+  code: string
+  percentage: number
+  maxUses: number | null
+  currentUses: number
+  validFrom: string
+  validUntil: string
+  isActive: boolean
+  applicableTo: string[]
+  createdAt: string
+}
 
 export default function AdminPromocionesPage() {
-  const [promotions, setPromotions] = React.useState(initialPromotions)
+  const [discountCodes, setDiscountCodes] = React.useState<DiscountCode[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
   const [isModalOpen, setIsModalOpen] = React.useState(false)
-  const [editingPromo, setEditingPromo] = React.useState<typeof initialPromotions[0] | null>(null)
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [editingPromo, setEditingPromo] = React.useState<DiscountCode | null>(null)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [isDeleting, setIsDeleting] = React.useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null)
   const [copiedCode, setCopiedCode] = React.useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
-  const handleEdit = (promo: typeof initialPromotions[0]) => {
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message)
+    setErrorMessage(null)
+    setTimeout(() => setSuccessMessage(null), 3000)
+  }
+
+  const showError = (message: string) => {
+    setErrorMessage(message)
+    setSuccessMessage(null)
+    setTimeout(() => setErrorMessage(null), 5000)
+  }
+
+  // Fetch discount codes from database
+  const fetchDiscountCodes = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/discount-codes')
+      if (response.ok) {
+        const data = await response.json()
+        setDiscountCodes(data.discountCodes || [])
+      }
+    } catch (error) {
+      console.error('Error fetching discount codes:', error)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const loadData = async () => {
+      await fetchDiscountCodes()
+      setIsLoading(false)
+    }
+    loadData()
+  }, [fetchDiscountCodes])
+
+  const handleEdit = (promo: DiscountCode) => {
     setEditingPromo(promo)
     setIsModalOpen(true)
   }
@@ -83,54 +100,128 @@ export default function AdminPromocionesPage() {
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsLoading(true)
+    setIsSaving(true)
+    setErrorMessage(null)
 
     const formData = new FormData(e.currentTarget)
     const data = {
-      code: (formData.get('code') as string).toUpperCase(),
+      code: (formData.get('code') as string).toUpperCase().trim(),
       percentage: parseFloat(formData.get('percentage') as string),
       maxUses: formData.get('maxUses') ? parseInt(formData.get('maxUses') as string) : null,
-      validFrom: new Date(formData.get('validFrom') as string),
-      validUntil: new Date(formData.get('validUntil') as string),
+      validFrom: formData.get('validFrom') as string,
+      validUntil: formData.get('validUntil') as string,
       isActive: formData.get('isActive') === 'on',
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      if (editingPromo) {
+        // Update existing discount code
+        const response = await fetch(`/api/admin/discount-codes/${editingPromo.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
 
-    if (editingPromo) {
-      setPromotions((prev) =>
-        prev.map((p) =>
-          p.id === editingPromo.id ? { ...p, ...data } : p
-        )
-      )
-    } else {
-      setPromotions((prev) => [
-        ...prev,
-        { id: Date.now().toString(), currentUses: 0, ...data },
-      ])
+        const result = await response.json()
+
+        if (!response.ok) {
+          showError(result.error || 'Error al actualizar el código')
+          setIsSaving(false)
+          return
+        }
+
+        showSuccess('Código actualizado correctamente')
+      } else {
+        // Create new discount code
+        const response = await fetch('/api/admin/discount-codes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+
+        const result = await response.json()
+
+        if (!response.ok) {
+          showError(result.error || 'Error al crear el código')
+          setIsSaving(false)
+          return
+        }
+
+        showSuccess('Código creado correctamente')
+      }
+
+      // Refresh the list
+      await fetchDiscountCodes()
+      setIsModalOpen(false)
+    } catch (error) {
+      console.error('Error saving discount code:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsSaving(false)
     }
-
-    setIsLoading(false)
-    setIsModalOpen(false)
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Estás segura de eliminar esta promoción?')) {
-      setPromotions((prev) => prev.filter((p) => p.id !== id))
+    setIsDeleting(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch(`/api/admin/discount-codes/${id}`, {
+        method: 'DELETE',
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        showError(result.error || 'Error al eliminar el código')
+        setDeleteConfirmId(null)
+        setIsDeleting(false)
+        return
+      }
+
+      showSuccess('Código eliminado correctamente')
+      await fetchDiscountCodes()
+    } catch (error) {
+      console.error('Error deleting discount code:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsDeleting(false)
+      setDeleteConfirmId(null)
     }
   }
 
-  const toggleActive = (id: string) => {
-    setPromotions((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, isActive: !p.isActive } : p
-      )
-    )
+  const toggleActive = async (id: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/discount-codes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentStatus }),
+      })
+
+      if (response.ok) {
+        showSuccess(currentStatus ? 'Código desactivado' : 'Código activado')
+        await fetchDiscountCodes()
+      } else {
+        const result = await response.json()
+        showError(result.error || 'Error al cambiar el estado')
+      }
+    } catch (error) {
+      console.error('Error toggling status:', error)
+      showError('Error de conexión')
+    }
   }
 
-  const isExpired = (date: Date) => new Date(date) < new Date()
-  const isMaxedOut = (promo: typeof initialPromotions[0]) =>
+  const isExpired = (dateStr: string) => new Date(dateStr) < new Date()
+  const isMaxedOut = (promo: DiscountCode) =>
     promo.maxUses !== null && promo.currentUses >= promo.maxUses
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
@@ -149,6 +240,21 @@ export default function AdminPromocionesPage() {
           Nueva Promoción
         </Button>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
+          <Check className="h-5 w-5" />
+          {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+          <AlertCircle className="h-5 w-5" />
+          {errorMessage}
+        </div>
+      )}
 
       {/* Promotions Table */}
       <Card>
@@ -178,74 +284,82 @@ export default function AdminPromocionesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-beige">
-                {promotions.map((promo) => (
-                  <tr key={promo.id}>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <code className="font-mono font-medium text-foreground bg-beige px-2 py-1 rounded">
-                          {promo.code}
-                        </code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCopyCode(promo.code)}
-                        >
-                          {copiedCode === promo.code ? '✓' : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-medium text-primary">
-                      {promo.percentage}%
-                    </td>
-                    <td className="py-3 px-4 text-gray-600">
-                      {promo.currentUses}
-                      {promo.maxUses !== null && ` / ${promo.maxUses}`}
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">
-                      <div>
-                        {formatDate(promo.validFrom)} -
-                      </div>
-                      <div>{formatDate(promo.validUntil)}</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      {isExpired(promo.validUntil) ? (
-                        <Badge variant="error">Vencido</Badge>
-                      ) : isMaxedOut(promo) ? (
-                        <Badge variant="warning">Agotado</Badge>
-                      ) : promo.isActive ? (
-                        <Badge variant="success">Activo</Badge>
-                      ) : (
-                        <Badge variant="error">Inactivo</Badge>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(promo)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleActive(promo.id)}
-                        >
-                          {promo.isActive ? 'Desactivar' : 'Activar'}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(promo.id)}
-                          className="text-[var(--color-error)]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {discountCodes.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-gray-500">
+                      No hay códigos de descuento. Crea uno nuevo.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  discountCodes.map((promo) => (
+                    <tr key={promo.id}>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <code className="font-mono font-medium text-foreground bg-beige px-2 py-1 rounded">
+                            {promo.code}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyCode(promo.code)}
+                          >
+                            {copiedCode === promo.code ? '✓' : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 font-medium text-primary">
+                        {promo.percentage}%
+                      </td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {promo.currentUses}
+                        {promo.maxUses !== null && ` / ${promo.maxUses}`}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        <div>
+                          {formatDate(new Date(promo.validFrom))} -
+                        </div>
+                        <div>{formatDate(new Date(promo.validUntil))}</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        {isExpired(promo.validUntil) ? (
+                          <Badge variant="error">Vencido</Badge>
+                        ) : isMaxedOut(promo) ? (
+                          <Badge variant="warning">Agotado</Badge>
+                        ) : promo.isActive ? (
+                          <Badge variant="success">Activo</Badge>
+                        ) : (
+                          <Badge variant="error">Inactivo</Badge>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(promo)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleActive(promo.id, promo.isActive)}
+                          >
+                            {promo.isActive ? 'Desactivar' : 'Activar'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteConfirmId(promo.id)}
+                            className="text-[var(--color-error)]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -348,14 +462,46 @@ export default function AdminPromocionesPage() {
                 type="button"
                 variant="ghost"
                 onClick={() => setIsModalOpen(false)}
+                disabled={isSaving}
               >
                 Cancelar
               </Button>
-              <Button type="submit" isLoading={isLoading}>
+              <Button type="submit" isLoading={isSaving}>
                 {editingPromo ? 'Guardar Cambios' : 'Crear Promoción'}
               </Button>
             </ModalFooter>
           </form>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!deleteConfirmId} onOpenChange={() => !isDeleting && setDeleteConfirmId(null)}>
+        <ModalContent className="max-w-sm">
+          <ModalHeader>
+            <ModalTitle>Confirmar eliminación</ModalTitle>
+          </ModalHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              ¿Estás segura de que deseas eliminar este código de descuento? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1"
+                disabled={isDeleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                isLoading={isDeleting}
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
         </ModalContent>
       </Modal>
     </div>
