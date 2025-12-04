@@ -63,9 +63,16 @@ export default function CheckoutPage() {
         }
 
         // Get discount from sessionStorage (set by cart page)
-        const savedDiscount = sessionStorage.getItem('cartDiscount')
-        if (savedDiscount) {
-          setAppliedDiscount(JSON.parse(savedDiscount))
+        try {
+          const savedDiscount = sessionStorage.getItem('cartDiscount')
+          if (savedDiscount) {
+            const parsed = JSON.parse(savedDiscount)
+            if (parsed && parsed.code && parsed.percentage) {
+              setAppliedDiscount(parsed)
+            }
+          }
+        } catch (storageError) {
+          console.error('[CHECKOUT] Error reading discount from storage:', storageError)
         }
       } catch (err) {
         console.error('Error fetching checkout data:', err)
@@ -99,6 +106,17 @@ export default function CheckoutPage() {
     testMode: checkoutData?.testMode,
     discountCode: appliedDiscount?.code
   })
+
+  // Auto-redirect to mis-paquetes after success
+  React.useEffect(() => {
+    if (isComplete) {
+      console.log('[CHECKOUT] Purchase complete! Redirecting in 5 seconds...')
+      const timer = setTimeout(() => {
+        router.push('/perfil/paquetes')
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [isComplete, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -190,17 +208,6 @@ export default function CheckoutPage() {
       </div>
     )
   }
-
-  // Auto-redirect to mis-paquetes after success
-  React.useEffect(() => {
-    if (isComplete) {
-      console.log('[CHECKOUT] Purchase complete! Redirecting in 5 seconds...')
-      const timer = setTimeout(() => {
-        router.push('/perfil/paquetes')
-      }, 5000)
-      return () => clearTimeout(timer)
-    }
-  }, [isComplete, router])
 
   // Success state
   if (isComplete) {
