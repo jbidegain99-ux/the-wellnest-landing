@@ -85,10 +85,31 @@ export default function CheckoutPage() {
     : 0
   const total = subtotal - discountAmount
 
+  // Determine if this is a free order (100% discount)
+  const isFreeOrder = total === 0 && subtotal > 0
+
+  // Show simplified form for test mode OR free orders
+  const showSimplifiedForm = checkoutData?.testMode || isFreeOrder
+
+  console.log('[CHECKOUT] State:', {
+    subtotal,
+    discountAmount,
+    total,
+    isFreeOrder,
+    testMode: checkoutData?.testMode,
+    discountCode: appliedDiscount?.code
+  })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsProcessing(true)
     setError(null)
+
+    console.log('[CHECKOUT] Submitting order:', {
+      discountCode: appliedDiscount?.code,
+      total,
+      isFreeOrder,
+    })
 
     try {
       const response = await fetch('/api/checkout', {
@@ -101,16 +122,24 @@ export default function CheckoutPage() {
 
       const data = await response.json()
 
+      console.log('[CHECKOUT] Response:', {
+        ok: response.ok,
+        status: response.status,
+        data
+      })
+
       if (response.ok) {
+        console.log('[CHECKOUT] Success! Purchases:', data.purchases)
         setPurchases(data.purchases || [])
         setIsComplete(true)
         // Clear discount from sessionStorage
         sessionStorage.removeItem('cartDiscount')
       } else {
+        console.error('[CHECKOUT] Error:', data.error)
         setError(data.error || 'Error al procesar el pago')
       }
     } catch (err) {
-      console.error('Error processing checkout:', err)
+      console.error('[CHECKOUT] Network error:', err)
       setError('Error de conexión. Por favor intenta de nuevo.')
     } finally {
       setIsProcessing(false)
@@ -162,6 +191,17 @@ export default function CheckoutPage() {
     )
   }
 
+  // Auto-redirect to mis-paquetes after success
+  React.useEffect(() => {
+    if (isComplete) {
+      console.log('[CHECKOUT] Purchase complete! Redirecting in 5 seconds...')
+      const timer = setTimeout(() => {
+        router.push('/perfil/paquetes')
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [isComplete, router])
+
   // Success state
   if (isComplete) {
     return (
@@ -173,10 +213,10 @@ export default function CheckoutPage() {
           ¡Compra Exitosa!
         </h1>
 
-        {checkoutData.testMode && (
+        {(checkoutData?.testMode || isFreeOrder) && (
           <div className="mb-4 inline-flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm">
             <TestTube2 className="h-4 w-4" />
-            Modo prueba
+            {isFreeOrder ? 'Paquete gratuito' : 'Modo prueba'}
           </div>
         )}
 
@@ -200,6 +240,10 @@ export default function CheckoutPage() {
             ))}
           </div>
         )}
+
+        <p className="text-sm text-gray-500 mb-4">
+          Serás redirigido a tus paquetes en unos segundos...
+        </p>
 
         <div className="space-y-4">
           <Link href="/reservar">
@@ -235,14 +279,18 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Test mode banner */}
-      {checkoutData.testMode && (
+      {/* Test mode or Free order banner */}
+      {showSimplifiedForm && (
         <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
           <TestTube2 className="h-5 w-5 text-amber-600" />
           <div className="flex-1">
-            <p className="font-medium text-amber-800">Modo de prueba activo</p>
+            <p className="font-medium text-amber-800">
+              {isFreeOrder ? '¡Orden gratuita!' : 'Modo de prueba activo'}
+            </p>
             <p className="text-sm text-amber-700">
-              Los pagos serán simulados. No se realizarán cargos reales.
+              {isFreeOrder
+                ? 'Tu código de descuento cubre el 100% del total. No se requiere pago.'
+                : 'Los pagos serán simulados. No se realizarán cargos reales.'}
             </p>
           </div>
         </div>
@@ -268,15 +316,19 @@ export default function CheckoutPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {checkoutData.testMode ? (
-                  // Test mode - simplified form
+                {showSimplifiedForm ? (
+                  // Test mode or Free order - simplified form
                   <div className="text-center py-6">
                     <TestTube2 className="h-12 w-12 mx-auto text-amber-500 mb-4" />
                     <p className="text-gray-600 mb-2">
-                      En modo prueba, el pago se simula automáticamente.
+                      {isFreeOrder
+                        ? '¡Tu descuento cubre el 100% del total!'
+                        : 'En modo prueba, el pago se simula automáticamente.'}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Haz clic en &quot;Confirmar compra&quot; para activar tu paquete.
+                      {isFreeOrder
+                        ? 'Haz clic en "Confirmar" para activar tu paquete gratis.'
+                        : 'Haz clic en "Confirmar compra" para activar tu paquete.'}
                     </p>
                   </div>
                 ) : (
@@ -326,7 +378,9 @@ export default function CheckoutPage() {
                 >
                   {isProcessing
                     ? 'Procesando...'
-                    : checkoutData.testMode
+                    : isFreeOrder
+                    ? 'Confirmar Paquete Gratis'
+                    : showSimplifiedForm
                     ? `Confirmar compra ${formatPrice(total)}`
                     : `Pagar ${formatPrice(total)}`}
                 </Button>
@@ -337,11 +391,11 @@ export default function CheckoutPage() {
           {/* Payment methods */}
           <div className="mt-6 flex items-center justify-center gap-4">
             <span className="text-sm text-gray-500">
-              {checkoutData.testMode ? 'Modo prueba' : 'Procesado por'}
+              {isFreeOrder ? 'Orden gratuita' : showSimplifiedForm ? 'Modo prueba' : 'Procesado por'}
             </span>
             <div className="flex items-center gap-2 text-gray-400">
               <span className="font-bold">
-                {checkoutData.testMode ? 'Sin cargos reales' : 'Stripe'}
+                {isFreeOrder ? 'Descuento 100%' : showSimplifiedForm ? 'Sin cargos reales' : 'Stripe'}
               </span>
             </div>
           </div>

@@ -110,6 +110,8 @@ export default function CarritoPage() {
     setDiscountError('')
     setIsApplyingDiscount(true)
 
+    console.log('[CART] Applying discount code:', discountCode)
+
     try {
       const packageIds = cartItems.map((item) => item.packageId)
       const response = await fetch('/api/discount/validate', {
@@ -120,14 +122,18 @@ export default function CarritoPage() {
 
       const data = await response.json()
 
+      console.log('[CART] Discount validation response:', data)
+
       if (data.valid) {
+        console.log('[CART] Discount applied:', { code: data.code, percentage: data.percentage })
         setAppliedDiscount({ code: data.code, percentage: data.percentage })
         setDiscountCode('')
       } else {
+        console.log('[CART] Discount invalid:', data.error)
         setDiscountError(data.error || 'Código de descuento inválido')
       }
     } catch (error) {
-      console.error('Error validating discount:', error)
+      console.error('[CART] Error validating discount:', error)
       setDiscountError('Error al validar el código')
     } finally {
       setIsApplyingDiscount(false)
@@ -139,11 +145,20 @@ export default function CarritoPage() {
   }
 
   const handleCheckout = () => {
+    console.log('[CART] Proceeding to checkout...', {
+      itemCount: cartItems.length,
+      subtotal,
+      discount: appliedDiscount,
+      total,
+    })
+
     // Store discount in sessionStorage for checkout page
     if (appliedDiscount) {
       sessionStorage.setItem('cartDiscount', JSON.stringify(appliedDiscount))
+      console.log('[CART] Discount saved to sessionStorage:', appliedDiscount)
     } else {
       sessionStorage.removeItem('cartDiscount')
+      console.log('[CART] No discount to save')
     }
     router.push('/checkout')
   }
