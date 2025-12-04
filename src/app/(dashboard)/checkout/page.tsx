@@ -63,9 +63,16 @@ export default function CheckoutPage() {
         }
 
         // Get discount from sessionStorage (set by cart page)
-        const savedDiscount = sessionStorage.getItem('cartDiscount')
-        if (savedDiscount) {
-          setAppliedDiscount(JSON.parse(savedDiscount))
+        try {
+          const savedDiscount = sessionStorage.getItem('cartDiscount')
+          if (savedDiscount) {
+            const parsed = JSON.parse(savedDiscount)
+            if (parsed && parsed.code && parsed.percentage) {
+              setAppliedDiscount(parsed)
+            }
+          }
+        } catch (storageError) {
+          console.error('[CHECKOUT] Error reading discount from storage:', storageError)
         }
       } catch (err) {
         console.error('Error fetching checkout data:', err)
