@@ -319,8 +319,8 @@ export async function POST() {
       { day: 6, hour: 17, minute: 0, discipline: soundbath, instructor: denisse, duration: 75, capacity: 20 },
     ]
 
-    // Generate classes for the next 14 days
-    for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+    // Generate classes for the next 60 days (approximately 2 months)
+    for (let dayOffset = 0; dayOffset < 60; dayOffset++) {
       const currentDate = addDays(today, dayOffset)
       const dayOfWeek = currentDate.getDay()
 

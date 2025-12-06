@@ -135,7 +135,20 @@ export async function POST(request: Request) {
       newStatus: updatedReservation.status,
       purchaseClassesRemaining: updatedPurchase.classesRemaining,
       classCurrentCount: updatedClass.currentCount,
+      previousPurchaseStatus: reservation.purchase.status,
     })
+
+    // If purchase was DEPLETED, set it back to ACTIVE since we now have classes
+    let finalPurchaseStatus = updatedPurchase.status
+    if (reservation.purchase.status === 'DEPLETED' && updatedPurchase.classesRemaining > 0) {
+      console.log('[CANCEL API] Reactivating depleted purchase:', reservation.purchaseId)
+      const reactivatedPurchase = await prisma.purchase.update({
+        where: { id: reservation.purchaseId },
+        data: { status: 'ACTIVE' },
+      })
+      finalPurchaseStatus = reactivatedPurchase.status
+      console.log('[CANCEL API] Purchase reactivated to ACTIVE')
+    }
 
     return NextResponse.json({
       success: true,
@@ -148,6 +161,7 @@ export async function POST(request: Request) {
       updatedPackage: {
         id: updatedPurchase.id,
         classesRemaining: updatedPurchase.classesRemaining,
+        status: finalPurchaseStatus,
       },
     })
   } catch (error) {
