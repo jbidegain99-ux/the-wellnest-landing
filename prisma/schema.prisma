@@ -180,16 +180,17 @@ model Class {
 
 // Reservación
 model Reservation {
-  id         String            @id @default(cuid())
-  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     String
-  class      Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classId    String
-  purchase   Purchase          @relation(fields: [purchaseId], references: [id])
-  purchaseId String
-  status     ReservationStatus @default(CONFIRMED)
-  createdAt  DateTime          @default(now())
-  checkedIn  Boolean           @default(false)
+  id          String            @id @default(cuid())
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  class       Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classId     String
+  purchase    Purchase          @relation(fields: [purchaseId], references: [id])
+  purchaseId  String
+  status      ReservationStatus @default(CONFIRMED)
+  createdAt   DateTime          @default(now())
+  cancelledAt DateTime?
+  checkedIn   Boolean           @default(false)
   checkedInAt DateTime?
 
   @@unique([userId, classId])
