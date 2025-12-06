@@ -112,21 +112,101 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if user already has a reservation for THIS class
+    // Check if user already has ANY reservation for THIS class (including cancelled)
+    // This is important because of the unique constraint on [userId, classId]
     const existingReservation = await prisma.reservation.findFirst({
       where: {
         userId,
         classId,
-        status: 'CONFIRMED',
       },
     })
 
     if (existingReservation) {
-      console.log('[RESERVATIONS API] User already has reservation for this class')
-      return NextResponse.json(
-        { error: 'Ya tienes una reserva para esta clase' },
-        { status: 400 }
-      )
+      if (existingReservation.status === 'CONFIRMED') {
+        console.log('[RESERVATIONS API] User already has active reservation for this class')
+        return NextResponse.json(
+          { error: 'Ya tienes una reserva activa para esta clase' },
+          { status: 400 }
+        )
+      }
+
+      // If user had a cancelled reservation, we need to reactivate it instead of creating new
+      if (existingReservation.status === 'CANCELLED') {
+        console.log('[RESERVATIONS API] Reactivating cancelled reservation:', existingReservation.id)
+
+        // Find purchase to use
+        let purchase
+        if (requestedPurchaseId) {
+          purchase = await prisma.purchase.findFirst({
+            where: {
+              id: requestedPurchaseId,
+              userId,
+              status: { in: ['ACTIVE', 'DEPLETED'] }, // Allow depleted if we're re-adding
+              classesRemaining: { gt: 0 },
+              expiresAt: { gt: new Date() },
+            },
+            include: { package: true },
+          })
+        } else {
+          purchase = await prisma.purchase.findFirst({
+            where: {
+              userId,
+              status: 'ACTIVE',
+              classesRemaining: { gt: 0 },
+              expiresAt: { gt: new Date() },
+            },
+            orderBy: { expiresAt: 'asc' },
+            include: { package: true },
+          })
+        }
+
+        if (!purchase) {
+          return NextResponse.json(
+            { error: 'No tienes clases disponibles. Compra un paquete para reservar.' },
+            { status: 400 }
+          )
+        }
+
+        // Reactivate the reservation
+        const [reactivatedReservation, updatedPurchase] = await prisma.$transaction([
+          prisma.reservation.update({
+            where: { id: existingReservation.id },
+            data: {
+              status: 'CONFIRMED',
+              purchaseId: purchase.id,
+              cancelledAt: null,
+            },
+            include: {
+              class: {
+                include: {
+                  discipline: true,
+                  instructor: true,
+                },
+              },
+            },
+          }),
+          prisma.purchase.update({
+            where: { id: purchase.id },
+            data: { classesRemaining: { decrement: 1 } },
+          }),
+          prisma.class.update({
+            where: { id: classId },
+            data: { currentCount: { increment: 1 } },
+          }),
+        ])
+
+        console.log('[RESERVATIONS API] Reservation reactivated:', reactivatedReservation.id)
+
+        // Check if purchase is now depleted
+        if (updatedPurchase.classesRemaining === 0) {
+          await prisma.purchase.update({
+            where: { id: purchase.id },
+            data: { status: 'DEPLETED' },
+          })
+        }
+
+        return NextResponse.json(reactivatedReservation, { status: 201 })
+      }
     }
 
     // ANTI-DOUBLE-BOOKING: Check if user has another reservation at the same time
@@ -272,10 +352,34 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(reservation, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('[RESERVATIONS API] Error creating reservation:', error)
+
+    // Handle specific Prisma errors
+    if (error?.code === 'P2002') {
+      // Unique constraint violation
+      console.log('[RESERVATIONS API] Unique constraint violation - user already has reservation')
+      return NextResponse.json(
+        { error: 'Ya tienes una reserva para esta clase. Por favor, revisa tus reservas.' },
+        { status: 400 }
+      )
+    }
+
+    if (error?.code === 'P2025') {
+      // Record not found
+      console.log('[RESERVATIONS API] Record not found during transaction')
+      return NextResponse.json(
+        { error: 'No se encontró la clase o el paquete. Intenta de nuevo.' },
+        { status: 404 }
+      )
+    }
+
+    // Return detailed error for debugging (in production, hide details)
+    const errorMessage = error?.message || 'Error desconocido'
+    console.error('[RESERVATIONS API] Full error:', errorMessage)
+
     return NextResponse.json(
-      { error: 'Error al crear la reserva' },
+      { error: `Error al crear la reserva: ${errorMessage}` },
       { status: 500 }
     )
   }
