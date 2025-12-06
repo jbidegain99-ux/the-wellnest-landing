@@ -4,17 +4,22 @@ import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 
 export async function GET() {
+  console.log('[RESERVATIONS API] GET request - fetching user reservations')
+
   try {
     const session = await getServerSession(authOptions)
 
     if (!session) {
+      console.log('[RESERVATIONS API] No authenticated user')
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
+
+    console.log('[RESERVATIONS API] Fetching reservations for user:', session.user.id)
 
     const reservations = await prisma.reservation.findMany({
       where: {
         userId: session.user.id,
-        status: { in: ['CONFIRMED'] },
+        status: 'CONFIRMED',
         class: {
           dateTime: { gte: new Date() },
         },
@@ -34,9 +39,11 @@ export async function GET() {
       },
     })
 
+    console.log('[RESERVATIONS API] Found reservations:', reservations.length)
+
     return NextResponse.json(reservations)
   } catch (error) {
-    console.error('Error fetching reservations:', error)
+    console.error('[RESERVATIONS API] Error fetching reservations:', error)
     return NextResponse.json(
       { error: 'Error al obtener las reservas' },
       { status: 500 }
@@ -45,10 +52,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  console.log('[RESERVATIONS API] POST request - creating reservation')
+
   try {
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
+      console.log('[RESERVATIONS API] No authenticated user')
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
@@ -56,68 +66,139 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { classId, purchaseId: requestedPurchaseId } = body
 
+    console.log('[RESERVATIONS API] Request:', { userId, classId, requestedPurchaseId })
+
     // Check if class exists and has capacity
     const classData = await prisma.class.findUnique({
       where: { id: classId },
       include: {
         _count: { select: { reservations: { where: { status: 'CONFIRMED' } } } },
+        discipline: true,
+        instructor: true,
       },
     })
 
     if (!classData) {
+      console.log('[RESERVATIONS API] Class not found:', classId)
       return NextResponse.json(
         { error: 'Clase no encontrada' },
         { status: 404 }
       )
     }
 
+    console.log('[RESERVATIONS API] Class found:', {
+      id: classData.id,
+      discipline: classData.discipline.name,
+      dateTime: classData.dateTime,
+      maxCapacity: classData.maxCapacity,
+      currentReservations: classData._count.reservations,
+    })
+
+    // Check if class is full
     if (classData._count.reservations >= classData.maxCapacity) {
+      console.log('[RESERVATIONS API] Class is full')
       return NextResponse.json(
         { error: 'La clase está llena' },
         { status: 400 }
       )
     }
 
-    // Check if user already has a reservation
-    const existingReservation = await prisma.reservation.findUnique({
+    // Check if class is in the past
+    if (new Date(classData.dateTime) < new Date()) {
+      console.log('[RESERVATIONS API] Class is in the past')
+      return NextResponse.json(
+        { error: 'No puedes reservar una clase que ya pasó' },
+        { status: 400 }
+      )
+    }
+
+    // Check if user already has a reservation for THIS class
+    const existingReservation = await prisma.reservation.findFirst({
       where: {
-        userId_classId: {
-          userId,
-          classId,
-        },
+        userId,
+        classId,
+        status: 'CONFIRMED',
       },
     })
 
     if (existingReservation) {
+      console.log('[RESERVATIONS API] User already has reservation for this class')
       return NextResponse.json(
         { error: 'Ya tienes una reserva para esta clase' },
         { status: 400 }
       )
     }
 
+    // ANTI-DOUBLE-BOOKING: Check if user has another reservation at the same time
+    const classStartTime = new Date(classData.dateTime)
+    const classEndTime = new Date(classStartTime.getTime() + classData.duration * 60000)
+
+    const conflictingReservation = await prisma.reservation.findFirst({
+      where: {
+        userId,
+        status: 'CONFIRMED',
+        class: {
+          AND: [
+            // Class starts before our class ends
+            { dateTime: { lt: classEndTime } },
+            // Class ends after our class starts (we calculate this differently)
+          ],
+        },
+      },
+      include: {
+        class: {
+          include: {
+            discipline: true,
+          },
+        },
+      },
+    })
+
+    // Check if there's actually a time conflict
+    if (conflictingReservation) {
+      const otherClassStart = new Date(conflictingReservation.class.dateTime)
+      const otherClassEnd = new Date(otherClassStart.getTime() + conflictingReservation.class.duration * 60000)
+
+      // Check if times overlap
+      if (classStartTime < otherClassEnd && classEndTime > otherClassStart) {
+        console.log('[RESERVATIONS API] Time conflict detected:', {
+          newClass: { start: classStartTime, end: classEndTime },
+          existingClass: { start: otherClassStart, end: otherClassEnd },
+        })
+        return NextResponse.json(
+          {
+            error: `Ya tienes una reserva a esa hora: ${conflictingReservation.class.discipline.name} a las ${otherClassStart.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}`
+          },
+          { status: 400 }
+        )
+      }
+    }
+
     // Find the purchase to use - either the specified one or the best available
     let purchase
 
     if (requestedPurchaseId) {
-      // Use the specific purchase requested (from "Mis Paquetes" page)
+      console.log('[RESERVATIONS API] Using requested purchase:', requestedPurchaseId)
       purchase = await prisma.purchase.findFirst({
         where: {
           id: requestedPurchaseId,
-          userId, // Security: ensure it belongs to this user
+          userId,
           status: 'ACTIVE',
           classesRemaining: { gt: 0 },
           expiresAt: { gt: new Date() },
         },
+        include: { package: true },
       })
 
       if (!purchase) {
+        console.log('[RESERVATIONS API] Requested purchase not valid')
         return NextResponse.json(
           { error: 'El paquete seleccionado no está disponible o no tiene clases restantes' },
           { status: 400 }
         )
       }
     } else {
-      // Find the best available purchase (expires soonest)
+      console.log('[RESERVATIONS API] Finding best available purchase')
       purchase = await prisma.purchase.findFirst({
         where: {
           userId,
@@ -126,9 +207,11 @@ export async function POST(request: Request) {
           expiresAt: { gt: new Date() },
         },
         orderBy: { expiresAt: 'asc' },
+        include: { package: true },
       })
 
       if (!purchase) {
+        console.log('[RESERVATIONS API] No active purchase found')
         return NextResponse.json(
           { error: 'No tienes clases disponibles. Compra un paquete para reservar.' },
           { status: 400 }
@@ -136,14 +219,31 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create reservation and update counts
-    const [reservation] = await prisma.$transaction([
+    console.log('[RESERVATIONS API] Using purchase:', {
+      id: purchase.id,
+      packageName: purchase.package.name,
+      classesRemaining: purchase.classesRemaining,
+      expiresAt: purchase.expiresAt,
+    })
+
+    // Create reservation and update counts in a transaction
+    console.log('[RESERVATIONS API] Creating reservation in transaction...')
+
+    const [reservation, updatedPurchase] = await prisma.$transaction([
       prisma.reservation.create({
         data: {
           userId,
           classId,
           purchaseId: purchase.id,
           status: 'CONFIRMED',
+        },
+        include: {
+          class: {
+            include: {
+              discipline: true,
+              instructor: true,
+            },
+          },
         },
       }),
       prisma.purchase.update({
@@ -156,9 +256,24 @@ export async function POST(request: Request) {
       }),
     ])
 
+    console.log('[RESERVATIONS API] Reservation created successfully:', {
+      reservationId: reservation.id,
+      classId: reservation.classId,
+      purchaseClassesRemaining: updatedPurchase.classesRemaining,
+    })
+
+    // Check if purchase is now depleted
+    if (updatedPurchase.classesRemaining === 0) {
+      console.log('[RESERVATIONS API] Purchase depleted, updating status')
+      await prisma.purchase.update({
+        where: { id: purchase.id },
+        data: { status: 'DEPLETED' },
+      })
+    }
+
     return NextResponse.json(reservation, { status: 201 })
   } catch (error) {
-    console.error('Error creating reservation:', error)
+    console.error('[RESERVATIONS API] Error creating reservation:', error)
     return NextResponse.json(
       { error: 'Error al crear la reserva' },
       { status: 500 }

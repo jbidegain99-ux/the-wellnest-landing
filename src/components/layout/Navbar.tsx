@@ -27,6 +27,9 @@ export function Navbar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
 
+  // Don't show public navbar on admin routes - admin has its own layout
+  const isAdminRoute = pathname?.startsWith('/admin')
+
   React.useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20)
@@ -39,6 +42,11 @@ export function Navbar() {
     setIsOpen(false)
     setIsUserMenuOpen(false)
   }, [pathname])
+
+  // Don't render navbar on admin routes
+  if (isAdminRoute) {
+    return null
+  }
 
   const isHomePage = pathname === '/'
 
