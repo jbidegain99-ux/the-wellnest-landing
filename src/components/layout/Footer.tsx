@@ -113,7 +113,7 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Contact & Newsletter */}
+          {/* Contact */}
           <div>
             <h3 className="font-serif text-lg font-semibold text-foreground mb-4">
               Contacto

@@ -3,7 +3,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { addDays, setHours, setMinutes, startOfDay } from 'date-fns'
+import { addDays, startOfDay } from 'date-fns'
+
+// El Salvador is UTC-6. To store times that display correctly for El Salvador users,
+// we need to add 6 hours to the desired local time to get UTC.
+const EL_SALVADOR_UTC_OFFSET = 6
 
 export async function POST() {
   try {
@@ -327,7 +331,15 @@ export async function POST() {
       const dayClasses = weeklySchedule.filter((s) => s.day === dayOfWeek)
 
       for (const schedule of dayClasses) {
-        const classDateTime = setMinutes(setHours(currentDate, schedule.hour), schedule.minute)
+        // Create date in UTC that represents the correct El Salvador local time
+        // e.g., 6:30 AM El Salvador = 12:30 UTC (6:30 + 6 hours offset)
+        const classDateTime = new Date(Date.UTC(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          schedule.hour + EL_SALVADOR_UTC_OFFSET,
+          schedule.minute
+        ))
 
         classesToCreate.push({
           disciplineId: schedule.discipline.id,

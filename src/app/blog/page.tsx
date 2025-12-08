@@ -207,26 +207,6 @@ export default function BlogPage() {
         </div>
       </section>
 
-      {/* Newsletter CTA */}
-      <section className="py-24 bg-cream">
-        <div className="max-w-2xl mx-auto px-4 text-center">
-          <h2 className="font-serif text-3xl font-semibold text-foreground mb-4">
-            Suscríbete al Newsletter
-          </h2>
-          <p className="text-gray-600 mb-8">
-            Recibe nuestros artículos más recientes, consejos de bienestar y
-            ofertas exclusivas directamente en tu correo.
-          </p>
-          <form className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Tu email"
-              className="flex-1 h-11 px-4 rounded-full border border-beige-dark bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            <Button type="submit">Suscribirse</Button>
-          </form>
-        </div>
-      </section>
     </>
   )
 }
