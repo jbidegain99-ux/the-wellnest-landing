@@ -192,12 +192,89 @@ export async function POST(request: Request) {
       })
 
       if (existingReservation.status === 'CONFIRMED') {
-        console.log('[RESERVATIONS API] ERROR: User already has active reservation')
+        // Check if user is trying to use the SAME package or a DIFFERENT one
+        const isSamePackage = requestedPurchaseId
+          ? existingReservation.purchaseId === requestedPurchaseId
+          : true // If no package specified, we consider it the same (no transfer needed)
+
+        if (isSamePackage) {
+          console.log('[RESERVATIONS API] ERROR: User already has active reservation with this package')
+          return NextResponse.json({
+            error: `Ya tienes una reserva activa para esta clase en tu paquete "${existingReservation.purchase?.package?.name}".`,
+            code: ERROR_CODES.ALREADY_RESERVED,
+            existingReservationId: existingReservation.id,
+          }, { status: 400 })
+        }
+
+        // User wants to TRANSFER the reservation to a different package
+        console.log('[RESERVATIONS API] Transferring reservation to different package:', {
+          from: existingReservation.purchaseId,
+          to: requestedPurchaseId,
+        })
+
+        // Find the new purchase to use
+        const newPurchase = await prisma.purchase.findFirst({
+          where: {
+            id: requestedPurchaseId,
+            userId,
+            status: 'ACTIVE',
+            classesRemaining: { gt: 0 },
+            expiresAt: { gt: now },
+          },
+          include: { package: true },
+        })
+
+        if (!newPurchase) {
+          return NextResponse.json({
+            error: 'El paquete seleccionado no tiene clases disponibles o no está activo.',
+            code: ERROR_CODES.NO_PACKAGE
+          }, { status: 400 })
+        }
+
+        // Transfer: return class to old package, take from new package
+        const [updatedReservation, oldPurchaseUpdated, newPurchaseUpdated] = await prisma.$transaction([
+          prisma.reservation.update({
+            where: { id: existingReservation.id },
+            data: { purchaseId: newPurchase.id },
+            include: {
+              class: { include: { discipline: true, instructor: true } },
+            },
+          }),
+          prisma.purchase.update({
+            where: { id: existingReservation.purchaseId },
+            data: { classesRemaining: { increment: 1 } },
+          }),
+          prisma.purchase.update({
+            where: { id: newPurchase.id },
+            data: { classesRemaining: { decrement: 1 } },
+          }),
+        ])
+
+        // Update statuses if needed
+        if (oldPurchaseUpdated.classesRemaining > 0 && oldPurchaseUpdated.status === 'DEPLETED') {
+          await prisma.purchase.update({
+            where: { id: existingReservation.purchaseId },
+            data: { status: 'ACTIVE' },
+          })
+        }
+        if (newPurchaseUpdated.classesRemaining === 0) {
+          await prisma.purchase.update({
+            where: { id: newPurchase.id },
+            data: { status: 'DEPLETED' },
+          })
+        }
+
+        console.log('[RESERVATIONS API] Reservation transferred successfully')
         return NextResponse.json({
-          error: `Ya tienes una reserva activa para esta clase de ${classData.discipline.name} el ${classDateTime.toLocaleDateString('es-SV')} a las ${classDateTime.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}.`,
-          code: ERROR_CODES.ALREADY_RESERVED,
-          existingReservationId: existingReservation.id,
-        }, { status: 400 })
+          ...updatedReservation,
+          message: `Reserva transferida de "${existingReservation.purchase?.package?.name}" a "${newPurchase.package.name}".`,
+          updatedPurchase: {
+            id: newPurchaseUpdated.id,
+            packageName: newPurchase.package.name,
+            classesRemaining: newPurchaseUpdated.classesRemaining,
+            status: newPurchaseUpdated.classesRemaining === 0 ? 'DEPLETED' : newPurchaseUpdated.status,
+          }
+        }, { status: 200 })
       }
 
       // If user had a cancelled reservation, we need to reactivate it instead of creating new

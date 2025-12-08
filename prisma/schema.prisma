@@ -265,13 +265,6 @@ enum PostStatus {
   PUBLISHED
 }
 
-// Suscriptor newsletter
-model NewsletterSubscriber {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
-}
-
 // Imagen de galería
 model GalleryImage {
   id        String   @id @default(cuid())
@@ -324,46 +317,6 @@ model NotificationSettings {
   emailReservations   Boolean  @default(true)
   emailReminders      Boolean  @default(true)
   emailPromotions     Boolean  @default(false)
-  emailNewsletter     Boolean  @default(true)
-  smsReminders        Boolean  @default(false)
-  phoneNumber         String?  // Verified phone number for SMS
-  phoneVerified       Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
-}
-
-// SMS Notification log
-model SmsNotification {
-  id            String              @id @default(cuid())
-  userId        String
-  reservationId String?
-  phoneNumber   String
-  message       String              @db.Text
-  type          SmsNotificationType
-  status        SmsStatus           @default(PENDING)
-  twilioSid     String?             // Twilio message SID
-  errorMessage  String?
-  sentAt        DateTime?
-  deliveredAt   DateTime?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-
-  @@index([userId])
-  @@index([reservationId])
-  @@index([status])
-}
-
-enum SmsNotificationType {
-  RESERVATION_CONFIRMATION
-  RESERVATION_REMINDER
-  RESERVATION_CANCELLED
-  PACKAGE_EXPIRING
-  PROMOTIONAL
-}
-
-enum SmsStatus {
-  PENDING
-  SENT
-  DELIVERED
-  FAILED
 }

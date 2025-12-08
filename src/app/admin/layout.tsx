@@ -13,7 +13,6 @@ import {
   UserCheck,
   Tag,
   FileText,
-  Mail,
   Settings,
   Menu,
   X,
@@ -29,7 +28,6 @@ const navigation = [
   { name: 'Instructores', href: '/admin/instructores', icon: UserCheck },
   { name: 'Promociones', href: '/admin/promociones', icon: Tag },
   { name: 'Blog', href: '/admin/blog', icon: FileText },
-  { name: 'Newsletter', href: '/admin/newsletter', icon: Mail },
   { name: 'Configuración', href: '/admin/configuracion', icon: Settings },
 ]
 

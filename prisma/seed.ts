@@ -305,7 +305,7 @@ async function main() {
   // Delete existing classes to avoid duplicates
   await prisma.class.deleteMany({})
 
-  // Create classes for the next 14 days
+  // Create classes for the next 90 days (3 months of coverage)
   const today = startOfDay(new Date())
   const classesToCreate: Array<{
     disciplineId: string
@@ -349,8 +349,8 @@ async function main() {
     { day: 6, hour: 17, minute: 0, discipline: soundbath, instructor: denisse, duration: 75, capacity: 20 },
   ]
 
-  // Generate classes for the next 60 days (approximately 2 months)
-  for (let dayOffset = 0; dayOffset < 60; dayOffset++) {
+  // Generate classes for the next 90 days (3 months)
+  for (let dayOffset = 0; dayOffset < 90; dayOffset++) {
     const currentDate = addDays(today, dayOffset)
     const dayOfWeek = currentDate.getDay()
 

@@ -25,10 +25,6 @@ export async function GET() {
         emailReservations: true,
         emailReminders: true,
         emailPromotions: false,
-        emailNewsletter: true,
-        smsReminders: false,
-        phoneNumber: null,
-        phoneVerified: false,
       })
     }
 
@@ -36,10 +32,6 @@ export async function GET() {
       emailReservations: settings.emailReservations,
       emailReminders: settings.emailReminders,
       emailPromotions: settings.emailPromotions,
-      emailNewsletter: settings.emailNewsletter,
-      smsReminders: settings.smsReminders,
-      phoneNumber: settings.phoneNumber,
-      phoneVerified: settings.phoneVerified,
     })
   } catch (error) {
     console.error('Error fetching notification settings:', error)
@@ -48,10 +40,6 @@ export async function GET() {
       emailReservations: true,
       emailReminders: true,
       emailPromotions: false,
-      emailNewsletter: true,
-      smsReminders: false,
-      phoneNumber: null,
-      phoneVerified: false,
     })
   }
 }
@@ -72,19 +60,7 @@ export async function PUT(request: Request) {
       emailReservations,
       emailReminders,
       emailPromotions,
-      emailNewsletter,
-      smsReminders,
-      phoneNumber,
     } = body
-
-    // Get existing settings to check if phone number changed
-    const existingSettings = await prisma.notificationSettings.findUnique({
-      where: { userId: session.user.id },
-    })
-
-    // Determine if phone number changed (needs re-verification)
-    const phoneChanged = phoneNumber !== undefined && phoneNumber !== existingSettings?.phoneNumber
-    const phoneVerified = phoneChanged ? false : existingSettings?.phoneVerified ?? false
 
     // Upsert notification settings
     const settings = await prisma.notificationSettings.upsert({
@@ -93,46 +69,21 @@ export async function PUT(request: Request) {
         emailReservations: emailReservations ?? true,
         emailReminders: emailReminders ?? true,
         emailPromotions: emailPromotions ?? false,
-        emailNewsletter: emailNewsletter ?? true,
-        smsReminders: smsReminders ?? false,
-        ...(phoneNumber !== undefined && {
-          phoneNumber: phoneNumber || null,
-          phoneVerified,
-        }),
       },
       create: {
         userId: session.user.id,
         emailReservations: emailReservations ?? true,
         emailReminders: emailReminders ?? true,
         emailPromotions: emailPromotions ?? false,
-        emailNewsletter: emailNewsletter ?? true,
-        smsReminders: smsReminders ?? false,
-        phoneNumber: phoneNumber || null,
-        phoneVerified: false,
       },
     })
 
-    // If SMS reminders enabled but no verified phone, warn user
-    let warning = null
-    if (settings.smsReminders && !settings.phoneVerified) {
-      if (!settings.phoneNumber) {
-        warning = 'Para recibir recordatorios por SMS, debes agregar tu numero de telefono.'
-      } else {
-        warning = 'Tu numero de telefono necesita ser verificado para recibir SMS.'
-      }
-    }
-
     return NextResponse.json({
       message: 'Preferencias guardadas correctamente',
-      warning,
       settings: {
         emailReservations: settings.emailReservations,
         emailReminders: settings.emailReminders,
         emailPromotions: settings.emailPromotions,
-        emailNewsletter: settings.emailNewsletter,
-        smsReminders: settings.smsReminders,
-        phoneNumber: settings.phoneNumber,
-        phoneVerified: settings.phoneVerified,
       },
     })
   } catch (error) {

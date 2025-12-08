@@ -3,8 +3,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Instagram, Facebook, Mail, Phone, MapPin } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 
 const navigation = {
   disciplinas: [
@@ -139,19 +137,6 @@ export function Footer() {
               </li>
             </ul>
 
-            <div className="mt-6">
-              <h4 className="font-medium text-foreground mb-2">Newsletter</h4>
-              <form className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="Tu email"
-                  className="bg-white"
-                />
-                <Button size="sm" className="px-4">
-                  Suscribir
-                </Button>
-              </form>
-            </div>
           </div>
         </div>
 
