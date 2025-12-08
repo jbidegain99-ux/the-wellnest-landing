@@ -15,31 +15,23 @@ export async function GET() {
     }
 
     // Try to get existing settings
-    let settings = await prisma.notificationSettings.findUnique({
+    const settings = await prisma.notificationSettings.findUnique({
       where: { userId: session.user.id },
     })
 
     // If no settings exist, return defaults
     if (!settings) {
-      settings = {
-        id: '',
-        userId: session.user.id,
+      return NextResponse.json({
         emailReservations: true,
         emailReminders: true,
         emailPromotions: false,
-        emailNewsletter: true,
-        smsReminders: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
+      })
     }
 
     return NextResponse.json({
       emailReservations: settings.emailReservations,
       emailReminders: settings.emailReminders,
       emailPromotions: settings.emailPromotions,
-      emailNewsletter: settings.emailNewsletter,
-      smsReminders: settings.smsReminders,
     })
   } catch (error) {
     console.error('Error fetching notification settings:', error)
@@ -48,8 +40,6 @@ export async function GET() {
       emailReservations: true,
       emailReminders: true,
       emailPromotions: false,
-      emailNewsletter: true,
-      smsReminders: false,
     })
   }
 }
@@ -70,8 +60,6 @@ export async function PUT(request: Request) {
       emailReservations,
       emailReminders,
       emailPromotions,
-      emailNewsletter,
-      smsReminders,
     } = body
 
     // Upsert notification settings
@@ -81,16 +69,12 @@ export async function PUT(request: Request) {
         emailReservations: emailReservations ?? true,
         emailReminders: emailReminders ?? true,
         emailPromotions: emailPromotions ?? false,
-        emailNewsletter: emailNewsletter ?? true,
-        smsReminders: smsReminders ?? false,
       },
       create: {
         userId: session.user.id,
         emailReservations: emailReservations ?? true,
         emailReminders: emailReminders ?? true,
         emailPromotions: emailPromotions ?? false,
-        emailNewsletter: emailNewsletter ?? true,
-        smsReminders: smsReminders ?? false,
       },
     })
 
@@ -100,8 +84,6 @@ export async function PUT(request: Request) {
         emailReservations: settings.emailReservations,
         emailReminders: settings.emailReminders,
         emailPromotions: settings.emailPromotions,
-        emailNewsletter: settings.emailNewsletter,
-        smsReminders: settings.smsReminders,
       },
     })
   } catch (error) {

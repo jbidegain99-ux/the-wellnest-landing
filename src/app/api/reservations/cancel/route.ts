@@ -4,13 +4,14 @@ import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 
 export async function POST(request: Request) {
-  console.log('[CANCEL API] Cancel reservation request received')
+  console.log('[CANCEL API] ========== CANCEL REQUEST START ==========')
+  console.log('[CANCEL API] Timestamp:', new Date().toISOString())
 
   try {
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      console.log('[CANCEL API] No authenticated user')
+      console.log('[CANCEL API] ERROR: No authenticated user')
       return NextResponse.json(
         { error: 'No autorizado' },
         { status: 401 }
@@ -21,9 +22,14 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { reservationId } = body
 
-    console.log('[CANCEL API] Request:', { userId, reservationId })
+    console.log('[CANCEL API] Request details:', {
+      userId,
+      userEmail: session.user.email,
+      reservationId
+    })
 
     if (!reservationId) {
+      console.log('[CANCEL API] ERROR: No reservationId provided')
       return NextResponse.json(
         { error: 'ID de reserva requerido' },
         { status: 400 }
@@ -34,29 +40,50 @@ export async function POST(request: Request) {
     const reservation = await prisma.reservation.findUnique({
       where: { id: reservationId },
       include: {
-        class: true,
-        purchase: true,
+        class: {
+          include: {
+            discipline: true,
+            instructor: true,
+          }
+        },
+        purchase: {
+          include: {
+            package: true,
+          }
+        },
       },
     })
 
-    console.log('[CANCEL API] Reservation found:', reservation ? {
-      id: reservation.id,
-      userId: reservation.userId,
-      status: reservation.status,
-      classDateTime: reservation.class.dateTime,
-      purchaseId: reservation.purchaseId,
-    } : 'Not found')
+    if (reservation) {
+      console.log('[CANCEL API] Reservation found:', {
+        id: reservation.id,
+        userId: reservation.userId,
+        status: reservation.status,
+        classId: reservation.classId,
+        className: reservation.class.discipline.name,
+        classDateTime: reservation.class.dateTime,
+        purchaseId: reservation.purchaseId,
+        packageName: reservation.purchase.package.name,
+        packageClassesRemaining: reservation.purchase.classesRemaining,
+        packageStatus: reservation.purchase.status,
+      })
+    } else {
+      console.log('[CANCEL API] ERROR: Reservation not found:', reservationId)
+    }
 
     if (!reservation) {
       return NextResponse.json(
-        { error: 'Reserva no encontrada' },
+        { error: 'Reserva no encontrada. Es posible que ya haya sido cancelada.' },
         { status: 404 }
       )
     }
 
     // Verify ownership
     if (reservation.userId !== userId) {
-      console.log('[CANCEL API] User does not own this reservation')
+      console.log('[CANCEL API] ERROR: User does not own this reservation', {
+        reservationUserId: reservation.userId,
+        requestUserId: userId
+      })
       return NextResponse.json(
         { error: 'No tienes permiso para cancelar esta reserva' },
         { status: 403 }
@@ -65,6 +92,7 @@ export async function POST(request: Request) {
 
     // Check if already cancelled
     if (reservation.status === 'CANCELLED') {
+      console.log('[CANCEL API] ERROR: Reservation already cancelled')
       return NextResponse.json(
         { error: 'Esta reserva ya fue cancelada' },
         { status: 400 }
@@ -76,24 +104,41 @@ export async function POST(request: Request) {
     const now = new Date()
     const hoursUntilClass = (classDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
 
-    console.log('[CANCEL API] Hours until class:', hoursUntilClass)
-
-    if (hoursUntilClass < 4) {
-      return NextResponse.json(
-        { error: 'No puedes cancelar una reserva con menos de 4 horas de anticipación' },
-        { status: 400 }
-      )
-    }
+    console.log('[CANCEL API] Time validation:', {
+      classDateTime: classDateTime.toISOString(),
+      classLocalTime: classDateTime.toLocaleString('es-SV'),
+      currentTime: now.toISOString(),
+      hoursUntilClass: hoursUntilClass.toFixed(2),
+      minimumHours: 4,
+      canCancel: hoursUntilClass >= 4,
+    })
 
     if (classDateTime <= now) {
+      console.log('[CANCEL API] ERROR: Class already happened')
       return NextResponse.json(
         { error: 'No puedes cancelar una reserva de una clase que ya pasó' },
         { status: 400 }
       )
     }
 
+    if (hoursUntilClass < 4) {
+      console.log('[CANCEL API] ERROR: Too close to class time')
+      return NextResponse.json(
+        { error: `No puedes cancelar una reserva con menos de 4 horas de anticipación. La clase es en ${hoursUntilClass.toFixed(1)} horas.` },
+        { status: 400 }
+      )
+    }
+
     // Perform cancellation in a transaction
     console.log('[CANCEL API] Executing cancellation transaction...')
+    console.log('[CANCEL API] Will update:', {
+      reservationId: reservationId,
+      purchaseId: reservation.purchaseId,
+      packageName: reservation.purchase.package.name,
+      currentClassesRemaining: reservation.purchase.classesRemaining,
+      afterRefund: reservation.purchase.classesRemaining + 1,
+      classId: reservation.classId,
+    })
 
     const [updatedReservation, updatedPurchase, updatedClass] = await prisma.$transaction([
       // 1. Mark reservation as cancelled
@@ -113,7 +158,7 @@ export async function POST(request: Request) {
         },
       }),
 
-      // 2. Return the class to the package
+      // 2. Return the class to the SPECIFIC package that was used
       prisma.purchase.update({
         where: { id: reservation.purchaseId },
         data: {
@@ -130,44 +175,63 @@ export async function POST(request: Request) {
       }),
     ])
 
-    console.log('[CANCEL API] Cancellation successful:', {
+    console.log('[CANCEL API] Cancellation transaction completed:', {
       reservationId: updatedReservation.id,
       newStatus: updatedReservation.status,
-      purchaseClassesRemaining: updatedPurchase.classesRemaining,
+      cancelledAt: updatedReservation.cancelledAt,
+      purchaseId: updatedPurchase.id,
+      previousClassesRemaining: reservation.purchase.classesRemaining,
+      newClassesRemaining: updatedPurchase.classesRemaining,
       classCurrentCount: updatedClass.currentCount,
       previousPurchaseStatus: reservation.purchase.status,
+      newPurchaseStatus: updatedPurchase.status,
     })
 
     // If purchase was DEPLETED, set it back to ACTIVE since we now have classes
     let finalPurchaseStatus = updatedPurchase.status
     if (reservation.purchase.status === 'DEPLETED' && updatedPurchase.classesRemaining > 0) {
-      console.log('[CANCEL API] Reactivating depleted purchase:', reservation.purchaseId)
+      console.log('[CANCEL API] Reactivating depleted purchase:', {
+        purchaseId: reservation.purchaseId,
+        packageName: reservation.purchase.package.name,
+        classesNow: updatedPurchase.classesRemaining,
+      })
       const reactivatedPurchase = await prisma.purchase.update({
         where: { id: reservation.purchaseId },
         data: { status: 'ACTIVE' },
       })
       finalPurchaseStatus = reactivatedPurchase.status
-      console.log('[CANCEL API] Purchase reactivated to ACTIVE')
+      console.log('[CANCEL API] Purchase reactivated from DEPLETED to ACTIVE')
     }
+
+    console.log('[CANCEL API] ========== CANCEL REQUEST SUCCESS ==========')
 
     return NextResponse.json({
       success: true,
-      message: 'Reserva cancelada correctamente. Se ha devuelto 1 clase a tu paquete.',
+      message: `Reserva cancelada correctamente. Se ha devuelto 1 clase a tu paquete "${reservation.purchase.package.name}".`,
       updatedReservation: {
         id: updatedReservation.id,
         status: updatedReservation.status,
         cancelledAt: updatedReservation.cancelledAt,
+        class: {
+          id: updatedReservation.class.id,
+          discipline: updatedReservation.class.discipline.name,
+          dateTime: updatedReservation.class.dateTime,
+        }
       },
       updatedPackage: {
         id: updatedPurchase.id,
+        packageName: reservation.purchase.package.name,
         classesRemaining: updatedPurchase.classesRemaining,
         status: finalPurchaseStatus,
       },
     })
-  } catch (error) {
-    console.error('[CANCEL API] Error:', error)
+  } catch (error: any) {
+    console.error('[CANCEL API] ========== ERROR ==========')
+    console.error('[CANCEL API] Error type:', error?.constructor?.name)
+    console.error('[CANCEL API] Error message:', error?.message)
+    console.error('[CANCEL API] Full error:', error)
     return NextResponse.json(
-      { error: 'Error al cancelar la reserva' },
+      { error: 'Error al cancelar la reserva. Por favor intenta de nuevo.' },
       { status: 500 }
     )
   }

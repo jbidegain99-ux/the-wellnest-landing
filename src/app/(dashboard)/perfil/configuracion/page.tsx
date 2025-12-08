@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { signOut } from 'next-auth/react'
-import { Bell, Mail, Phone, Trash2, LogOut, Loader2, Check, AlertCircle } from 'lucide-react'
+import { Bell, Mail, Trash2, LogOut, Loader2, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 
@@ -10,8 +10,6 @@ interface NotificationSettings {
   emailReservations: boolean
   emailReminders: boolean
   emailPromotions: boolean
-  emailNewsletter: boolean
-  smsReminders: boolean
 }
 
 export default function ConfiguracionPage() {
@@ -19,8 +17,6 @@ export default function ConfiguracionPage() {
     emailReservations: true,
     emailReminders: true,
     emailPromotions: false,
-    emailNewsletter: true,
-    smsReminders: false,
   })
   const [isLoading, setIsLoading] = React.useState(true)
   const [isSaving, setIsSaving] = React.useState(false)
@@ -34,7 +30,11 @@ export default function ConfiguracionPage() {
         const response = await fetch('/api/user/notification-settings')
         if (response.ok) {
           const data = await response.json()
-          setNotifications(data)
+          setNotifications({
+            emailReservations: data.emailReservations ?? true,
+            emailReminders: data.emailReminders ?? true,
+            emailPromotions: data.emailPromotions ?? false,
+          })
         }
       } catch (error) {
         console.error('Error fetching notification settings:', error)
@@ -187,46 +187,7 @@ export default function ConfiguracionPage() {
                   className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
                 />
               </label>
-
-              <label className="flex items-center justify-between cursor-pointer">
-                <div>
-                  <p className="font-medium text-foreground">Newsletter</p>
-                  <p className="text-sm text-gray-500">
-                    Artículos y consejos de bienestar
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={notifications.emailNewsletter}
-                  onChange={() => handleToggle('emailNewsletter')}
-                  className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
-                />
-              </label>
             </div>
-          </div>
-
-          {/* SMS notifications */}
-          <div className="pt-4 border-t border-beige">
-            <h3 className="font-medium text-foreground mb-4 flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              SMS
-            </h3>
-            <label className="flex items-center justify-between cursor-pointer">
-              <div>
-                <p className="font-medium text-foreground">
-                  Recordatorios por SMS
-                </p>
-                <p className="text-sm text-gray-500">
-                  Recibe un SMS antes de tu clase
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                checked={notifications.smsReminders}
-                onChange={() => handleToggle('smsReminders')}
-                className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
-              />
-            </label>
           </div>
 
           <Button
