@@ -112,8 +112,8 @@ export default function AdminInstructoresPage() {
     const disciplineRoles: Record<string, string> = {
       'yoga': 'Instructor/a de Yoga',
       'pilates mat': 'Instructor/a de Pilates',
-      'pole sport': 'Instructor/a de Pole Sport',
-      'sound healing': 'Terapeuta de Sound Healing',
+      'pole fitness': 'Instructor/a de Pole Fitness',
+      'terapia de sonido': 'Terapeuta de Terapia de Sonido',
       'nutrición': 'Nutricionista',
     }
 

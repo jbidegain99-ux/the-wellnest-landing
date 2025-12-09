@@ -41,10 +41,10 @@ const disciplines = [
   },
   {
     id: 'pole',
-    name: 'Pole Sport',
+    name: 'Pole Fitness',
     tagline: 'Desafía tus límites, empodera tu ser',
     description:
-      'Pole Sport combina danza, acrobacia y fitness en una disciplina que desarrolla fuerza, flexibilidad y confianza. Es un espacio seguro y empoderador donde cada persona puede explorar su potencial.',
+      'Pole Fitness combina danza, acrobacia y fitness en una disciplina que desarrolla fuerza, flexibilidad y confianza. Es un espacio seguro y empoderador donde cada persona puede explorar su potencial.',
     benefits: [
       'Desarrolla fuerza funcional completa',
       'Mejora la coordinación y equilibrio',
@@ -54,15 +54,15 @@ const disciplines = [
     ],
     duration: '60 min',
     level: 'Principiante a Avanzado',
-    image: '/images/pole.jpg',
-    color: 'from-[#D4A574] to-[#C4A77D]',
+    image: '/images/pole-fitness.jpg',
+    color: 'from-[#B0B0B0] to-[#8A8A8A]',
   },
   {
-    id: 'soundhealing',
-    name: 'Sound Healing',
+    id: 'terapia-de-sonido',
+    name: 'Terapia de Sonido',
     tagline: 'Sana a través del sonido',
     description:
-      'Sound Healing o Soundbath es una experiencia meditativa donde te sumerges en frecuencias sanadoras producidas por cuencos tibetanos, gongs y otros instrumentos. Una práctica profundamente relajante que promueve la sanación a nivel celular.',
+      'La Terapia de Sonido es una experiencia meditativa donde te sumerges en frecuencias sanadoras producidas por cuencos tibetanos, gongs y otros instrumentos. Una práctica profundamente relajante que promueve la sanación a nivel celular.',
     benefits: [
       'Reduce el estrés y la ansiedad profundamente',
       'Promueve la relajación profunda',
@@ -72,8 +72,8 @@ const disciplines = [
     ],
     duration: '60-90 min',
     level: 'Todos los niveles',
-    image: '/images/soundhealing.jpg',
-    color: 'from-[#8B7355] to-[#6B7F5E]',
+    image: '/images/terapia-de-sonido.jpg',
+    color: 'from-[#D4C4B0] to-[#C0A888]',
   },
   {
     id: 'nutricion',
@@ -98,7 +98,7 @@ const disciplines = [
 export const metadata = {
   title: 'Clases y Disciplinas | The Wellnest',
   description:
-    'Descubre nuestras disciplinas: Yoga, Pilates Mat, Pole Sport, Sound Healing y Nutrición. Bienestar integral en El Salvador.',
+    'Descubre nuestras disciplinas: Yoga, Pilates Mat, Pole Fitness, Terapia de Sonido y Nutrición. Bienestar integral en El Salvador.',
 }
 
 export default function ClasesPage() {

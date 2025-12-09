@@ -49,12 +49,12 @@ export async function POST() {
       }),
       prisma.discipline.upsert({
         where: { slug: 'pole' },
-        update: {},
+        update: { name: 'Pole Fitness' },
         create: {
-          name: 'Pole',
+          name: 'Pole Fitness',
           slug: 'pole',
           description:
-            'Pole combina danza, acrobacia y fitness en una disciplina que desarrolla fuerza, flexibilidad y confianza.',
+            'Pole Fitness combina danza, acrobacia y fitness en una disciplina que desarrolla fuerza, flexibilidad y confianza.',
           benefits:
             'Desarrolla fuerza funcional completa, mejora la coordinación y equilibrio, aumenta la confianza y autoestima.',
           order: 3,
@@ -62,12 +62,12 @@ export async function POST() {
       }),
       prisma.discipline.upsert({
         where: { slug: 'soundbath' },
-        update: {},
+        update: { name: 'Terapia de Sonido', slug: 'terapia-de-sonido' },
         create: {
-          name: 'Sound Bath',
-          slug: 'soundbath',
+          name: 'Terapia de Sonido',
+          slug: 'terapia-de-sonido',
           description:
-            'Sound Bath es una experiencia meditativa donde te sumerges en frecuencias sanadoras producidas por cuencos tibetanos y otros instrumentos.',
+            'Terapia de Sonido es una experiencia meditativa donde te sumerges en frecuencias sanadoras producidas por cuencos tibetanos y otros instrumentos.',
           benefits:
             'Reduce el estrés profundamente, promueve la relajación, mejora la calidad del sueño, equilibra el sistema nervioso.',
           order: 4,
@@ -96,8 +96,8 @@ export async function POST() {
         create: {
           id: 'instructor-nicole',
           name: 'Nicole Soundy',
-          bio: 'Co-fundadora de wellnest. Certificada en Yoga y Sound Healing. Con más de 8 años de experiencia guiando prácticas de bienestar integral.',
-          disciplines: ['Yoga', 'Sound Bath'],
+          bio: 'Co-fundadora de wellnest. Certificada en Yoga y Terapia de Sonido. Con más de 8 años de experiencia guiando prácticas de bienestar integral.',
+          disciplines: ['Yoga', 'Terapia de Sonido'],
           order: 1,
         },
       }),
@@ -269,7 +269,7 @@ export async function POST() {
     const yoga = disciplines.find((d) => d.slug === 'yoga')!
     const pilates = disciplines.find((d) => d.slug === 'pilates')!
     const pole = disciplines.find((d) => d.slug === 'pole')!
-    const soundbath = disciplines.find((d) => d.slug === 'soundbath')!
+    const terapiaDeSonido = disciplines.find((d) => d.slug === 'terapia-de-sonido' || d.slug === 'soundbath')!
 
     const nicole = instructors.find((i) => i.name === 'Nicole Soundy')!
     const florence = instructors.find((i) => i.name === 'Florence Cervantes')!
@@ -315,12 +315,12 @@ export async function POST() {
       { day: 5, hour: 6, minute: 30, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
       { day: 5, hour: 8, minute: 0, discipline: yoga, instructor: denisse, duration: 60, capacity: 15 },
       { day: 5, hour: 17, minute: 30, discipline: yoga, instructor: nicole, duration: 60, capacity: 15 },
-      { day: 5, hour: 19, minute: 0, discipline: soundbath, instructor: nicole, duration: 75, capacity: 20 },
+      { day: 5, hour: 19, minute: 0, discipline: terapiaDeSonido, instructor: nicole, duration: 75, capacity: 20 },
       // Saturday
       { day: 6, hour: 8, minute: 0, discipline: yoga, instructor: nicole, duration: 60, capacity: 15 },
       { day: 6, hour: 9, minute: 30, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
       { day: 6, hour: 11, minute: 0, discipline: pole, instructor: adriana, duration: 60, capacity: 8 },
-      { day: 6, hour: 17, minute: 0, discipline: soundbath, instructor: denisse, duration: 75, capacity: 20 },
+      { day: 6, hour: 17, minute: 0, discipline: terapiaDeSonido, instructor: denisse, duration: 75, capacity: 20 },
     ]
 
     // Generate classes for the next 90 days (3 months)

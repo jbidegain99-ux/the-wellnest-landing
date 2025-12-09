@@ -24,8 +24,8 @@ const stats = {
 const popularClasses = [
   { name: 'Yoga', count: 45, trend: 'up' },
   { name: 'Pilates Mat', count: 38, trend: 'up' },
-  { name: 'Sound Healing', count: 28, trend: 'stable' },
-  { name: 'Pole Sport', count: 22, trend: 'down' },
+  { name: 'Terapia de Sonido', count: 28, trend: 'stable' },
+  { name: 'Pole Fitness', count: 22, trend: 'down' },
 ]
 
 const recentSales = [

@@ -243,7 +243,7 @@ export default function PaquetesPage() {
                 <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                 <span>
                   <strong>Flexibilidad total:</strong> Usa tus clases en cualquier
-                  disciplina (Yoga, Pilates, Pole, Sound Healing).
+                  disciplina (Yoga, Pilates, Pole Fitness, Terapia de Sonido).
                 </span>
               </li>
               <li className="flex items-start gap-2">

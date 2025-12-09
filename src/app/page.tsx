@@ -31,10 +31,23 @@ export default function HomePage() {
     <>
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Image Placeholder */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D]">
-          <div className="absolute inset-0 bg-black/30" />
+        {/* Background Video - YouTube Embed */}
+        <div className="absolute inset-0">
+          {/* YouTube iframe with autoplay, mute, and loop */}
+          <iframe
+            src="https://www.youtube.com/embed/4pKly2JojMw?autoplay=1&mute=1&loop=1&playlist=4pKly2JojMw&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1"
+            title="The Wellnest - Video de fondo"
+            className="absolute w-[300%] h-[300%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ border: 0 }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+          {/* Fallback gradient for when video doesn't load */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D] -z-10" />
+          {/* Dark overlay for text readability */}
+          <div className="absolute inset-0 bg-black/40" />
         </div>
+        {/* TODO: reemplazar por video oficial de The Wellnest usando /videos/wellnest-hero.mp4 */}
 
         {/* Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center text-white">
@@ -192,7 +205,7 @@ export default function HomePage() {
             </div>
             <div className="relative h-80 lg:h-96 rounded-2xl overflow-hidden bg-beige-dark">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3876.4!2d-89.2!3d13.7!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTPCsDQyJzAwLjAiTiA4OcKwMTInMDAuMCJX!5e0!3m2!1ses!2ssv!4v1700000000000"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3876.2!2d-89.2365!3d13.6988!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8f633076b8f1c3f7%3A0x9b3c8b5b5b5b5b5b!2sPresidente%20Plaza!5e0!3m2!1ses!2ssv!4v1700000000000"
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}
