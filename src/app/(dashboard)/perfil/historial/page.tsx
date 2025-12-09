@@ -41,7 +41,7 @@ const classHistory = [
   },
   {
     id: '4',
-    className: 'Sound Healing',
+    className: 'Terapia de Sonido',
     instructor: 'Sofía Hernández',
     dateTime: new Date('2024-01-03T19:30:00'),
     duration: 90,
@@ -49,7 +49,7 @@ const classHistory = [
   },
   {
     id: '5',
-    className: 'Pole Sport',
+    className: 'Pole Fitness',
     instructor: 'Carolina López',
     dateTime: new Date('2024-01-01T18:00:00'),
     duration: 60,
@@ -73,8 +73,8 @@ const stats = {
   classesPerDiscipline: {
     Yoga: 12,
     'Pilates Mat': 6,
-    'Sound Healing': 4,
-    'Pole Sport': 2,
+    'Terapia de Sonido': 4,
+    'Pole Fitness': 2,
   },
 }
 
@@ -173,8 +173,8 @@ export default function HistorialPage() {
               <SelectItem value="all">Todas</SelectItem>
               <SelectItem value="yoga">Yoga</SelectItem>
               <SelectItem value="pilates">Pilates Mat</SelectItem>
-              <SelectItem value="pole">Pole Sport</SelectItem>
-              <SelectItem value="soundhealing">Sound Healing</SelectItem>
+              <SelectItem value="pole">Pole Fitness</SelectItem>
+              <SelectItem value="terapia-de-sonido">Terapia de Sonido</SelectItem>
             </SelectContent>
           </Select>
         </div>

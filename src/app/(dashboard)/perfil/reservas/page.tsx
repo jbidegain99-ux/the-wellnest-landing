@@ -40,8 +40,9 @@ interface Reservation {
 const classColors: Record<string, string> = {
   yoga: 'bg-[#9CAF88]',
   pilates: 'bg-[#C4A77D]',
-  pole: 'bg-[#D4A574]',
-  soundbath: 'bg-[#8B7355]',
+  pole: 'bg-[#E5E5E5]',
+  soundbath: 'bg-[#F5E9DD]',
+  'terapia-de-sonido': 'bg-[#F5E9DD]',
   nutricion: 'bg-[#6B7F5E]',
 }
 

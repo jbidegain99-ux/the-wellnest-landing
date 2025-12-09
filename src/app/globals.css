@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Fonts: Quicksand for logo/headings, Inter for body */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Quicksand:wght@300;400;500;600;700&display=swap');
+/* Playfair Display - Única fuente para toda la plataforma The Wellnest */
 
 :root {
   /* Colores principales - The Wellnest Brand */
@@ -48,18 +47,18 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-playfair), 'Playfair Display', Georgia, serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Quicksand', sans-serif;
+    font-family: var(--font-playfair), 'Playfair Display', Georgia, serif;
     font-weight: 500;
   }
 }
 
-/* Logo/Brand typography */
+/* Logo/Brand typography - Playfair Display */
 .font-logo {
-  font-family: 'Quicksand', sans-serif;
+  font-family: var(--font-playfair), 'Playfair Display', Georgia, serif;
 }
 
 @layer utilities {

@@ -30,9 +30,9 @@ const config: Config = {
         earthTone: 'var(--color-earth-tone)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        serif: ['Quicksand', 'sans-serif'],
-        logo: ['Quicksand', 'sans-serif'],
+        sans: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
+        serif: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
+        logo: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
       },
       spacing: {
         '18': '4.5rem',

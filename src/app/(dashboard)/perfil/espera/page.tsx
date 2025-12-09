@@ -18,7 +18,7 @@ const waitlistItems = [
   },
   {
     id: '2',
-    className: 'Pole Sport',
+    className: 'Pole Fitness',
     instructor: 'Carolina López',
     dateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000 + 18 * 60 * 60 * 1000),
     position: 1,

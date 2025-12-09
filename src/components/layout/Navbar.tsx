@@ -15,8 +15,6 @@ const navigation = [
   { name: 'Paquetes', href: '/paquetes' },
   { name: 'Horarios', href: '/horarios' },
   { name: 'Equipo', href: '/equipo' },
-  { name: 'Galería', href: '/galeria' },
-  { name: 'Blog', href: '/blog' },
   { name: 'Contacto', href: '/contacto' },
 ]
 

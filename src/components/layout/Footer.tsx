@@ -8,16 +8,15 @@ const navigation = {
   disciplinas: [
     { name: 'Yoga', href: '/clases#yoga' },
     { name: 'Pilates Mat', href: '/clases#pilates' },
-    { name: 'Pole Sport', href: '/clases#pole' },
-    { name: 'Sound Healing', href: '/clases#soundhealing' },
+    { name: 'Pole Fitness', href: '/clases#pole' },
+    { name: 'Terapia de Sonido', href: '/clases#terapia-de-sonido' },
     { name: 'Nutrición', href: '/clases#nutricion' },
   ],
   estudio: [
     { name: 'Paquetes', href: '/paquetes' },
     { name: 'Horarios', href: '/horarios' },
     { name: 'Equipo', href: '/equipo' },
-    { name: 'Galería', href: '/galeria' },
-    { name: 'Blog', href: '/blog' },
+    { name: 'Contacto', href: '/contacto' },
   ],
   legal: [
     { name: 'Términos y Condiciones', href: '/terminos' },
@@ -113,7 +112,7 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Contact & Newsletter */}
+          {/* Contact */}
           <div>
             <h3 className="font-serif text-lg font-semibold text-foreground mb-4">
               Contacto

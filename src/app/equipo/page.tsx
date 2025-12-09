@@ -15,8 +15,9 @@ function generateRole(disciplines: string[]): string {
   const disciplineRoles: Record<string, string> = {
     'yoga': 'Instructor/a de Yoga',
     'pilates': 'Instructor/a de Pilates',
-    'pole': 'Instructor/a de Pole Sport',
-    'soundbath': 'Terapeuta de Sound Healing',
+    'pole': 'Instructor/a de Pole Fitness',
+    'soundbath': 'Terapeuta de Terapia de Sonido',
+    'terapia-de-sonido': 'Terapeuta de Terapia de Sonido',
     'nutricion': 'Nutricionista',
   }
 

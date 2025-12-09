@@ -54,7 +54,7 @@ export default function TerminosPage() {
             <h2>2. Servicios Ofrecidos</h2>
             <p>
               The Wellnest ofrece clases de bienestar que incluyen, pero no se
-              limitan a: Yoga, Pilates Mat, Pole Sport, Sound Healing y consultas
+              limitan a: Yoga, Pilates Mat, Pole Fitness, Terapia de Sonido y consultas
               de Nutrición. Nos reservamos el derecho de modificar, suspender o
               discontinuar cualquier servicio en cualquier momento.
             </p>

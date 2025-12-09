@@ -12,7 +12,6 @@ import {
   Users,
   UserCheck,
   Tag,
-  FileText,
   Settings,
   Menu,
   X,
@@ -27,7 +26,6 @@ const navigation = [
   { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   { name: 'Instructores', href: '/admin/instructores', icon: UserCheck },
   { name: 'Promociones', href: '/admin/promociones', icon: Tag },
-  { name: 'Blog', href: '/admin/blog', icon: FileText },
   { name: 'Configuración', href: '/admin/configuracion', icon: Settings },
 ]
 

@@ -2,11 +2,13 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 
 // Discipline data with descriptions
+// TODO: subir imágenes reales a estas rutas
 const disciplines = [
   {
     id: 'yoga',
@@ -16,6 +18,8 @@ const disciplines = [
     href: '/clases#yoga',
     gradient: 'from-[#9CAF88] to-[#7A9A6D]',
     bgColor: 'bg-[#9CAF88]/10',
+    imageSrc: '/images/disciplines/yoga.jpg',
+    imageAlt: 'Clase de Yoga en The Wellnest',
   },
   {
     id: 'pilates',
@@ -25,24 +29,30 @@ const disciplines = [
     href: '/clases#pilates',
     gradient: 'from-[#C4A77D] to-[#A88B5C]',
     bgColor: 'bg-[#C4A77D]/10',
+    imageSrc: '/images/disciplines/pilates.jpg',
+    imageAlt: 'Clase de Pilates Mat en The Wellnest',
   },
   {
     id: 'pole',
-    title: 'Pole Sport',
+    title: 'Pole Fitness',
     shortDescription: 'Empodérate, conecta con tu fuerza y tu sensualidad en un entorno seguro.',
     description: 'Empodérate, conecta con tu fuerza y tu sensualidad en un entorno seguro y acompañado, combinando fuerza, flexibilidad y expresión corporal.',
     href: '/clases#pole',
-    gradient: 'from-[#D4A5A5] to-[#B88888]',
-    bgColor: 'bg-[#D4A5A5]/10',
+    gradient: 'from-[#B0B0B0] to-[#8A8A8A]',
+    bgColor: 'bg-[#E5E5E5]',
+    imageSrc: '/images/disciplines/pole-fitness.jpg',
+    imageAlt: 'Clase de Pole Fitness en The Wellnest',
   },
   {
     id: 'sound',
-    title: 'Sound Healing',
+    title: 'Terapia de Sonido',
     shortDescription: 'Relaja tu sistema nervioso a través de baños de sonido y frecuencias terapéuticas.',
     description: 'Relaja tu sistema nervioso, libera tensión y entra en estados profundos de descanso mediante baños de sonido con cuencos, gongs y otras frecuencias terapéuticas.',
-    href: '/clases#soundhealing',
-    gradient: 'from-[#A8C5DA] to-[#8AAFC8]',
-    bgColor: 'bg-[#A8C5DA]/10',
+    href: '/clases#terapia-de-sonido',
+    gradient: 'from-[#D4C4B0] to-[#C0A888]',
+    bgColor: 'bg-[#F5E9DD]',
+    imageSrc: '/images/disciplines/terapia-de-sonido.jpg',
+    imageAlt: 'Sesión de Terapia de Sonido con cuencos y vibración sonora en The Wellnest',
   },
   {
     id: 'nutrition',
@@ -52,6 +62,8 @@ const disciplines = [
     href: '/clases#nutricion',
     gradient: 'from-[#B8D4A8] to-[#9AC088]',
     bgColor: 'bg-[#B8D4A8]/10',
+    imageSrc: '/images/disciplines/nutricion.jpg',
+    imageAlt: 'Consulta de Nutrición en The Wellnest',
   },
 ]
 
@@ -195,11 +207,23 @@ export function DisciplinesCarousel() {
                 )}
               >
                 {/* Card Content */}
-                <div className="relative h-full">
-                  {/* Gradient Background */}
+                <div className="relative h-full min-h-[320px]">
+                  {/* Background Image - TODO: subir imágenes reales a estas rutas */}
+                  <Image
+                    src={discipline.imageSrc}
+                    alt={discipline.imageAlt}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 340px"
+                    onError={(e) => {
+                      // Hide image on error, gradient will show as fallback
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                  {/* Gradient Overlay */}
                   <div
                     className={cn(
-                      'absolute inset-0 bg-gradient-to-br opacity-90',
+                      'absolute inset-0 bg-gradient-to-br opacity-80',
                       discipline.gradient
                     )}
                   />
