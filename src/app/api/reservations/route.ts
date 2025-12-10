@@ -337,6 +337,7 @@ export async function POST(request: Request) {
         })
 
         // Reactivate the reservation
+        // Note: We don't update class.currentCount because we use _count.reservations instead
         const [reactivatedReservation, updatedPurchase] = await prisma.$transaction([
           prisma.reservation.update({
             where: { id: existingReservation.id },
@@ -357,10 +358,6 @@ export async function POST(request: Request) {
           prisma.purchase.update({
             where: { id: purchase.id },
             data: { classesRemaining: { decrement: 1 } },
-          }),
-          prisma.class.update({
-            where: { id: classId },
-            data: { currentCount: { increment: 1 } },
           }),
         ])
 
@@ -583,7 +580,9 @@ export async function POST(request: Request) {
       afterReservation: purchase.classesRemaining - 1,
     })
 
-    // Create reservation and update counts in a transaction
+    // Create reservation and decrement purchase classes in a transaction
+    // Note: We don't update class.currentCount because we use _count.reservations instead
+    // The actual reservation count is calculated from confirmed reservations, not this field
     console.log('[RESERVATIONS API] Creating reservation in transaction...')
     console.log('[RESERVATIONS API] Transaction data:', {
       userId,
@@ -618,10 +617,6 @@ export async function POST(request: Request) {
       prisma.purchase.update({
         where: { id: purchase.id },
         data: { classesRemaining: { decrement: 1 } },
-      }),
-      prisma.class.update({
-        where: { id: classId },
-        data: { currentCount: { increment: 1 } },
       }),
     ])
 

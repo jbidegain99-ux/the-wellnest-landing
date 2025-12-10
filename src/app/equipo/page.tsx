@@ -2,6 +2,9 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { prisma } from '@/lib/prisma'
 
+// Force dynamic rendering to always show fresh data
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'Nuestro Equipo | The Wellnest',
   description:

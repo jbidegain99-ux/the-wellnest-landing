@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Clock, User, Users, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import {
@@ -12,6 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select'
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalTitle,
+  ModalFooter,
+} from '@/components/ui/Modal'
 import { cn, getWeekDays, getMonthName } from '@/lib/utils'
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
 
@@ -48,8 +56,14 @@ const disciplineColors: Record<string, string> = {
   nutricion: 'bg-[#6B7F5E]',
 }
 
+interface ActivePurchase {
+  hasActivePackage: boolean
+  classesRemaining: number
+}
+
 export default function HorariosPage() {
   const { data: session } = useSession()
+  const router = useRouter()
   const [selectedDiscipline, setSelectedDiscipline] = React.useState('all')
   const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
   const [classes, setClasses] = React.useState<ClassData[]>([])
@@ -57,6 +71,11 @@ export default function HorariosPage() {
   const [currentWeekStart, setCurrentWeekStart] = React.useState(() => {
     return startOfWeek(new Date(), { weekStartsOn: 1 })
   })
+
+  // For booking flow
+  const [activePurchase, setActivePurchase] = React.useState<ActivePurchase | null>(null)
+  const [showLoginModal, setShowLoginModal] = React.useState(false)
+  const [showNoPackageModal, setShowNoPackageModal] = React.useState(false)
 
   const weekDays = getWeekDays()
 
@@ -92,6 +111,23 @@ export default function HorariosPage() {
     }
     fetchDisciplines()
   }, [])
+
+  // Fetch active purchase for logged-in users
+  React.useEffect(() => {
+    const fetchActivePurchase = async () => {
+      if (!session) return
+      try {
+        const response = await fetch('/api/user/active-purchase')
+        if (response.ok) {
+          const data = await response.json()
+          setActivePurchase(data)
+        }
+      } catch (error) {
+        console.error('Error fetching active purchase:', error)
+      }
+    }
+    fetchActivePurchase()
+  }, [session])
 
   // Fetch classes for current week
   React.useEffect(() => {
@@ -156,6 +192,28 @@ export default function HorariosPage() {
   const formatClassTime = (dateTime: string) => {
     const date = new Date(dateTime)
     return format(date, 'HH:mm')
+  }
+
+  const handleClassClick = (cls: ClassData) => {
+    const reservationCount = cls._count?.reservations ?? cls.currentCount
+    const isFull = reservationCount >= cls.maxCapacity
+
+    if (isFull) return
+
+    // Not logged in - show login modal
+    if (!session) {
+      setShowLoginModal(true)
+      return
+    }
+
+    // Logged in but no active package - show package modal
+    if (!activePurchase?.hasActivePackage || activePurchase.classesRemaining <= 0) {
+      setShowNoPackageModal(true)
+      return
+    }
+
+    // Logged in with active package - redirect to reservar with class preselected
+    router.push(`/reservar?classId=${cls.id}`)
   }
 
   return (
@@ -270,12 +328,16 @@ export default function HorariosPage() {
                           const spotsLeft = cls.maxCapacity - reservationCount
 
                           return (
-                            <div
+                            <button
                               key={cls.id}
+                              onClick={() => handleClassClick(cls)}
+                              disabled={isFull}
                               className={cn(
-                                'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
+                                'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
                                 disciplineColors[cls.discipline.slug] || 'bg-primary',
-                                isFull && 'opacity-60'
+                                isFull
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
                               )}
                             >
                               <p className="font-medium">{cls.discipline.name}</p>
@@ -291,7 +353,7 @@ export default function HorariosPage() {
                                 <Users className="h-3 w-3" />
                                 {isFull ? 'Lleno' : `${spotsLeft} cupos`}
                               </p>
-                            </div>
+                            </button>
                           )
                         })
                       )}
@@ -336,6 +398,52 @@ export default function HorariosPage() {
           )}
         </div>
       </section>
+
+      {/* Login Required Modal */}
+      <Modal open={showLoginModal} onOpenChange={setShowLoginModal}>
+        <ModalContent className="max-w-md">
+          <ModalHeader>
+            <ModalTitle>Inicia sesión para reservar</ModalTitle>
+          </ModalHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              Para reservar una clase, necesitas iniciar sesión o crear una cuenta gratuita.
+            </p>
+          </div>
+          <ModalFooter>
+            <Button variant="outline" onClick={() => setShowLoginModal(false)}>
+              Cancelar
+            </Button>
+            <Link href="/login">
+              <Button>Iniciar Sesión</Button>
+            </Link>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* No Package Modal */}
+      <Modal open={showNoPackageModal} onOpenChange={setShowNoPackageModal}>
+        <ModalContent className="max-w-md">
+          <ModalHeader>
+            <ModalTitle>Necesitas un paquete activo</ModalTitle>
+          </ModalHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              {activePurchase?.classesRemaining === 0
+                ? 'Ya no te quedan clases en tu paquete actual. Adquiere un nuevo paquete para seguir reservando.'
+                : 'Para reservar clases, necesitas adquirir un paquete. Explora nuestras opciones y encuentra el paquete perfecto para ti.'}
+            </p>
+          </div>
+          <ModalFooter>
+            <Button variant="outline" onClick={() => setShowNoPackageModal(false)}>
+              Cancelar
+            </Button>
+            <Link href="/paquetes">
+              <Button>Ver Paquetes</Button>
+            </Link>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   )
 }
