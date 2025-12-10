@@ -83,6 +83,7 @@ export default function ReservarPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const packageIdFromUrl = searchParams.get('packageId')
+  const classIdFromUrl = searchParams.get('classId')
 
   // Data states
   const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
@@ -207,6 +208,45 @@ export default function ReservarPage() {
     fetchClasses()
   }, [currentWeekStart, selectedDiscipline, disciplines, weekEnd])
 
+  // Track if we've already processed the classIdFromUrl to prevent reopening
+  const [classIdProcessed, setClassIdProcessed] = React.useState(false)
+
+  // Auto-select class from URL and open confirmation modal
+  React.useEffect(() => {
+    if (!classIdFromUrl || classIdProcessed) return
+
+    const fetchAndSelectClass = async () => {
+      try {
+        // Fetch the specific class by ID
+        const response = await fetch(`/api/classes/${classIdFromUrl}`)
+        if (!response.ok) return
+
+        const classData: ClassData = await response.json()
+
+        // Navigate to the week containing this class
+        const classDate = new Date(classData.dateTime)
+        const classWeekStart = startOfWeek(classDate, { weekStartsOn: 1 })
+        setCurrentWeekStart(classWeekStart)
+
+        // Check if the class is full
+        const reservationCount = classData._count?.reservations ?? classData.currentCount
+        const isFull = reservationCount >= classData.maxCapacity
+
+        if (!isFull) {
+          setSelectedClass(classData)
+          setBookingError(null)
+          setModalState('confirm')
+        }
+
+        setClassIdProcessed(true)
+      } catch (error) {
+        console.error('Error fetching class:', error)
+      }
+    }
+
+    fetchAndSelectClass()
+  }, [classIdFromUrl, classIdProcessed])
+
   const goToPreviousWeek = () => {
     setCurrentWeekStart(addDays(currentWeekStart, -7))
   }
@@ -280,19 +320,30 @@ export default function ReservarPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Refresh active purchase to update class count
-        await fetchActivePurchase()
-        // Refresh selected purchase if applicable
-        if (selectedPurchase) {
-          setSelectedPurchase({
-            ...selectedPurchase,
-            classesRemaining: Math.max(0, selectedPurchase.classesRemaining - 1),
-          })
+        // Use the updated purchase data from the response directly
+        // This is more reliable than making another API call
+        if (data.updatedPurchase) {
+          // Update active purchase state with the response data
+          setActivePurchase(prev => prev ? {
+            ...prev,
+            classesRemaining: data.updatedPurchase.classesRemaining,
+          } : null)
+
+          // Update selected purchase if applicable
+          if (selectedPurchase && selectedPurchase.id === data.updatedPurchase.id) {
+            setSelectedPurchase({
+              ...selectedPurchase,
+              classesRemaining: data.updatedPurchase.classesRemaining,
+            })
+          }
         }
-        // Refresh classes to update spot counts
+
+        // Refresh classes to update spot counts (add cache bust param)
         const startDate = format(currentWeekStart, 'yyyy-MM-dd')
         const endDate = format(weekEnd, 'yyyy-MM-dd')
-        const classesResponse = await fetch(`/api/classes?startDate=${startDate}&endDate=${endDate}`)
+        const classesResponse = await fetch(
+          `/api/classes?startDate=${startDate}&endDate=${endDate}&_t=${Date.now()}`
+        )
         if (classesResponse.ok) {
           const classesData = await classesResponse.json()
           setClasses(classesData)

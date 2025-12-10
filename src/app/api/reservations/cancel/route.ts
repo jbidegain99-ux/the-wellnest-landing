@@ -140,7 +140,9 @@ export async function POST(request: Request) {
       classId: reservation.classId,
     })
 
-    const [updatedReservation, updatedPurchase, updatedClass] = await prisma.$transaction([
+    // Note: We don't update class.currentCount because we use _count.reservations instead
+    // The actual reservation count is calculated from confirmed reservations
+    const [updatedReservation, updatedPurchase] = await prisma.$transaction([
       // 1. Mark reservation as cancelled
       prisma.reservation.update({
         where: { id: reservationId },
@@ -165,14 +167,6 @@ export async function POST(request: Request) {
           classesRemaining: { increment: 1 },
         },
       }),
-
-      // 3. Decrement class current count
-      prisma.class.update({
-        where: { id: reservation.classId },
-        data: {
-          currentCount: { decrement: 1 },
-        },
-      }),
     ])
 
     console.log('[CANCEL API] Cancellation transaction completed:', {
@@ -182,7 +176,6 @@ export async function POST(request: Request) {
       purchaseId: updatedPurchase.id,
       previousClassesRemaining: reservation.purchase.classesRemaining,
       newClassesRemaining: updatedPurchase.classesRemaining,
-      classCurrentCount: updatedClass.currentCount,
       previousPurchaseStatus: reservation.purchase.status,
       newPurchaseStatus: updatedPurchase.status,
     })

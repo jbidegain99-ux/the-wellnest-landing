@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { revalidatePath } from 'next/cache'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
@@ -73,6 +74,9 @@ export async function POST(request: Request) {
         order: data.order ?? newOrder,
       },
     })
+
+    // Revalidate the /equipo page to show the new instructor
+    revalidatePath('/equipo')
 
     return NextResponse.json({
       message: 'Instructor creado correctamente',

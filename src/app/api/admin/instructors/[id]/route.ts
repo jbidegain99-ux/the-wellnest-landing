@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { revalidatePath } from 'next/cache'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
@@ -98,6 +99,9 @@ export async function PUT(
       data: updateData,
     })
 
+    // Revalidate the /equipo page to show the updated instructor
+    revalidatePath('/equipo')
+
     return NextResponse.json({
       message: 'Instructor actualizado correctamente',
       instructor,
@@ -154,6 +158,9 @@ export async function DELETE(
     await prisma.instructor.delete({
       where: { id },
     })
+
+    // Revalidate the /equipo page to remove the deleted instructor
+    revalidatePath('/equipo')
 
     return NextResponse.json({
       message: 'Instructor eliminado correctamente',

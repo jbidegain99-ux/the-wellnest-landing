@@ -250,7 +250,7 @@ export default function AdminHorariosPage() {
             duration: parseInt(formData.get('duration') as string),
             maxCapacity: parseInt(formData.get('maxCapacity') as string),
             isRecurring: formData.get('isRecurring') === 'on',
-            weeksAhead: formData.get('isRecurring') === 'on' ? 4 : 1,
+            weeksAhead: formData.get('isRecurring') === 'on' ? 8 : 1,
           }),
         })
 
@@ -534,7 +534,7 @@ export default function AdminHorariosPage() {
                     defaultChecked={true}
                     className="rounded border-beige-dark text-primary focus:ring-primary"
                   />
-                  <span className="text-sm">Clase recurrente (crear para las próximas 4 semanas)</span>
+                  <span className="text-sm">Clase recurrente (crear para las próximas 8 semanas / 2 meses)</span>
                 </label>
               )}
 
