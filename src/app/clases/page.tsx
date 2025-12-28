@@ -142,10 +142,6 @@ export default function ClasesPage() {
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
-                  onError={(e) => {
-                    // Hide image on error, gradient will show as fallback
-                    e.currentTarget.style.display = 'none'
-                  }}
                 />
                 {/* Gradient overlay for legibility */}
                 <div
