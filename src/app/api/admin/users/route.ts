@@ -18,7 +18,7 @@ export async function GET() {
         name: true,
         email: true,
         phone: true,
-        image: true,
+        profileImage: true,
         role: true,
         createdAt: true,
         _count: {
@@ -58,7 +58,7 @@ export async function GET() {
       name: user.name,
       email: user.email,
       phone: user.phone,
-      image: user.image,
+      image: user.profileImage,
       role: user.role,
       createdAt: user.createdAt,
       activePackages: user._count.purchases,
