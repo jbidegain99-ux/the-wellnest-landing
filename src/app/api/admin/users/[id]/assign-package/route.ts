@@ -68,8 +68,8 @@ export async function POST(
         userId,
         packageId,
         classesRemaining: classCount || pkg.classCount,
-        totalClasses: classCount || pkg.classCount,
-        pricePaid: 0, // Admin-assigned packages are free
+        originalPrice: pkg.price,
+        finalPrice: 0, // Admin-assigned packages are free
         expiresAt,
         status: 'ACTIVE',
       },
