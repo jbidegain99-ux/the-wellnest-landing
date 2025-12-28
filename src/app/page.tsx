@@ -136,12 +136,7 @@ export default function HomePage() {
                       width={32}
                       height={32}
                       className="object-contain"
-                      onError={(e) => {
-                        // Hide image on error, icon will show as fallback
-                        e.currentTarget.style.display = 'none'
-                      }}
                     />
-                    <Icon className="h-6 w-6 text-primary absolute opacity-0" aria-hidden="true" />
                   </div>
                   <div>
                     <h3 className="font-serif text-xl font-semibold text-foreground mb-2">
