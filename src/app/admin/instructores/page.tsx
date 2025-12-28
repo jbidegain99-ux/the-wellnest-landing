@@ -105,23 +105,10 @@ export default function AdminInstructoresPage() {
       )
   )
 
-  // Generate role from disciplines
-  const generateRole = (disciplinesList: string[]): string => {
-    if (disciplinesList.length === 0) return 'Instructor'
-
-    const disciplineRoles: Record<string, string> = {
-      'yoga': 'Instructor/a de Yoga',
-      'pilates mat': 'Instructor/a de Pilates',
-      'pole fitness': 'Instructor/a de Pole Fitness',
-      'terapia de sonido': 'Terapeuta de Terapia de Sonido',
-      'nutrición': 'Nutricionista',
-    }
-
-    const roles = disciplinesList
-      .map(d => disciplineRoles[d.toLowerCase()] || `Instructor/a de ${d}`)
-      .filter((v, i, a) => a.indexOf(v) === i)
-
-    return roles.join(' & ')
+  // Generate clean discipline list (without "Instructor/a de" prefix)
+  const formatDisciplines = (disciplinesList: string[]): string => {
+    if (disciplinesList.length === 0) return 'Sin disciplinas'
+    return disciplinesList.join(' · ')
   }
 
   const openModal = (instructor?: Instructor) => {
@@ -346,7 +333,7 @@ export default function AdminInstructoresPage() {
                             {instructor.name}
                           </p>
                           <p className="text-sm text-gray-500">
-                            {generateRole(instructor.disciplines)}
+                            {formatDisciplines(instructor.disciplines)}
                           </p>
                         </div>
                       </div>

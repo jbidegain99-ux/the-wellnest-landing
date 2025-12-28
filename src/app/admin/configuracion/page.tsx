@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Save, Globe, Mail, CreditCard, Bell, Database, AlertTriangle } from 'lucide-react'
+import { Save, Globe, CreditCard, Database, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -105,43 +105,7 @@ export default function AdminConfiguracionPage() {
           />
           <Input
             label="Dirección"
-            defaultValue="Colonia Escalón, San Salvador, El Salvador"
-          />
-        </CardContent>
-      </Card>
-
-      {/* Email Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Configuración de Email
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Input
-            label="Servidor SMTP"
-            defaultValue="smtp.gmail.com"
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Puerto SMTP"
-              defaultValue="587"
-            />
-            <Input
-              label="Email remitente"
-              type="email"
-              defaultValue="noreply@thewellnest.sv"
-            />
-          </div>
-          <Input
-            label="Usuario SMTP"
-            defaultValue="noreply@thewellnest.sv"
-          />
-          <Input
-            label="Contraseña SMTP"
-            type="password"
-            defaultValue="********"
+            defaultValue="Presidente Plaza, Colonia San Benito, San Salvador, El Salvador"
           />
         </CardContent>
       </Card>
@@ -151,83 +115,26 @@ export default function AdminConfiguracionPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
-            Configuración de Pagos (Stripe)
+            Configuración de Pagos
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
-            label="Stripe Publishable Key"
+            label="Clave Pública"
             defaultValue="pk_test_..."
           />
           <Input
-            label="Stripe Secret Key"
+            label="Clave Secreta"
             type="password"
             defaultValue="sk_test_..."
           />
           <div className="p-4 bg-beige rounded-lg text-sm text-gray-600">
             <p>
               <strong>Nota:</strong> Para aceptar pagos en El Salvador, asegúrate
-              de que tu cuenta de Stripe esté configurada correctamente y cumpla
+              de que tu cuenta de pagos esté configurada correctamente y cumpla
               con las regulaciones locales.
             </p>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Notifications */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Notificaciones
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <label className="flex items-center justify-between cursor-pointer py-2">
-            <div>
-              <p className="font-medium text-foreground">
-                Notificar nuevas reservas
-              </p>
-              <p className="text-sm text-gray-500">
-                Recibe un email cuando alguien reserve una clase
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              defaultChecked
-              className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
-            />
-          </label>
-          <label className="flex items-center justify-between cursor-pointer py-2">
-            <div>
-              <p className="font-medium text-foreground">
-                Notificar nuevas compras
-              </p>
-              <p className="text-sm text-gray-500">
-                Recibe un email cuando alguien compre un paquete
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              defaultChecked
-              className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
-            />
-          </label>
-          <label className="flex items-center justify-between cursor-pointer py-2">
-            <div>
-              <p className="font-medium text-foreground">
-                Notificar mensajes de contacto
-              </p>
-              <p className="text-sm text-gray-500">
-                Recibe un email cuando alguien envíe un mensaje
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              defaultChecked
-              className="h-5 w-5 rounded border-beige-dark text-primary focus:ring-primary"
-            />
-          </label>
         </CardContent>
       </Card>
 

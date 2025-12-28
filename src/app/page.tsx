@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, Leaf, Heart, Sparkles, Users, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { DisciplinesCarousel } from '@/components/home/DisciplinesCarousel'
@@ -8,21 +9,25 @@ const benefits = [
     icon: Leaf,
     title: 'Paquetes Flexibles',
     description: 'Usa tus clases en cualquier disciplina según tu estado de ánimo.',
+    image: '/images/values/flexibilidad.svg',
   },
   {
     icon: Heart,
     title: 'Bienestar Integral',
     description: 'Múltiples disciplinas en un solo lugar para tu cuerpo, mente y espíritu.',
+    image: '/images/values/bienestar.svg',
   },
   {
     icon: Sparkles,
     title: 'Experiencia Premium',
     description: 'Un espacio diseñado para tu comodidad y relajación total.',
+    image: '/images/values/premium.svg',
   },
   {
     icon: Users,
     title: 'Comunidad Acogedora',
     description: 'Únete a una comunidad que te apoya en tu viaje de bienestar.',
+    image: '/images/values/comunidad.svg',
   },
 ]
 
@@ -31,23 +36,25 @@ export default function HomePage() {
     <>
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Video - YouTube Embed */}
+        {/* Background Video - Local MP4 */}
         <div className="absolute inset-0">
-          {/* YouTube iframe with autoplay, mute, and loop */}
-          <iframe
-            src="https://www.youtube.com/embed/4pKly2JojMw?autoplay=1&mute=1&loop=1&playlist=4pKly2JojMw&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1"
-            title="The Wellnest - Video de fondo"
-            className="absolute w-[300%] h-[300%] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-            style={{ border: 0 }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            poster="/videos/hero-poster.jpg"
+            className="absolute w-full h-full object-cover"
+          >
+            <source src="/videos/hero.mp4" type="video/mp4" />
+            <source src="/videos/hero.webm" type="video/webm" />
+          </video>
           {/* Fallback gradient for when video doesn't load */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D] -z-10" />
           {/* Dark overlay for text readability */}
           <div className="absolute inset-0 bg-black/40" />
         </div>
-        {/* TODO: reemplazar por video oficial de The Wellnest usando /videos/wellnest-hero.mp4 */}
 
         {/* Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center text-white">
@@ -120,10 +127,21 @@ export default function HomePage() {
               return (
                 <div
                   key={benefit.title}
-                  className="flex gap-4 p-6 rounded-2xl bg-white/50 backdrop-blur-sm"
+                  className="flex gap-4 p-6 rounded-2xl bg-white/50 backdrop-blur-sm hover:bg-white/70 transition-colors"
                 >
-                  <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Icon className="h-6 w-6 text-primary" />
+                  <div className="flex-shrink-0 w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                    <Image
+                      src={benefit.image}
+                      alt={benefit.title}
+                      width={32}
+                      height={32}
+                      className="object-contain"
+                      onError={(e) => {
+                        // Hide image on error, icon will show as fallback
+                        e.currentTarget.style.display = 'none'
+                      }}
+                    />
+                    <Icon className="h-6 w-6 text-primary absolute opacity-0" aria-hidden="true" />
                   </div>
                   <div>
                     <h3 className="font-serif text-xl font-semibold text-foreground mb-2">
@@ -187,32 +205,41 @@ export default function HomePage() {
               <div className="space-y-4 text-gray-600">
                 <p className="flex items-center gap-2">
                   <span className="font-medium">Dirección:</span>
-                  Av. De La Revolución, San Salvador, Presidente Plaza, Local #1234
+                  Presidente Plaza, Colonia San Benito, San Salvador, El Salvador
                 </p>
                 <p className="flex items-center gap-2">
                   <span className="font-medium">Horario:</span>
                   Lunes a Sábado, 6:00 AM - 8:00 PM
                 </p>
               </div>
-              <div className="mt-8">
+              <div className="mt-8 flex gap-4">
                 <Link href="/contacto">
                   <Button>
                     Cómo llegar
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
+                <a
+                  href="https://www.google.com/maps/place/Presidente+Plaza,+San+Benito,+San+Salvador,+El+Salvador"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline">
+                    Abrir en Google Maps
+                  </Button>
+                </a>
               </div>
             </div>
             <div className="relative h-80 lg:h-96 rounded-2xl overflow-hidden bg-beige-dark">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3876.2!2d-89.2365!3d13.6988!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8f633076b8f1c3f7%3A0x9b3c8b5b5b5b5b5b!2sPresidente%20Plaza!5e0!3m2!1ses!2ssv!4v1700000000000"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3876.4!2d-89.2391!3d13.6928!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8f6330c08f9f7b63%3A0x4a0c7c0a0c0a0c0a!2sPresidente%20Plaza%2C%20San%20Benito%2C%20San%20Salvador!5e0!3m2!1ses!2ssv!4v1700000000000"
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}
                 allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Ubicación The Wellnest - Presidente Plaza, San Salvador"
+                title="Ubicación The Wellnest - Presidente Plaza, San Benito, San Salvador"
               />
             </div>
           </div>

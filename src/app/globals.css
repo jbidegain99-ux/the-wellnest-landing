@@ -16,7 +16,8 @@
   --color-green-dark: #6B7F5E;
   --color-white: #FFFFFF;
   --color-black: #353723;
-  --color-gray: #6B6B6B;
+  --color-gray: #5A5A5A; /* Darkened for better contrast */
+  --color-gray-muted: #4A4A4A; /* For secondary text with good contrast */
 
   /* Estados */
   --color-success: #9CAF88;
@@ -64,6 +65,15 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* High contrast text utilities for legibility */
+  .text-muted {
+    color: var(--color-gray-muted);
+  }
+
+  .text-subtle {
+    color: var(--color-gray);
   }
 
   .animate-fade-in {

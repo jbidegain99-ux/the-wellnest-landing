@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, Clock, Users, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
@@ -18,7 +19,7 @@ const disciplines = [
     ],
     duration: '60-75 min',
     level: 'Todos los niveles',
-    image: '/images/yoga.jpg',
+    image: '/images/disciplines/yoga.jpg',
     color: 'from-[#9CAF88] to-[#6B7F5E]',
   },
   {
@@ -36,7 +37,7 @@ const disciplines = [
     ],
     duration: '55 min',
     level: 'Todos los niveles',
-    image: '/images/pilates.jpg',
+    image: '/images/disciplines/pilates.jpg',
     color: 'from-[#C4A77D] to-[#8B7355]',
   },
   {
@@ -54,7 +55,7 @@ const disciplines = [
     ],
     duration: '60 min',
     level: 'Principiante a Avanzado',
-    image: '/images/pole-fitness.jpg',
+    image: '/images/disciplines/pole-fitness.jpg',
     color: 'from-[#B0B0B0] to-[#8A8A8A]',
   },
   {
@@ -72,7 +73,7 @@ const disciplines = [
     ],
     duration: '60-90 min',
     level: 'Todos los niveles',
-    image: '/images/terapia-de-sonido.jpg',
+    image: '/images/disciplines/terapia-de-sonido.jpg',
     color: 'from-[#D4C4B0] to-[#C0A888]',
   },
   {
@@ -90,7 +91,7 @@ const disciplines = [
     ],
     duration: '45-60 min',
     level: 'Consulta individual',
-    image: '/images/nutrition.jpg',
+    image: '/images/disciplines/nutricion.jpg',
     color: 'from-[#9CAF88] to-[#C4A77D]',
   },
 ]
@@ -135,12 +136,21 @@ export default function ClasesPage() {
                   index % 2 === 1 ? 'lg:order-2' : ''
                 }`}
               >
-                <div
-                  className={`absolute inset-0 bg-gradient-to-br ${discipline.color}`}
+                <Image
+                  src={discipline.image}
+                  alt={`Clase de ${discipline.name} en The Wellnest`}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  onError={(e) => {
+                    // Hide image on error, gradient will show as fallback
+                    e.currentTarget.style.display = 'none'
+                  }}
                 />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-white/50 text-lg">Imagen de {discipline.name}</span>
-                </div>
+                {/* Gradient overlay for legibility */}
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${discipline.color} opacity-60`}
+                />
               </div>
 
               {/* Content */}

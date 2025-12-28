@@ -15,19 +15,30 @@ const config: Config = {
           100: 'var(--color-primary-100)',
           500: 'var(--color-primary)',
           600: 'var(--color-primary-600)',
+          700: '#5A6E4E',
         },
         accent: {
           DEFAULT: 'var(--color-accent)',
           50: 'var(--color-accent-50)',
           100: 'var(--color-accent-100)',
           500: 'var(--color-accent)',
+          600: '#A88A5F',
         },
         background: 'var(--color-bg)',
         foreground: 'var(--color-text)',
         warmWhite: 'var(--color-warm-white)',
         nude: 'var(--color-nude)',
-        beige: 'var(--color-beige)',
+        beige: {
+          DEFAULT: 'var(--color-beige)',
+          dark: 'var(--color-beige-dark)',
+        },
+        cream: 'var(--color-cream)',
         earthTone: 'var(--color-earth-tone)',
+        // Improved muted text color for better contrast
+        muted: {
+          DEFAULT: '#5D5D5D',
+          foreground: '#4A4A4A',
+        },
       },
       fontFamily: {
         sans: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],

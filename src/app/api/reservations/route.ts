@@ -481,8 +481,10 @@ export async function POST(request: Request) {
         }
 
         if (requestedPurchaseDetails.status !== 'ACTIVE') {
+          // Log status for debugging but don't expose to user
+          console.log('[RESERVATIONS API] Package status issue:', requestedPurchaseDetails.status)
           return NextResponse.json({
-            error: `El paquete "${requestedPurchaseDetails.package.name}" ya no está activo (estado: ${requestedPurchaseDetails.status}).`,
+            error: `El paquete "${requestedPurchaseDetails.package.name}" ya no está activo. Por favor selecciona otro paquete o adquiere uno nuevo.`,
             code: ERROR_CODES.PACKAGE_EXPIRED
           }, { status: 400 })
         }
