@@ -4,6 +4,10 @@ import { ArrowRight, Leaf, Heart, Sparkles, Users, Calendar } from 'lucide-react
 import { Button } from '@/components/ui/Button'
 import { DisciplinesCarousel } from '@/components/home/DisciplinesCarousel'
 
+// Force dynamic rendering - never cache this page
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const benefits = [
   {
     icon: Leaf,

@@ -3,6 +3,10 @@ import Image from 'next/image'
 import { ArrowRight, Clock, Users, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
+// Force dynamic rendering - never cache this page
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const disciplines = [
   {
     id: 'yoga',

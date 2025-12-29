@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Force dynamic - this route uses request.url and DB queries
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
   console.log('[CLASSES API] ========== GET REQUEST ==========')
   console.log('[CLASSES API] Timestamp:', new Date().toISOString())

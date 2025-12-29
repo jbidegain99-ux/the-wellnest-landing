@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// Force dynamic - this route uses headers/session
+export const dynamic = 'force-dynamic'
+
 // GET all users (admin view)
 export async function GET() {
   try {
