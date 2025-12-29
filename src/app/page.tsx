@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { ArrowRight, Leaf, Heart, Sparkles, Users, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { DisciplinesCarousel } from '@/components/home/DisciplinesCarousel'
+import { getBrandAssets } from '@/lib/assets'
 
 // Force dynamic rendering - never cache this page
 export const dynamic = 'force-dynamic'
@@ -35,12 +36,16 @@ const benefits = [
   },
 ]
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Load brand assets from database
+  const assets = await getBrandAssets()
+  const heroVideoUrl = assets.hero_video_url?.url || 'https://videos.pexels.com/video-files/5123881/5123881-hd_1280_720_25fps.mp4'
+
   return (
     <>
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Video - External CDN */}
+        {/* Background Video - Loaded from Brand Assets */}
         <div className="absolute inset-0">
           <video
             autoPlay
@@ -50,8 +55,8 @@ export default function HomePage() {
             preload="auto"
             className="absolute w-full h-full object-cover"
           >
-            {/* Pexels wellness/meditation video */}
-            <source src="https://videos.pexels.com/video-files/5123881/5123881-hd_1280_720_25fps.mp4" type="video/mp4" />
+            {/* Hero video from Brand Assets (configurable in admin) */}
+            <source src={heroVideoUrl} type="video/mp4" />
           </video>
           {/* Fallback gradient for when video doesn't load */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D] -z-10" />
@@ -110,7 +115,7 @@ export default function HomePage() {
       </section>
 
       {/* Disciplines Section - Carousel with Hover Reveal */}
-      <DisciplinesCarousel />
+      <DisciplinesCarousel assets={assets} />
 
       {/* Why Choose Us Section */}
       <section className="py-24 bg-beige">

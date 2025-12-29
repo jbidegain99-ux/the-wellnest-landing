@@ -2,13 +2,32 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowRight, Clock, Users, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { getBrandAssets } from '@/lib/assets'
 
 // Force dynamic rendering - never cache this page
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-// Real Unsplash images for each discipline
-const disciplines = [
+// Default images as fallback
+const DEFAULT_IMAGES = {
+  yoga: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1200&q=80',
+  pilates: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80',
+  pole: 'https://images.unsplash.com/photo-1600618528240-fb9fc964b853?w=1200&q=80',
+  'terapia-de-sonido': 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?w=1200&q=80',
+  nutricion: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&q=80',
+}
+
+// Asset keys mapping
+const ASSET_KEYS = {
+  yoga: 'discipline_yoga_image_url',
+  pilates: 'discipline_pilates_image_url',
+  pole: 'discipline_pole_image_url',
+  'terapia-de-sonido': 'discipline_sound_image_url',
+  nutricion: 'discipline_nutrition_image_url',
+}
+
+// Base discipline data (without images - will be added dynamically)
+const baseDisciplines = [
   {
     id: 'yoga',
     name: 'Yoga',
@@ -24,7 +43,6 @@ const disciplines = [
     ],
     duration: '60-75 min',
     level: 'Todos los niveles',
-    image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1200&q=80',
     color: 'from-[#9CAF88]/50 to-[#6B7F5E]/50',
   },
   {
@@ -42,7 +60,6 @@ const disciplines = [
     ],
     duration: '55 min',
     level: 'Todos los niveles',
-    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80',
     color: 'from-[#C4A77D]/50 to-[#8B7355]/50',
   },
   {
@@ -60,7 +77,6 @@ const disciplines = [
     ],
     duration: '60 min',
     level: 'Principiante a Avanzado',
-    image: 'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=1200&q=80',
     color: 'from-[#B0B0B0]/50 to-[#8A8A8A]/50',
   },
   {
@@ -78,7 +94,6 @@ const disciplines = [
     ],
     duration: '60-90 min',
     level: 'Todos los niveles',
-    image: 'https://images.unsplash.com/photo-1591291621164-2c6367723315?w=1200&q=80',
     color: 'from-[#D4C4B0]/50 to-[#C0A888]/50',
   },
   {
@@ -96,7 +111,6 @@ const disciplines = [
     ],
     duration: '45-60 min',
     level: 'Consulta individual',
-    image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&q=80',
     color: 'from-[#9CAF88]/50 to-[#C4A77D]/50',
   },
 ]
@@ -107,7 +121,20 @@ export const metadata = {
     'Descubre nuestras disciplinas: Yoga, Pilates Mat, Pole Fitness, Terapia de Sonido y Nutrición. Bienestar integral en El Salvador.',
 }
 
-export default function ClasesPage() {
+export default async function ClasesPage() {
+  // Load brand assets from database
+  const assets = await getBrandAssets()
+
+  // Build disciplines with dynamic images from assets
+  const disciplines = baseDisciplines.map((discipline) => {
+    const assetKey = ASSET_KEYS[discipline.id as keyof typeof ASSET_KEYS]
+    const defaultImage = DEFAULT_IMAGES[discipline.id as keyof typeof DEFAULT_IMAGES]
+    return {
+      ...discipline,
+      image: assets[assetKey]?.url || defaultImage,
+    }
+  })
+
   return (
     <>
       {/* Hero */}
