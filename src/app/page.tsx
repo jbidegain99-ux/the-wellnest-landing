@@ -40,19 +40,18 @@ export default function HomePage() {
     <>
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Video - Local MP4 */}
+        {/* Background Video - External CDN */}
         <div className="absolute inset-0">
           <video
             autoPlay
             loop
             muted
             playsInline
-            preload="metadata"
-            poster="/videos/hero-poster.jpg"
+            preload="auto"
             className="absolute w-full h-full object-cover"
           >
-            <source src="/videos/hero.mp4" type="video/mp4" />
-            <source src="/videos/hero.webm" type="video/webm" />
+            {/* Pexels wellness/meditation video */}
+            <source src="https://videos.pexels.com/video-files/5123881/5123881-hd_1280_720_25fps.mp4" type="video/mp4" />
           </video>
           {/* Fallback gradient for when video doesn't load */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D] -z-10" />
@@ -133,14 +132,8 @@ export default function HomePage() {
                   key={benefit.title}
                   className="flex gap-4 p-6 rounded-2xl bg-white/50 backdrop-blur-sm hover:bg-white/70 transition-colors"
                 >
-                  <div className="flex-shrink-0 w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                    <Image
-                      src={benefit.image}
-                      alt={benefit.title}
-                      width={32}
-                      height={32}
-                      className="object-contain"
-                    />
+                  <div className="flex-shrink-0 w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Icon className="h-7 w-7 text-primary" />
                   </div>
                   <div>
                     <h3 className="font-serif text-xl font-semibold text-foreground mb-2">

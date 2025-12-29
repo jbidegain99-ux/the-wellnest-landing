@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+// Real Unsplash images for each discipline
 const disciplines = [
   {
     id: 'yoga',
@@ -23,8 +24,8 @@ const disciplines = [
     ],
     duration: '60-75 min',
     level: 'Todos los niveles',
-    image: '/images/disciplines/yoga.jpg',
-    color: 'from-[#9CAF88] to-[#6B7F5E]',
+    image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1200&q=80',
+    color: 'from-[#9CAF88]/50 to-[#6B7F5E]/50',
   },
   {
     id: 'pilates',
@@ -41,8 +42,8 @@ const disciplines = [
     ],
     duration: '55 min',
     level: 'Todos los niveles',
-    image: '/images/disciplines/pilates.jpg',
-    color: 'from-[#C4A77D] to-[#8B7355]',
+    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80',
+    color: 'from-[#C4A77D]/50 to-[#8B7355]/50',
   },
   {
     id: 'pole',
@@ -59,8 +60,8 @@ const disciplines = [
     ],
     duration: '60 min',
     level: 'Principiante a Avanzado',
-    image: '/images/disciplines/pole-fitness.jpg',
-    color: 'from-[#B0B0B0] to-[#8A8A8A]',
+    image: 'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=1200&q=80',
+    color: 'from-[#B0B0B0]/50 to-[#8A8A8A]/50',
   },
   {
     id: 'terapia-de-sonido',
@@ -77,8 +78,8 @@ const disciplines = [
     ],
     duration: '60-90 min',
     level: 'Todos los niveles',
-    image: '/images/disciplines/terapia-de-sonido.jpg',
-    color: 'from-[#D4C4B0] to-[#C0A888]',
+    image: 'https://images.unsplash.com/photo-1591291621164-2c6367723315?w=1200&q=80',
+    color: 'from-[#D4C4B0]/50 to-[#C0A888]/50',
   },
   {
     id: 'nutricion',
@@ -95,8 +96,8 @@ const disciplines = [
     ],
     duration: '45-60 min',
     level: 'Consulta individual',
-    image: '/images/disciplines/nutricion.jpg',
-    color: 'from-[#9CAF88] to-[#C4A77D]',
+    image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&q=80',
+    color: 'from-[#9CAF88]/50 to-[#C4A77D]/50',
   },
 ]
 
