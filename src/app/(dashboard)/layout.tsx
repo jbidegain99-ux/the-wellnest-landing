@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 import {
   User,
@@ -11,10 +11,10 @@ import {
   Calendar,
   Clock,
   History,
-  Settings,
   Gift,
   Menu,
   X,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,7 +25,6 @@ const navigation = [
   { name: 'Lista de Espera', href: '/perfil/espera', icon: Clock },
   { name: 'Historial', href: '/perfil/historial', icon: History },
   { name: 'Mis Invitaciones', href: '/perfil/invitaciones', icon: Gift },
-  { name: 'Configuración', href: '/perfil/configuracion', icon: Settings },
 ]
 
 export default function DashboardLayout({
@@ -68,8 +67,8 @@ export default function DashboardLayout({
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             )}
           >
-            <div className="lg:sticky lg:top-24">
-              <nav className="p-4 space-y-1">
+            <div className="lg:sticky lg:top-24 flex flex-col h-full lg:h-auto">
+              <nav className="p-4 space-y-1 flex-1">
                 {navigation.map((item) => {
                   const Icon = item.icon
                   const isActive = pathname === item.href
@@ -92,6 +91,17 @@ export default function DashboardLayout({
                   )
                 })}
               </nav>
+
+              {/* Cerrar sesión */}
+              <div className="p-4 border-t border-beige">
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors w-full"
+                >
+                  <LogOut className="h-5 w-5" />
+                  Cerrar sesión
+                </button>
+              </div>
             </div>
           </aside>
 
