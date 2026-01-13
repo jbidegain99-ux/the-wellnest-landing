@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Clock, User, Users, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, User, Users, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import {
   Select,
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/Modal'
 import { cn, getWeekDays, getMonthName } from '@/lib/utils'
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
+import { es } from 'date-fns/locale'
 
 interface Discipline {
   id: string
@@ -57,9 +58,193 @@ const disciplineColors: Record<string, string> = {
   nutricion: 'bg-[#6B7F5E]',         // Verde oscuro
 }
 
+// Colores para borde izquierdo en móvil (más visibles)
+const disciplineBorderColors: Record<string, string> = {
+  yoga: 'border-l-[#959D93]',
+  pilates: 'border-l-[#111316]',
+  pole: 'border-l-[#9CA3AF]',
+  soundbath: 'border-l-[#482F21]',
+  'terapia-de-sonido': 'border-l-[#482F21]',
+  nutricion: 'border-l-[#6B7F5E]',
+}
+
+// Badge colors para móvil (texto visible)
+const disciplineBadgeColors: Record<string, string> = {
+  yoga: 'bg-[#959D93] text-white',
+  pilates: 'bg-[#111316] text-white',
+  pole: 'bg-[#E5E5E5] text-gray-800',
+  soundbath: 'bg-[#482F21] text-white',
+  'terapia-de-sonido': 'bg-[#482F21] text-white',
+  nutricion: 'bg-[#6B7F5E] text-white',
+}
+
 interface ActivePurchase {
   hasActivePackage: boolean
   classesRemaining: number
+}
+
+// Mobile Class Card Component
+function MobileClassCard({
+  cls,
+  onClick,
+}: {
+  cls: ClassData
+  onClick: () => void
+}) {
+  const reservationCount = cls._count?.reservations ?? cls.currentCount
+  const isFull = reservationCount >= cls.maxCapacity
+  const spotsLeft = cls.maxCapacity - reservationCount
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={isFull}
+      className={cn(
+        'w-full p-4 bg-white rounded-xl border-l-4 shadow-sm',
+        'text-left transition-all min-h-[88px]',
+        disciplineBorderColors[cls.discipline.slug] || 'border-l-primary',
+        isFull
+          ? 'opacity-60 cursor-not-allowed'
+          : 'hover:shadow-md active:scale-[0.98] cursor-pointer'
+      )}
+    >
+      <div className="flex items-start justify-between gap-3 min-w-0">
+        {/* Left: Main info */}
+        <div className="flex-1 min-w-0 space-y-2">
+          {/* Discipline badge */}
+          <span
+            className={cn(
+              'inline-block px-2 py-0.5 rounded text-xs font-medium',
+              disciplineBadgeColors[cls.discipline.slug] || 'bg-primary text-white'
+            )}
+          >
+            {cls.discipline.name}
+          </span>
+
+          {/* Time - prominent */}
+          <div className="flex items-center gap-2 text-foreground">
+            <Clock className="h-4 w-4 flex-shrink-0 text-gray-500" />
+            <span className="text-lg font-semibold">
+              {format(new Date(cls.dateTime), 'HH:mm')}
+            </span>
+            <span className="text-sm text-gray-500">
+              ({cls.duration} min)
+            </span>
+          </div>
+
+          {/* Instructor */}
+          <div className="flex items-center gap-2 text-gray-600">
+            <User className="h-4 w-4 flex-shrink-0" />
+            <span className="text-sm truncate">{cls.instructor.name}</span>
+          </div>
+        </div>
+
+        {/* Right: Spots status */}
+        <div className={cn(
+          'flex-shrink-0 flex flex-col items-center justify-center',
+          'px-3 py-2 rounded-lg min-w-[70px]',
+          isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
+        )}>
+          <Users className="h-4 w-4 mb-1" />
+          <span className="text-xs font-medium text-center">
+            {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+          </span>
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// Mobile Day Accordion Component
+function MobileDayAccordion({
+  date,
+  classes,
+  isToday,
+  weekDays,
+  onClassClick,
+}: {
+  date: Date
+  classes: ClassData[]
+  isToday: boolean
+  weekDays: string[]
+  onClassClick: (cls: ClassData) => void
+}) {
+  const [isOpen, setIsOpen] = React.useState(isToday || classes.length > 0)
+
+  const dayName = weekDays[date.getDay()]
+  const dayNumber = date.getDate()
+  const monthName = format(date, 'MMM', { locale: es })
+
+  return (
+    <div className={cn(
+      'rounded-xl overflow-hidden',
+      isToday ? 'ring-2 ring-primary ring-offset-2' : 'border border-gray-200'
+    )}>
+      {/* Day Header */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          'w-full flex items-center justify-between p-4',
+          'min-h-[56px] transition-colors',
+          isToday ? 'bg-primary/10' : 'bg-gray-50 hover:bg-gray-100'
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            'flex flex-col items-center justify-center',
+            'w-12 h-12 rounded-lg',
+            isToday ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-foreground'
+          )}>
+            <span className="text-xs uppercase font-medium leading-none">
+              {dayName.slice(0, 3)}
+            </span>
+            <span className="text-lg font-bold leading-none mt-0.5">
+              {dayNumber}
+            </span>
+          </div>
+          <div className="text-left">
+            <span className="text-sm text-gray-500 capitalize">{monthName}</span>
+            {isToday && (
+              <span className="ml-2 text-xs font-medium text-primary">Hoy</span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            'text-sm font-medium px-2 py-1 rounded-full',
+            classes.length > 0 ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-500'
+          )}>
+            {classes.length} {classes.length === 1 ? 'clase' : 'clases'}
+          </span>
+          {isOpen ? (
+            <ChevronUp className="h-5 w-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-gray-400" />
+          )}
+        </div>
+      </button>
+
+      {/* Classes List */}
+      {isOpen && (
+        <div className="p-3 space-y-3 bg-[#F5F3EF]">
+          {classes.length === 0 ? (
+            <p className="text-center text-gray-500 py-4 text-sm">
+              No hay clases programadas
+            </p>
+          ) : (
+            classes.map((cls) => (
+              <MobileClassCard
+                key={cls.id}
+                cls={cls}
+                onClick={() => onClassClick(cls)}
+              />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function HorariosPage() {
@@ -222,10 +407,10 @@ export default function HorariosPage() {
       {/* Hero */}
       <section className="pt-32 pb-8 bg-gradient-to-b from-beige to-cream">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h1 className="font-serif text-5xl md:text-6xl font-semibold text-foreground mb-6">
+          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-semibold text-foreground mb-4 sm:mb-6">
             Horarios
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
             Encuentra la clase perfecta para tu día. Filtra por disciplina y
             reserva tu espacio.
           </p>
@@ -233,36 +418,38 @@ export default function HorariosPage() {
       </section>
 
       {/* Schedule */}
-      <section className="py-8 bg-cream">
+      <section className="py-6 sm:py-8 bg-cream">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Controls */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-            {/* Week navigation */}
-            <div className="flex items-center gap-4">
+          {/* Controls - Stack on mobile, row on desktop */}
+          <div className="flex flex-col gap-4 mb-6 sm:mb-8">
+            {/* Week navigation - centered on mobile */}
+            <div className="flex items-center justify-center gap-2 sm:gap-4">
               <button
                 onClick={goToPreviousWeek}
-                className="p-2 rounded-full hover:bg-beige transition-colors"
+                className="p-3 sm:p-2 rounded-full hover:bg-beige transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Semana anterior"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <span className="font-medium text-foreground min-w-[200px] text-center">
+              <span className="font-medium text-foreground min-w-[180px] sm:min-w-[200px] text-center text-sm sm:text-base">
                 {getMonthName(currentWeekStart.getMonth())}{' '}
                 {currentWeekStart.getFullYear()}
               </span>
               <button
                 onClick={goToNextWeek}
-                className="p-2 rounded-full hover:bg-beige transition-colors"
+                className="p-3 sm:p-2 rounded-full hover:bg-beige transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                aria-label="Semana siguiente"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Filter */}
+            {/* Filter - full width on mobile */}
             <Select
               value={selectedDiscipline}
               onValueChange={setSelectedDiscipline}
             >
-              <SelectTrigger className="w-full sm:w-[220px]">
+              <SelectTrigger className="w-full sm:w-[260px] sm:mx-auto min-h-[44px]">
                 <SelectValue placeholder="Filtrar por disciplina" />
               </SelectTrigger>
               <SelectContent>
@@ -276,101 +463,118 @@ export default function HorariosPage() {
             </Select>
           </div>
 
-          {/* Calendar Grid */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            {/* Days header */}
-            <div className="grid grid-cols-7 border-b border-beige">
-              {weekDates.map((date, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    'p-4 text-center border-r last:border-r-0 border-beige',
-                    isToday(date) && 'bg-primary/5'
-                  )}
-                >
-                  <p className="text-sm text-gray-500">{weekDays[date.getDay()]}</p>
-                  <p
-                    className={cn(
-                      'font-serif text-2xl font-semibold',
-                      isToday(date) ? 'text-primary' : 'text-foreground'
-                    )}
-                  >
-                    {date.getDate()}
-                  </p>
-                </div>
-              ))}
+          {/* Loading State */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
+          ) : (
+            <>
+              {/* Mobile Agenda View - Only visible on < md */}
+              <div className="md:hidden space-y-4">
+                {weekDates.map((date, index) => (
+                  <MobileDayAccordion
+                    key={index}
+                    date={date}
+                    classes={getClassesForDay(date)}
+                    isToday={isToday(date)}
+                    weekDays={weekDays}
+                    onClassClick={handleClassClick}
+                  />
+                ))}
+              </div>
 
-            {/* Classes grid */}
-            <div className="grid grid-cols-7 min-h-[400px]">
-              {isLoading ? (
-                <div className="col-span-7 flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                weekDates.map((date, dayIndex) => {
-                  const dayClasses = getClassesForDay(date)
-                  return (
+              {/* Desktop Calendar Grid - Only visible on >= md */}
+              <div className="hidden md:block bg-white rounded-2xl shadow-sm overflow-hidden">
+                {/* Days header */}
+                <div className="grid grid-cols-7 border-b border-beige">
+                  {weekDates.map((date, index) => (
                     <div
-                      key={dayIndex}
+                      key={index}
                       className={cn(
-                        'border-r last:border-r-0 border-beige p-2 space-y-2',
+                        'p-4 text-center border-r last:border-r-0 border-beige',
                         isToday(date) && 'bg-primary/5'
                       )}
                     >
-                      {dayClasses.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-4">
-                          Sin clases
-                        </p>
-                      ) : (
-                        dayClasses.map((cls) => {
-                          const reservationCount = cls._count?.reservations ?? cls.currentCount
-                          const isFull = reservationCount >= cls.maxCapacity
-                          const spotsLeft = cls.maxCapacity - reservationCount
-
-                          return (
-                            <button
-                              key={cls.id}
-                              onClick={() => handleClassClick(cls)}
-                              disabled={isFull}
-                              className={cn(
-                                'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
-                                disciplineColors[cls.discipline.slug] || 'bg-primary',
-                                isFull
-                                  ? 'opacity-50 cursor-not-allowed'
-                                  : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
-                              )}
-                            >
-                              <p className="font-medium">{cls.discipline.name}</p>
-                              <p className="flex items-center gap-1 opacity-90">
-                                <Clock className="h-3 w-3" />
-                                {formatClassTime(cls.dateTime)}
-                              </p>
-                              <p className="flex items-center gap-1 opacity-90">
-                                <User className="h-3 w-3" />
-                                {cls.instructor.name.split(' ')[0]}
-                              </p>
-                              <p className="flex items-center gap-1 mt-1">
-                                <Users className="h-3 w-3" />
-                                {isFull ? 'Lleno' : `${spotsLeft} cupos`}
-                              </p>
-                            </button>
-                          )
-                        })
-                      )}
+                      <p className="text-sm text-gray-500">{weekDays[date.getDay()]}</p>
+                      <p
+                        className={cn(
+                          'font-serif text-2xl font-semibold',
+                          isToday(date) ? 'text-primary' : 'text-foreground'
+                        )}
+                      >
+                        {date.getDate()}
+                      </p>
                     </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
+                  ))}
+                </div>
+
+                {/* Classes grid */}
+                <div className="grid grid-cols-7 min-h-[400px]">
+                  {weekDates.map((date, dayIndex) => {
+                    const dayClasses = getClassesForDay(date)
+                    return (
+                      <div
+                        key={dayIndex}
+                        className={cn(
+                          'border-r last:border-r-0 border-beige p-2 space-y-2',
+                          isToday(date) && 'bg-primary/5'
+                        )}
+                      >
+                        {dayClasses.length === 0 ? (
+                          <p className="text-xs text-gray-400 text-center py-4">
+                            Sin clases
+                          </p>
+                        ) : (
+                          dayClasses.map((cls) => {
+                            const reservationCount = cls._count?.reservations ?? cls.currentCount
+                            const isFull = reservationCount >= cls.maxCapacity
+                            const spotsLeft = cls.maxCapacity - reservationCount
+
+                            return (
+                              <button
+                                key={cls.id}
+                                onClick={() => handleClassClick(cls)}
+                                disabled={isFull}
+                                className={cn(
+                                  'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
+                                  disciplineColors[cls.discipline.slug] || 'bg-primary',
+                                  isFull
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
+                                )}
+                              >
+                                <p className="font-medium truncate">{cls.discipline.name}</p>
+                                <p className="flex items-center gap-1 opacity-90">
+                                  <Clock className="h-3 w-3 flex-shrink-0" />
+                                  {formatClassTime(cls.dateTime)}
+                                </p>
+                                <p className="flex items-center gap-1 opacity-90 min-w-0">
+                                  <User className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{cls.instructor.name.split(' ')[0]}</span>
+                                </p>
+                                <p className="flex items-center gap-1 mt-1">
+                                  <Users className="h-3 w-3 flex-shrink-0" />
+                                  {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                                </p>
+                              </button>
+                            )
+                          })
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Legend */}
-          <div className="flex flex-wrap gap-4 mt-6 justify-center">
+          <div className="flex flex-wrap gap-3 sm:gap-4 mt-6 justify-center">
             {disciplines.map((discipline) => (
               <div key={discipline.id} className="flex items-center gap-2">
-                <div className={cn('w-4 h-4 rounded', disciplineColors[discipline.slug] || 'bg-primary')} />
-                <span className="text-sm text-gray-600">
+                <div className={cn('w-3 h-3 sm:w-4 sm:h-4 rounded', disciplineColors[discipline.slug] || 'bg-primary')} />
+                <span className="text-xs sm:text-sm text-gray-600">
                   {discipline.name}
                 </span>
               </div>
@@ -379,20 +583,20 @@ export default function HorariosPage() {
 
           {/* CTA for non-logged users */}
           {!session && (
-            <div className="mt-12 p-8 bg-white rounded-2xl text-center border border-beige">
-              <h3 className="font-serif text-2xl font-semibold text-foreground mb-3">
+            <div className="mt-8 sm:mt-12 p-6 sm:p-8 bg-white rounded-2xl text-center border border-beige">
+              <h3 className="font-serif text-xl sm:text-2xl font-semibold text-foreground mb-3">
                 ¿Quieres reservar una clase?
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600 mb-6 text-sm sm:text-base">
                 Crea una cuenta gratuita para reservar tu espacio y administrar
                 tus clases.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
                 <Link href="/registro">
-                  <Button>Crear Cuenta</Button>
+                  <Button className="w-full sm:w-auto min-h-[44px]">Crear Cuenta</Button>
                 </Link>
                 <Link href="/login">
-                  <Button variant="outline">Ya tengo cuenta</Button>
+                  <Button variant="outline" className="w-full sm:w-auto min-h-[44px]">Ya tengo cuenta</Button>
                 </Link>
               </div>
             </div>
@@ -402,7 +606,7 @@ export default function HorariosPage() {
 
       {/* Login Required Modal */}
       <Modal open={showLoginModal} onOpenChange={setShowLoginModal}>
-        <ModalContent className="max-w-md">
+        <ModalContent className="max-w-md mx-4">
           <ModalHeader>
             <ModalTitle>Inicia sesión para reservar</ModalTitle>
           </ModalHeader>
@@ -411,12 +615,12 @@ export default function HorariosPage() {
               Para reservar una clase, necesitas iniciar sesión o crear una cuenta gratuita.
             </p>
           </div>
-          <ModalFooter>
-            <Button variant="outline" onClick={() => setShowLoginModal(false)}>
+          <ModalFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowLoginModal(false)} className="w-full sm:w-auto min-h-[44px]">
               Cancelar
             </Button>
-            <Link href="/login">
-              <Button>Iniciar Sesión</Button>
+            <Link href="/login" className="w-full sm:w-auto">
+              <Button className="w-full min-h-[44px]">Iniciar Sesión</Button>
             </Link>
           </ModalFooter>
         </ModalContent>
@@ -424,7 +628,7 @@ export default function HorariosPage() {
 
       {/* No Package Modal */}
       <Modal open={showNoPackageModal} onOpenChange={setShowNoPackageModal}>
-        <ModalContent className="max-w-md">
+        <ModalContent className="max-w-md mx-4">
           <ModalHeader>
             <ModalTitle>Necesitas un paquete activo</ModalTitle>
           </ModalHeader>
@@ -435,12 +639,12 @@ export default function HorariosPage() {
                 : 'Para reservar clases, necesitas adquirir un paquete. Explora nuestras opciones y encuentra el paquete perfecto para ti.'}
             </p>
           </div>
-          <ModalFooter>
-            <Button variant="outline" onClick={() => setShowNoPackageModal(false)}>
+          <ModalFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowNoPackageModal(false)} className="w-full sm:w-auto min-h-[44px]">
               Cancelar
             </Button>
-            <Link href="/paquetes">
-              <Button>Ver Paquetes</Button>
+            <Link href="/paquetes" className="w-full sm:w-auto">
+              <Button className="w-full min-h-[44px]">Ver Paquetes</Button>
             </Link>
           </ModalFooter>
         </ModalContent>
