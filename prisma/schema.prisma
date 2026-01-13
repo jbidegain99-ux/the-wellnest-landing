@@ -25,12 +25,16 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  purchases      Purchase[]
-  reservations   Reservation[]
-  waitlist       Waitlist[]
-  paymentMethods PaymentMethod[]
-  accounts       Account[]
-  sessions       Session[]
+  purchases        Purchase[]
+  reservations     Reservation[]
+  waitlist         Waitlist[]
+  paymentMethods   PaymentMethod[]
+  accounts         Account[]
+  sessions         Session[]
+  promoRedemptions PromoRedemption[]
+  refundRequests   RefundRequest[]
+  referralsGiven   Referral[] @relation("ReferrerRelation")
+  referralsUsed    Referral[] @relation("ReferredRelation")
 }
 
 model Account {
@@ -149,7 +153,10 @@ model Purchase {
   stripePaymentId  String?
   createdAt        DateTime       @default(now())
 
-  reservations Reservation[]
+  reservations     Reservation[]
+  promoRedemptions PromoRedemption[]
+  refundRequests   RefundRequest[]
+  referrals        Referral[]
 }
 
 enum PurchaseStatus {
@@ -228,6 +235,8 @@ model DiscountCode {
   isActive     Boolean   @default(true)
   applicableTo String[]  // package IDs, vacío = todos
   createdAt    DateTime  @default(now())
+
+  redemptions  PromoRedemption[]
 }
 
 // Método de pago guardado
@@ -330,4 +339,107 @@ model BrandAsset {
   label     String?  // Nombre legible para el admin
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ========================================
+// NUEVOS MODELOS - MISIÓN CRÍTICA
+// ========================================
+
+// A) Registro de uso de códigos promocionales (1 uso por usuario)
+model PromoRedemption {
+  id             String       @id @default(cuid())
+  userId         String
+  discountCodeId String
+  purchaseId     String?      // Puede ser null si la compra falló
+  status         RedemptionStatus @default(APPLIED)
+  redeemedAt     DateTime     @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discountCode DiscountCode @relation(fields: [discountCodeId], references: [id], onDelete: Cascade)
+  purchase     Purchase?    @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, discountCodeId]) // Un usuario solo puede usar un código una vez
+}
+
+enum RedemptionStatus {
+  APPLIED    // Código aplicado exitosamente
+  VOID       // Compra cancelada/falló
+  REFUNDED   // Reembolsado
+}
+
+// C) Sistema de reembolsos
+model RefundRequest {
+  id              String       @id @default(cuid())
+  userId          String
+  purchaseId      String
+  reservationId   String?      // Si es reembolso por cancelación de clase
+  amount          Float
+  currency        String       @default("USD")
+  eligible        Boolean
+  status          RefundStatus @default(PENDING)
+  reason          String       // within_policy, outside_policy, class_cancelled, etc.
+  policySnapshot  String?      @db.Text // JSON de la política aplicada
+  notes           String?      @db.Text
+  providerRef     String?      // ID de transacción de pasarela
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  refundedAt      DateTime?
+  refundedBy      String?      // Admin user ID que procesó
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  REFUNDED
+  REJECTED
+}
+
+// E) Sistema de referidos
+model Referral {
+  id              String         @id @default(cuid())
+  referrerUserId  String         // Usuario que refiere
+  referredUserId  String?        // Usuario referido (null hasta que se registre)
+  referredEmail   String?        // Email del referido (para tracking antes de registro)
+  referralCode    String         // Código usado
+  eventType       ReferralEvent  @default(PENDING)
+  purchaseId      String?        // Compra que activó el beneficio
+  classesEarned   Int            @default(0)
+  discountApplied Float?         // Descuento aplicado al referido
+  status          ReferralStatus @default(PENDING)
+  createdAt       DateTime       @default(now())
+  completedAt     DateTime?
+
+  referrer User      @relation("ReferrerRelation", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referred User?     @relation("ReferredRelation", fields: [referredUserId], references: [id], onDelete: SetNull)
+  purchase Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+
+  @@index([referrerUserId])
+  @@index([referralCode])
+}
+
+enum ReferralEvent {
+  PENDING   // Código compartido, esperando uso
+  SIGNUP    // Usuario se registró con el código
+  PURCHASE  // Usuario hizo una compra
+}
+
+enum ReferralStatus {
+  PENDING    // Esperando acción
+  COMPLETED  // Beneficio otorgado
+  EXPIRED    // Expiró sin completar
+  REVOKED    // Revocado por admin
+}
+
+// Configuración del sitio (persistente)
+model SiteSettings {
+  id                    String   @id @default(cuid())
+  key                   String   @unique
+  value                 String   @db.Text
+  updatedAt             DateTime @updatedAt
 }

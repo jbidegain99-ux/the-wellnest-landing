@@ -17,6 +17,7 @@ import {
   X,
   ArrowLeft,
   Image,
+  RefreshCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   { name: 'Instructores', href: '/admin/instructores', icon: UserCheck },
   { name: 'Promociones', href: '/admin/promociones', icon: Tag },
+  { name: 'Reembolsos', href: '/admin/reembolsos', icon: RefreshCcw },
   { name: 'Brand Assets', href: '/admin/assets', icon: Image },
   { name: 'Configuración', href: '/admin/configuracion', icon: Settings },
 ]
