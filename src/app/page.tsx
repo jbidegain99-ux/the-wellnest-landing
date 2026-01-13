@@ -67,12 +67,12 @@ export default async function HomePage() {
         {/* Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center text-white">
           {/* Logo */}
-          <h1 className="font-logo text-6xl md:text-8xl lg:text-9xl font-light tracking-[0.1em] mb-6 animate-fade-in">
+          <h1 className="font-logo text-6xl md:text-8xl lg:text-9xl font-bold tracking-[0.1em] mb-6 animate-fade-in">
             wellnest.
           </h1>
 
           {/* Tagline */}
-          <p className="text-sm md:text-base font-medium tracking-[0.3em] uppercase text-white/80 mb-4 animate-fade-in">
+          <p className="text-base md:text-lg font-medium tracking-[0.3em] uppercase text-white/80 mb-4 animate-fade-in">
             The Soul Hub
           </p>
 
