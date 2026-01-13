@@ -1,31 +1,26 @@
 'use client'
 
 import * as React from 'react'
-import { MapPin, Phone, Mail, Clock, MessageCircle, Send, AlertCircle } from 'lucide-react'
+import { MapPin, Phone, Clock, MessageCircle, Send, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 
-const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || '50375252802'
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || '50312345678'
 
+// G) CONTACTO: Sin correo, teléfono actualizado
 const contactInfo = [
   {
     icon: MapPin,
     title: 'Dirección',
-    content: 'Av. De La Revolución, San Salvador, Presidente Plaza, Local #1234',
-    link: 'https://maps.app.goo.gl/YXoEbMqUfaKGuBPvW',
+    content: 'Presidente Plaza, Colonia San Benito, San Salvador, El Salvador',
+    link: 'https://maps.google.com/?q=Presidente+Plaza+San+Benito+San+Salvador',
   },
   {
     icon: Phone,
     title: 'Teléfono',
-    content: '+503 7525 2802',
-    link: 'tel:+50375252802',
-  },
-  {
-    icon: Mail,
-    title: 'Email',
-    content: 'hola@thewellnest.sv',
-    link: 'mailto:hola@thewellnest.sv',
+    content: '+503 1234 5678',
+    link: 'tel:+50312345678',
   },
   {
     icon: Clock,
@@ -175,7 +170,7 @@ export default function ContactoPage() {
               <div className="mt-8">
                 <div className="h-64 rounded-xl overflow-hidden bg-beige-dark">
                   <iframe
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3876.4!2d-89.2!3d13.7!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTPCsDQyJzAwLjAiTiA4OcKwMTInMDAuMCJX!5e0!3m2!1ses!2ssv!4v1700000000000"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3876.5768!2d-89.2365!3d13.6956!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8f633067e7b72e4f%3A0x8f633067e7b72e4f!2sPresidente+Plaza%2C+Colonia+San+Benito%2C+San+Salvador!5e0!3m2!1ses!2ssv!4v1700000000000"
                     width="100%"
                     height="100%"
                     style={{ border: 0 }}

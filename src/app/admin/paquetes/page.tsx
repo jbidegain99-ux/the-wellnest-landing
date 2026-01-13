@@ -1,10 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Edit2, Trash2, MoreVertical } from 'lucide-react'
+import { Plus, Edit2, Trash2, Loader2, Check, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import {
@@ -16,67 +16,64 @@ import {
 } from '@/components/ui/Modal'
 import { formatPrice } from '@/lib/utils'
 
-// Mock packages data
-const initialPackages = [
-  {
-    id: '1',
-    name: '1 Clase',
-    shortDescription: 'Ideal para probar',
-    classCount: 1,
-    price: 15,
-    validityDays: 30,
-    isActive: true,
-    isFeatured: false,
-  },
-  {
-    id: '2',
-    name: '4 Clases',
-    shortDescription: 'Una vez por semana',
-    classCount: 4,
-    price: 50,
-    validityDays: 45,
-    isActive: true,
-    isFeatured: false,
-  },
-  {
-    id: '3',
-    name: '8 Clases',
-    shortDescription: 'Dos veces por semana',
-    classCount: 8,
-    price: 90,
-    validityDays: 60,
-    isActive: true,
-    isFeatured: true,
-  },
-  {
-    id: '4',
-    name: '12 Clases',
-    shortDescription: 'Tres veces por semana',
-    classCount: 12,
-    price: 120,
-    validityDays: 60,
-    isActive: true,
-    isFeatured: false,
-  },
-  {
-    id: '5',
-    name: 'Mensual Ilimitado',
-    shortDescription: 'Sin límites',
-    classCount: 999,
-    price: 150,
-    validityDays: 30,
-    isActive: true,
-    isFeatured: false,
-  },
-]
+interface Package {
+  id: string
+  name: string
+  shortDescription: string
+  fullDescription?: string
+  classCount: number
+  price: number
+  validityDays: number
+  isActive: boolean
+  isFeatured: boolean
+}
 
 export default function AdminPaquetesPage() {
-  const [packages, setPackages] = React.useState(initialPackages)
+  const [packages, setPackages] = React.useState<Package[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
   const [isModalOpen, setIsModalOpen] = React.useState(false)
-  const [editingPackage, setEditingPackage] = React.useState<typeof initialPackages[0] | null>(null)
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [editingPackage, setEditingPackage] = React.useState<Package | null>(null)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [isDeleting, setIsDeleting] = React.useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
-  const handleEdit = (pkg: typeof initialPackages[0]) => {
+  // Fetch packages from database
+  const fetchPackages = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/packages')
+      if (response.ok) {
+        const data = await response.json()
+        setPackages(data)
+      } else {
+        showError('Error al cargar los paquetes')
+      }
+    } catch (error) {
+      console.error('Error fetching packages:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    fetchPackages()
+  }, [fetchPackages])
+
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message)
+    setErrorMessage(null)
+    setTimeout(() => setSuccessMessage(null), 3000)
+  }
+
+  const showError = (message: string) => {
+    setErrorMessage(message)
+    setSuccessMessage(null)
+    setTimeout(() => setErrorMessage(null), 5000)
+  }
+
+  const handleEdit = (pkg: Package) => {
     setEditingPackage(pkg)
     setIsModalOpen(true)
   }
@@ -88,7 +85,8 @@ export default function AdminPaquetesPage() {
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsLoading(true)
+    setIsSaving(true)
+    setErrorMessage(null)
 
     const formData = new FormData(e.currentTarget)
     const data = {
@@ -101,37 +99,108 @@ export default function AdminPaquetesPage() {
       isFeatured: formData.get('isFeatured') === 'on',
     }
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      if (editingPackage) {
+        // Update existing package
+        const response = await fetch(`/api/admin/packages/${editingPackage.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
 
-    if (editingPackage) {
-      setPackages((prev) =>
-        prev.map((p) =>
-          p.id === editingPackage.id ? { ...p, ...data } : p
-        )
-      )
-    } else {
-      setPackages((prev) => [
-        ...prev,
-        { id: Date.now().toString(), ...data },
-      ])
+        const result = await response.json()
+
+        if (!response.ok) {
+          showError(result.error || 'Error al actualizar el paquete')
+          return
+        }
+
+        showSuccess('Paquete actualizado correctamente')
+      } else {
+        // Create new package
+        const response = await fetch('/api/admin/packages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+
+        const result = await response.json()
+
+        if (!response.ok) {
+          showError(result.error || 'Error al crear el paquete')
+          return
+        }
+
+        showSuccess('Paquete creado correctamente')
+      }
+
+      // Refresh packages list
+      await fetchPackages()
+      setIsModalOpen(false)
+    } catch (error) {
+      console.error('Error saving package:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsSaving(false)
     }
-
-    setIsLoading(false)
-    setIsModalOpen(false)
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Estás segura de eliminar este paquete?')) {
-      setPackages((prev) => prev.filter((p) => p.id !== id))
+    setIsDeleting(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch(`/api/admin/packages/${id}`, {
+        method: 'DELETE',
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        showError(result.error || 'Error al eliminar el paquete')
+        setDeleteConfirmId(null)
+        return
+      }
+
+      showSuccess(result.message || 'Paquete eliminado correctamente')
+      await fetchPackages()
+    } catch (error) {
+      console.error('Error deleting package:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsDeleting(false)
+      setDeleteConfirmId(null)
     }
   }
 
-  const toggleActive = (id: string) => {
-    setPackages((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, isActive: !p.isActive } : p
-      )
+  const toggleActive = async (id: string) => {
+    const pkg = packages.find(p => p.id === id)
+    if (!pkg) return
+
+    try {
+      const response = await fetch(`/api/admin/packages/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !pkg.isActive }),
+      })
+
+      if (response.ok) {
+        await fetchPackages()
+        showSuccess(pkg.isActive ? 'Paquete desactivado' : 'Paquete activado')
+      } else {
+        showError('Error al actualizar el estado')
+      }
+    } catch (error) {
+      console.error('Error toggling package status:', error)
+      showError('Error de conexión')
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     )
   }
 
@@ -152,6 +221,21 @@ export default function AdminPaquetesPage() {
           Nuevo Paquete
         </Button>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
+          <Check className="h-5 w-5" />
+          {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+          <AlertCircle className="h-5 w-5" />
+          {errorMessage}
+        </div>
+      )}
 
       {/* Packages Table */}
       <Card>
@@ -229,7 +313,7 @@ export default function AdminPaquetesPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(pkg.id)}
+                          onClick={() => setDeleteConfirmId(pkg.id)}
                           className="text-[var(--color-error)]"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -243,6 +327,12 @@ export default function AdminPaquetesPage() {
           </div>
         </CardContent>
       </Card>
+
+      {packages.length === 0 && !isLoading && (
+        <div className="text-center py-12 text-gray-500">
+          No hay paquetes creados
+        </div>
+      )}
 
       {/* Create/Edit Modal */}
       <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -321,14 +411,46 @@ export default function AdminPaquetesPage() {
                 type="button"
                 variant="ghost"
                 onClick={() => setIsModalOpen(false)}
+                disabled={isSaving}
               >
                 Cancelar
               </Button>
-              <Button type="submit" isLoading={isLoading}>
+              <Button type="submit" isLoading={isSaving}>
                 {editingPackage ? 'Guardar Cambios' : 'Crear Paquete'}
               </Button>
             </ModalFooter>
           </form>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!deleteConfirmId} onOpenChange={() => !isDeleting && setDeleteConfirmId(null)}>
+        <ModalContent className="max-w-sm">
+          <ModalHeader>
+            <ModalTitle>Confirmar eliminación</ModalTitle>
+          </ModalHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              ¿Estás seguro de que deseas eliminar este paquete? Si tiene compras asociadas, será desactivado en lugar de eliminado.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1"
+                disabled={isDeleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                isLoading={isDeleting}
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
         </ModalContent>
       </Modal>
     </div>

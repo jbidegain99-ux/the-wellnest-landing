@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Eye, Package, Calendar, Mail } from 'lucide-react'
+import { Search, Eye, Package, Calendar, Loader2, Check, AlertCircle, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -12,66 +12,152 @@ import {
   ModalContent,
   ModalHeader,
   ModalTitle,
+  ModalFooter,
 } from '@/components/ui/Modal'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select'
 import { formatDate } from '@/lib/utils'
 
-// Mock users data
-const users = [
-  {
-    id: '1',
-    name: 'María López',
-    email: 'maria@example.com',
-    phone: '+503 1234 5678',
-    image: null,
-    createdAt: new Date('2023-12-01'),
-    activePackages: 2,
-    totalClasses: 24,
-    lastActivity: new Date('2024-01-15'),
-  },
-  {
-    id: '2',
-    name: 'Ana García',
-    email: 'ana@example.com',
-    phone: '+503 2345 6789',
-    image: null,
-    createdAt: new Date('2023-11-15'),
-    activePackages: 1,
-    totalClasses: 36,
-    lastActivity: new Date('2024-01-14'),
-  },
-  {
-    id: '3',
-    name: 'Laura Martínez',
-    email: 'laura@example.com',
-    phone: '+503 3456 7890',
-    image: null,
-    createdAt: new Date('2024-01-01'),
-    activePackages: 1,
-    totalClasses: 8,
-    lastActivity: new Date('2024-01-13'),
-  },
-  {
-    id: '4',
-    name: 'Sofia Chen',
-    email: 'sofia@example.com',
-    phone: '+503 4567 8901',
-    image: null,
-    createdAt: new Date('2023-10-20'),
-    activePackages: 0,
-    totalClasses: 48,
-    lastActivity: new Date('2024-01-10'),
-  },
-]
+interface User {
+  id: string
+  name: string | null
+  email: string
+  phone: string | null
+  image: string | null
+  role: string
+  createdAt: string
+  activePackages: number
+  totalClasses: number
+  lastActivity: string
+  currentPackage: string | null
+}
+
+interface Package {
+  id: string
+  name: string
+  classCount: number
+  price: number
+  validityDays: number
+  isActive: boolean
+}
 
 export default function AdminUsuariosPage() {
+  const [users, setUsers] = React.useState<User[]>([])
+  const [packages, setPackages] = React.useState<Package[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState('')
-  const [selectedUser, setSelectedUser] = React.useState<typeof users[0] | null>(null)
+  const [selectedUser, setSelectedUser] = React.useState<User | null>(null)
+  const [showAssignModal, setShowAssignModal] = React.useState(false)
+  const [userToAssign, setUserToAssign] = React.useState<User | null>(null)
+  const [selectedPackageId, setSelectedPackageId] = React.useState<string>('')
+  const [isAssigning, setIsAssigning] = React.useState(false)
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+
+  // Fetch users from database
+  const fetchUsers = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/users')
+      if (response.ok) {
+        const data = await response.json()
+        setUsers(data)
+      } else {
+        showError('Error al cargar los usuarios')
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Fetch packages for assignment
+  const fetchPackages = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/packages')
+      if (response.ok) {
+        const data = await response.json()
+        setPackages(data.filter((p: Package) => p.isActive))
+      }
+    } catch (error) {
+      console.error('Error fetching packages:', error)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    fetchUsers()
+    fetchPackages()
+  }, [fetchUsers, fetchPackages])
+
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message)
+    setErrorMessage(null)
+    setTimeout(() => setSuccessMessage(null), 3000)
+  }
+
+  const showError = (message: string) => {
+    setErrorMessage(message)
+    setSuccessMessage(null)
+    setTimeout(() => setErrorMessage(null), 5000)
+  }
 
   const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const openAssignModal = (user: User) => {
+    setUserToAssign(user)
+    setSelectedPackageId('')
+    setShowAssignModal(true)
+  }
+
+  const handleAssignPackage = async () => {
+    if (!userToAssign || !selectedPackageId) return
+
+    setIsAssigning(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch(`/api/admin/users/${userToAssign.id}/assign-package`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packageId: selectedPackageId }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        showError(result.error || 'Error al asignar el paquete')
+        return
+      }
+
+      showSuccess(result.message || 'Paquete asignado correctamente')
+      setShowAssignModal(false)
+      setUserToAssign(null)
+      await fetchUsers()
+    } catch (error) {
+      console.error('Error assigning package:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsAssigning(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
@@ -84,6 +170,21 @@ export default function AdminUsuariosPage() {
           Administra los usuarios registrados
         </p>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
+          <Check className="h-5 w-5" />
+          {successMessage}
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+          <AlertCircle className="h-5 w-5" />
+          {errorMessage}
+        </div>
+      )}
 
       {/* Search */}
       <div className="flex gap-4">
@@ -131,26 +232,40 @@ export default function AdminUsuariosPage() {
                       <div className="flex items-center gap-3">
                         <Avatar
                           src={user.image}
-                          alt={user.name}
-                          fallback={user.name}
+                          alt={user.name || user.email}
+                          fallback={user.name || user.email}
                           size="sm"
                         />
-                        <span className="font-medium text-foreground">
-                          {user.name}
-                        </span>
+                        <div>
+                          <span className="font-medium text-foreground">
+                            {user.name || 'Sin nombre'}
+                          </span>
+                          {user.role === 'ADMIN' && (
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              Admin
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-sm">
                         <p className="text-gray-600">{user.email}</p>
-                        <p className="text-gray-500">{user.phone}</p>
+                        {user.phone && (
+                          <p className="text-gray-500">{user.phone}</p>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 px-4">
                       {user.activePackages > 0 ? (
-                        <Badge variant="success">
-                          {user.activePackages} activo{user.activePackages > 1 ? 's' : ''}
-                        </Badge>
+                        <div>
+                          <Badge variant="success">
+                            {user.activePackages} activo{user.activePackages > 1 ? 's' : ''}
+                          </Badge>
+                          {user.currentPackage && (
+                            <p className="text-xs text-gray-500 mt-1">{user.currentPackage}</p>
+                          )}
+                        </div>
                       ) : (
                         <Badge variant="error">Sin paquete</Badge>
                       )}
@@ -159,7 +274,7 @@ export default function AdminUsuariosPage() {
                       {user.totalClasses} clases
                     </td>
                     <td className="py-3 px-4 text-gray-600">
-                      {formatDate(user.createdAt)}
+                      {formatDate(new Date(user.createdAt))}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-end gap-2">
@@ -171,6 +286,14 @@ export default function AdminUsuariosPage() {
                           <Eye className="h-4 w-4 mr-1" />
                           Ver
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openAssignModal(user)}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Asignar
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -180,6 +303,12 @@ export default function AdminUsuariosPage() {
           </div>
         </CardContent>
       </Card>
+
+      {filteredUsers.length === 0 && !isLoading && (
+        <div className="text-center py-12 text-gray-500">
+          No se encontraron usuarios
+        </div>
+      )}
 
       {/* User Detail Modal */}
       <Modal open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
@@ -194,16 +323,18 @@ export default function AdminUsuariosPage() {
               <div className="flex items-center gap-4">
                 <Avatar
                   src={selectedUser.image}
-                  alt={selectedUser.name}
-                  fallback={selectedUser.name}
+                  alt={selectedUser.name || selectedUser.email}
+                  fallback={selectedUser.name || selectedUser.email}
                   size="lg"
                 />
                 <div>
                   <h3 className="font-serif text-xl font-semibold text-foreground">
-                    {selectedUser.name}
+                    {selectedUser.name || 'Sin nombre'}
                   </h3>
                   <p className="text-gray-600">{selectedUser.email}</p>
-                  <p className="text-gray-500 text-sm">{selectedUser.phone}</p>
+                  {selectedUser.phone && (
+                    <p className="text-gray-500 text-sm">{selectedUser.phone}</p>
+                  )}
                 </div>
               </div>
 
@@ -226,24 +357,88 @@ export default function AdminUsuariosPage() {
                 <div className="p-4 bg-beige rounded-lg text-center">
                   <p className="text-sm text-gray-600">Última actividad</p>
                   <p className="text-sm font-medium text-foreground mt-1">
-                    {formatDate(selectedUser.lastActivity)}
+                    {formatDate(new Date(selectedUser.lastActivity))}
                   </p>
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex gap-2 pt-4 border-t border-beige">
-                <Button variant="outline" className="flex-1">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setSelectedUser(null)
+                    openAssignModal(selectedUser)
+                  }}
+                >
                   <Package className="h-4 w-4 mr-2" />
-                  Asignar Clases
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Enviar Email
+                  Asignar Paquete
                 </Button>
               </div>
             </div>
           )}
+        </ModalContent>
+      </Modal>
+
+      {/* Assign Package Modal */}
+      <Modal open={showAssignModal} onOpenChange={() => !isAssigning && setShowAssignModal(false)}>
+        <ModalContent className="max-w-md">
+          <ModalHeader>
+            <ModalTitle>Asignar Paquete</ModalTitle>
+          </ModalHeader>
+
+          <div className="py-4 space-y-4">
+            {userToAssign && (
+              <div className="p-4 bg-beige rounded-lg">
+                <p className="text-sm text-gray-600">Asignar paquete a:</p>
+                <p className="font-medium text-foreground">
+                  {userToAssign.name || userToAssign.email}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Seleccionar paquete
+              </label>
+              <Select value={selectedPackageId} onValueChange={setSelectedPackageId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un paquete" />
+                </SelectTrigger>
+                <SelectContent>
+                  {packages.map((pkg) => (
+                    <SelectItem key={pkg.id} value={pkg.id}>
+                      {pkg.name} ({pkg.classCount} clases)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedPackageId && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                <p>Este paquete será asignado sin costo al usuario.</p>
+              </div>
+            )}
+          </div>
+
+          <ModalFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAssignModal(false)}
+              disabled={isAssigning}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAssignPackage}
+              disabled={!selectedPackageId}
+              isLoading={isAssigning}
+            >
+              Asignar Paquete
+            </Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </div>

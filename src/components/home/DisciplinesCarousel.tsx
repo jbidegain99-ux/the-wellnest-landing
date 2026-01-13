@@ -6,68 +6,86 @@ import Image from 'next/image'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import type { BrandAssets } from '@/lib/assets'
 
-// Discipline data with descriptions
-// TODO: subir imágenes reales a estas rutas
-const disciplines = [
+// Default images as fallback
+const DEFAULT_IMAGES = {
+  yoga: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=80',
+  pilates: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=80',
+  pole: 'https://images.unsplash.com/photo-1600618528240-fb9fc964b853?w=800&q=80',
+  sound: 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?w=800&q=80',
+  nutrition: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&q=80',
+}
+
+// Base discipline data
+const baseDisciplines = [
   {
     id: 'yoga',
+    assetKey: 'discipline_yoga_image_url',
     title: 'Yoga',
     shortDescription: 'Encuentra tu equilibrio interior a través de posturas, respiración y meditación.',
     description: 'Encuentra tu equilibrio interior a través de posturas, respiración y meditación. Una práctica milenaria que une cuerpo, mente y espíritu.',
     href: '/clases#yoga',
-    gradient: 'from-[#9CAF88] to-[#7A9A6D]',
+    gradient: 'from-[#9CAF88]/70 to-[#7A9A6D]/70',
     bgColor: 'bg-[#9CAF88]/10',
-    imageSrc: '/images/disciplines/yoga.jpg',
     imageAlt: 'Clase de Yoga en The Wellnest',
   },
   {
     id: 'pilates',
+    assetKey: 'discipline_pilates_image_url',
     title: 'Pilates Mat',
     shortDescription: 'Fortalece tu centro, mejora tu postura y cuida tus articulaciones con movimientos controlados.',
     description: 'Fortalece tu centro, mejora tu postura y cuida tus articulaciones a través de secuencias conscientes en mat, enfocadas en respiración y alineación.',
     href: '/clases#pilates',
-    gradient: 'from-[#C4A77D] to-[#A88B5C]',
+    gradient: 'from-[#C4A77D]/70 to-[#A88B5C]/70',
     bgColor: 'bg-[#C4A77D]/10',
-    imageSrc: '/images/disciplines/pilates.jpg',
     imageAlt: 'Clase de Pilates Mat en The Wellnest',
   },
   {
     id: 'pole',
+    assetKey: 'discipline_pole_image_url',
     title: 'Pole Fitness',
     shortDescription: 'Empodérate, conecta con tu fuerza y tu sensualidad en un entorno seguro.',
     description: 'Empodérate, conecta con tu fuerza y tu sensualidad en un entorno seguro y acompañado, combinando fuerza, flexibilidad y expresión corporal.',
     href: '/clases#pole',
-    gradient: 'from-[#B0B0B0] to-[#8A8A8A]',
+    gradient: 'from-[#B0B0B0]/70 to-[#8A8A8A]/70',
     bgColor: 'bg-[#E5E5E5]',
-    imageSrc: '/images/disciplines/pole-fitness.jpg',
     imageAlt: 'Clase de Pole Fitness en The Wellnest',
   },
   {
     id: 'sound',
+    assetKey: 'discipline_sound_image_url',
     title: 'Terapia de Sonido',
     shortDescription: 'Relaja tu sistema nervioso a través de baños de sonido y frecuencias terapéuticas.',
     description: 'Relaja tu sistema nervioso, libera tensión y entra en estados profundos de descanso mediante baños de sonido con cuencos, gongs y otras frecuencias terapéuticas.',
     href: '/clases#terapia-de-sonido',
-    gradient: 'from-[#D4C4B0] to-[#C0A888]',
+    gradient: 'from-[#D4C4B0]/70 to-[#C0A888]/70',
     bgColor: 'bg-[#F5E9DD]',
-    imageSrc: '/images/disciplines/terapia-de-sonido.jpg',
-    imageAlt: 'Sesión de Terapia de Sonido con cuencos y vibración sonora en The Wellnest',
+    imageAlt: 'Sesión de Terapia de Sonido con cuencos tibetanos',
   },
   {
     id: 'nutrition',
+    assetKey: 'discipline_nutrition_image_url',
     title: 'Nutrición',
     shortDescription: 'Acompañamiento nutricional desde un enfoque integral y consciente.',
     description: 'Acompañamiento nutricional desde un enfoque integral, funcional y consciente para equilibrar energía, hormonas y bienestar general.',
     href: '/clases#nutricion',
-    gradient: 'from-[#B8D4A8] to-[#9AC088]',
+    gradient: 'from-[#B8D4A8]/70 to-[#9AC088]/70',
     bgColor: 'bg-[#B8D4A8]/10',
-    imageSrc: '/images/disciplines/nutricion.jpg',
     imageAlt: 'Consulta de Nutrición en The Wellnest',
   },
 ]
 
-export function DisciplinesCarousel() {
+interface DisciplinesCarouselProps {
+  assets?: BrandAssets
+}
+
+export function DisciplinesCarousel({ assets }: DisciplinesCarouselProps) {
+  // Build disciplines with dynamic images from assets
+  const disciplines = baseDisciplines.map((discipline) => ({
+    ...discipline,
+    imageSrc: assets?.[discipline.assetKey]?.url || DEFAULT_IMAGES[discipline.id as keyof typeof DEFAULT_IMAGES],
+  }))
   const scrollContainerRef = React.useRef<HTMLDivElement>(null)
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
   const [canScrollLeft, setCanScrollLeft] = React.useState(false)

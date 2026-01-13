@@ -27,6 +27,7 @@ async function handleSuccessfulPayment({
   userId,
   items,
   discountCode,
+  discountCodeId,
   discountPercentage,
 }: {
   userId: string
@@ -42,6 +43,7 @@ async function handleSuccessfulPayment({
     }
   }>
   discountCode?: string
+  discountCodeId?: string
   discountPercentage?: number
 }) {
   console.log('[CHECKOUT API] Creating purchase records for user:', userId)
@@ -90,21 +92,37 @@ async function handleSuccessfulPayment({
     }
   }
 
-  // Update discount code usage if used
-  if (discountCode) {
-    console.log('[CHECKOUT API] Updating discount code usage:', discountCode)
-    await prisma.discountCode.updateMany({
-      where: { code: discountCode },
-      data: { currentUses: { increment: 1 } },
-    })
+  // Update discount code usage and create redemption record if used
+  if (discountCode && discountCodeId && purchases.length > 0) {
+    console.log('[CHECKOUT API] Recording promo redemption:', { userId, discountCode, discountCodeId })
+
+    // A) CREAR REGISTRO DE REDENCIÓN (PromoRedemption)
+    await prisma.$transaction([
+      // Increment usage counter
+      prisma.discountCode.updateMany({
+        where: { code: discountCode },
+        data: { currentUses: { increment: 1 } },
+      }),
+      // Create redemption record linked to first purchase
+      prisma.promoRedemption.create({
+        data: {
+          userId,
+          discountCodeId,
+          purchaseId: purchases[0].id,
+          status: 'APPLIED',
+        },
+      }),
+    ])
+
+    console.log('[CHECKOUT API] Promo redemption recorded successfully')
   }
 
   console.log('[CHECKOUT API] Total purchases created:', purchases.length)
   return purchases
 }
 
-// Validate discount code
-async function validateDiscountCode(code: string, packageIds: string[]) {
+// Validate discount code with user restriction check
+async function validateDiscountCode(code: string, packageIds: string[], userId: string) {
   const discount = await prisma.discountCode.findFirst({
     where: {
       code: code.toUpperCase(),
@@ -115,12 +133,27 @@ async function validateDiscountCode(code: string, packageIds: string[]) {
   })
 
   if (!discount) {
-    return null
+    return { discount: null, error: 'Código de descuento inválido o expirado' }
+  }
+
+  // A) VERIFICAR SI EL USUARIO YA USÓ ESTE CÓDIGO
+  const existingRedemption = await prisma.promoRedemption.findUnique({
+    where: {
+      userId_discountCodeId: {
+        userId: userId,
+        discountCodeId: discount.id,
+      },
+    },
+  })
+
+  if (existingRedemption && existingRedemption.status === 'APPLIED') {
+    console.log('[CHECKOUT API] User already used this promo code:', { userId, code })
+    return { discount: null, error: 'Este código promocional ya fue usado por tu cuenta.' }
   }
 
   // Check max uses (if set)
   if (discount.maxUses !== null && discount.currentUses >= discount.maxUses) {
-    return null
+    return { discount: null, error: 'Este código ya alcanzó su límite de usos' }
   }
 
   // Check if discount is applicable to any of the packages
@@ -129,11 +162,11 @@ async function validateDiscountCode(code: string, packageIds: string[]) {
       discount.applicableTo.includes(id)
     )
     if (!isApplicable) {
-      return null
+      return { discount: null, error: 'Este código no aplica a los paquetes seleccionados' }
     }
   }
 
-  return discount
+  return { discount, error: null }
 }
 
 export async function POST(request: Request) {
@@ -201,19 +234,20 @@ export async function POST(request: Request) {
     // Validate discount code if provided
     let discountPercentage = 0
     let validatedDiscountCode: string | undefined
+    let validatedDiscountId: string | undefined
 
     if (discountCode) {
       console.log('[CHECKOUT API] Validating discount code:', discountCode)
-      const discount = await validateDiscountCode(discountCode, packageIds)
+      const { discount, error } = await validateDiscountCode(discountCode, packageIds, userId)
       if (discount) {
         discountPercentage = discount.percentage
         validatedDiscountCode = discount.code
+        validatedDiscountId = discount.id
         console.log('[CHECKOUT API] Discount valid:', { code: discount.code, percentage: discount.percentage })
       } else {
-        console.log('[CHECKOUT API] Discount code invalid or expired')
-        // Discount code was provided but is invalid/expired/maxed out
+        console.log('[CHECKOUT API] Discount code rejected:', error)
         return NextResponse.json(
-          { error: 'El código de descuento no es válido o ha expirado. Por favor, verifica el código e intenta de nuevo.' },
+          { error: error || 'El código de descuento no es válido.' },
           { status: 400 }
         )
       }
@@ -244,6 +278,7 @@ export async function POST(request: Request) {
         userId,
         items: itemsWithPackages,
         discountCode: validatedDiscountCode,
+        discountCodeId: validatedDiscountId,
         discountPercentage,
       })
 

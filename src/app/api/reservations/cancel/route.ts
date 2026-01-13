@@ -196,6 +196,77 @@ export async function POST(request: Request) {
       console.log('[CANCEL API] Purchase reactivated from DEPLETED to ACTIVE')
     }
 
+    // D) AUTO-ASSIGN WAITLIST: Check if someone is on the waitlist for this class
+    const firstInWaitlist = await prisma.waitlist.findFirst({
+      where: { classId: reservation.classId },
+      orderBy: { position: 'asc' },
+      include: {
+        user: {
+          include: {
+            purchases: {
+              where: {
+                status: 'ACTIVE',
+                expiresAt: { gt: new Date() },
+                classesRemaining: { gt: 0 },
+              },
+              orderBy: { expiresAt: 'asc' },
+            },
+          },
+        },
+      },
+    })
+
+    let waitlistAssignment = null
+    if (firstInWaitlist && firstInWaitlist.user.purchases.length > 0) {
+      console.log('[CANCEL API] Found user in waitlist:', {
+        userId: firstInWaitlist.userId,
+        userName: firstInWaitlist.user.name,
+        position: firstInWaitlist.position,
+      })
+
+      const purchaseToUse = firstInWaitlist.user.purchases[0]
+
+      try {
+        // Create reservation for waitlist user and remove from waitlist
+        const [newReservation] = await prisma.$transaction([
+          prisma.reservation.create({
+            data: {
+              userId: firstInWaitlist.userId,
+              classId: reservation.classId,
+              purchaseId: purchaseToUse.id,
+              status: 'CONFIRMED',
+            },
+          }),
+          prisma.purchase.update({
+            where: { id: purchaseToUse.id },
+            data: { classesRemaining: { decrement: 1 } },
+          }),
+          prisma.waitlist.delete({
+            where: { id: firstInWaitlist.id },
+          }),
+          // Reorder remaining waitlist positions
+          prisma.waitlist.updateMany({
+            where: {
+              classId: reservation.classId,
+              position: { gt: firstInWaitlist.position },
+            },
+            data: { position: { decrement: 1 } },
+          }),
+        ])
+
+        waitlistAssignment = {
+          userId: firstInWaitlist.userId,
+          userName: firstInWaitlist.user.name,
+          reservationId: newReservation.id,
+        }
+
+        console.log('[CANCEL API] Waitlist user auto-assigned:', waitlistAssignment)
+      } catch (waitlistError) {
+        console.error('[CANCEL API] Failed to auto-assign waitlist user:', waitlistError)
+        // Non-blocking - the cancellation was successful, just couldn't auto-assign
+      }
+    }
+
     console.log('[CANCEL API] ========== CANCEL REQUEST SUCCESS ==========')
 
     return NextResponse.json({

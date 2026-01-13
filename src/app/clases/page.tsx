@@ -1,8 +1,33 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowRight, Clock, Users, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { getBrandAssets } from '@/lib/assets'
 
-const disciplines = [
+// Force dynamic rendering - never cache this page
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+// Default images as fallback
+const DEFAULT_IMAGES = {
+  yoga: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1200&q=80',
+  pilates: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80',
+  pole: 'https://images.unsplash.com/photo-1600618528240-fb9fc964b853?w=1200&q=80',
+  'terapia-de-sonido': 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?w=1200&q=80',
+  nutricion: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&q=80',
+}
+
+// Asset keys mapping
+const ASSET_KEYS = {
+  yoga: 'discipline_yoga_image_url',
+  pilates: 'discipline_pilates_image_url',
+  pole: 'discipline_pole_image_url',
+  'terapia-de-sonido': 'discipline_sound_image_url',
+  nutricion: 'discipline_nutrition_image_url',
+}
+
+// Base discipline data (without images - will be added dynamically)
+const baseDisciplines = [
   {
     id: 'yoga',
     name: 'Yoga',
@@ -18,8 +43,7 @@ const disciplines = [
     ],
     duration: '60-75 min',
     level: 'Todos los niveles',
-    image: '/images/yoga.jpg',
-    color: 'from-[#9CAF88] to-[#6B7F5E]',
+    color: 'from-[#9CAF88]/50 to-[#6B7F5E]/50',
   },
   {
     id: 'pilates',
@@ -36,8 +60,7 @@ const disciplines = [
     ],
     duration: '55 min',
     level: 'Todos los niveles',
-    image: '/images/pilates.jpg',
-    color: 'from-[#C4A77D] to-[#8B7355]',
+    color: 'from-[#C4A77D]/50 to-[#8B7355]/50',
   },
   {
     id: 'pole',
@@ -54,8 +77,7 @@ const disciplines = [
     ],
     duration: '60 min',
     level: 'Principiante a Avanzado',
-    image: '/images/pole-fitness.jpg',
-    color: 'from-[#B0B0B0] to-[#8A8A8A]',
+    color: 'from-[#B0B0B0]/50 to-[#8A8A8A]/50',
   },
   {
     id: 'terapia-de-sonido',
@@ -72,8 +94,7 @@ const disciplines = [
     ],
     duration: '60-90 min',
     level: 'Todos los niveles',
-    image: '/images/terapia-de-sonido.jpg',
-    color: 'from-[#D4C4B0] to-[#C0A888]',
+    color: 'from-[#D4C4B0]/50 to-[#C0A888]/50',
   },
   {
     id: 'nutricion',
@@ -90,8 +111,7 @@ const disciplines = [
     ],
     duration: '45-60 min',
     level: 'Consulta individual',
-    image: '/images/nutrition.jpg',
-    color: 'from-[#9CAF88] to-[#C4A77D]',
+    color: 'from-[#9CAF88]/50 to-[#C4A77D]/50',
   },
 ]
 
@@ -101,7 +121,20 @@ export const metadata = {
     'Descubre nuestras disciplinas: Yoga, Pilates Mat, Pole Fitness, Terapia de Sonido y Nutrición. Bienestar integral en El Salvador.',
 }
 
-export default function ClasesPage() {
+export default async function ClasesPage() {
+  // Load brand assets from database
+  const assets = await getBrandAssets()
+
+  // Build disciplines with dynamic images from assets
+  const disciplines = baseDisciplines.map((discipline) => {
+    const assetKey = ASSET_KEYS[discipline.id as keyof typeof ASSET_KEYS]
+    const defaultImage = DEFAULT_IMAGES[discipline.id as keyof typeof DEFAULT_IMAGES]
+    return {
+      ...discipline,
+      image: assets[assetKey]?.url || defaultImage,
+    }
+  })
+
   return (
     <>
       {/* Hero */}
@@ -135,12 +168,17 @@ export default function ClasesPage() {
                   index % 2 === 1 ? 'lg:order-2' : ''
                 }`}
               >
-                <div
-                  className={`absolute inset-0 bg-gradient-to-br ${discipline.color}`}
+                <Image
+                  src={discipline.image}
+                  alt={`Clase de ${discipline.name} en The Wellnest`}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                 />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-white/50 text-lg">Imagen de {discipline.name}</span>
-                </div>
+                {/* Gradient overlay for legibility */}
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${discipline.color} opacity-60`}
+                />
               </div>
 
               {/* Content */}

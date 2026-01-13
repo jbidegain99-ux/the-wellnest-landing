@@ -252,12 +252,14 @@ export default function CheckoutPage() {
           Serás redirigido a tus paquetes en unos segundos...
         </p>
 
-        <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/reservar">
-            <Button className="w-full">Reservar mi primera clase</Button>
+            <Button size="lg" className="w-full sm:w-auto min-w-[200px]">
+              Reservar mi primera clase
+            </Button>
           </Link>
           <Link href="/perfil/paquetes">
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" size="lg" className="w-full sm:w-auto min-w-[200px]">
               Ver mis paquetes
             </Button>
           </Link>
