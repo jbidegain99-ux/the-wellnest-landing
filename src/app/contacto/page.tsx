@@ -150,7 +150,8 @@ export default function ContactoPage() {
                 })}
               </div>
 
-              {/* WhatsApp CTA */}
+              {/* WhatsApp CTA - Deshabilitado hasta recibir número oficial */}
+              {/*
               <a
                 href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola, me gustaría obtener más información sobre wellnest.')}`}
                 target="_blank"
@@ -165,6 +166,7 @@ export default function ContactoPage() {
                   </p>
                 </div>
               </a>
+              */}
 
               {/* Map */}
               <div className="mt-8">

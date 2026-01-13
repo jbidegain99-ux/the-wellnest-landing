@@ -41,9 +41,12 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
-        serif: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
-        logo: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
+        // Poppins para textos generales y UI
+        sans: ['var(--font-poppins)', 'Poppins', 'system-ui', 'sans-serif'],
+        // Quicksand para títulos y branding
+        serif: ['var(--font-quicksand)', 'Quicksand', 'system-ui', 'sans-serif'],
+        // Logo usa Quicksand
+        logo: ['var(--font-quicksand)', 'Quicksand', 'system-ui', 'sans-serif'],
       },
       spacing: {
         '18': '4.5rem',
