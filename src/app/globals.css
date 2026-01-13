@@ -2,7 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Playfair Display - Única fuente para toda la plataforma The Wellnest */
+/* Tipografía The Wellnest
+   - Primaria: Quicksand (logo, títulos, branding)
+   - Secundaria: Poppins (body, UI, textos generales)
+*/
 
 :root {
   /* Colores principales - The Wellnest Brand */
@@ -48,18 +51,18 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--font-playfair), 'Playfair Display', Georgia, serif;
+    font-family: var(--font-poppins), 'Poppins', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-playfair), 'Playfair Display', Georgia, serif;
-    font-weight: 500;
+    font-family: var(--font-quicksand), 'Quicksand', system-ui, sans-serif;
+    font-weight: 600;
   }
 }
 
-/* Logo/Brand typography - Playfair Display */
+/* Logo/Brand typography - Quicksand */
 .font-logo {
-  font-family: var(--font-playfair), 'Playfair Display', Georgia, serif;
+  font-family: var(--font-quicksand), 'Quicksand', system-ui, sans-serif;
 }
 
 @layer utilities {

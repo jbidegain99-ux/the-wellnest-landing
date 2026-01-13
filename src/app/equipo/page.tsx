@@ -1,6 +1,7 @@
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { prisma } from '@/lib/prisma'
+import { Sprout, Sparkles, Users } from 'lucide-react'
 
 // Force dynamic rendering to always show fresh data
 export const dynamic = 'force-dynamic'
@@ -50,10 +51,10 @@ export default async function EquipoPage() {
           <h1 className="font-serif text-5xl md:text-6xl font-semibold text-foreground mb-6">
             Nuestro Equipo
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Conoce a las personas apasionadas que hacen de The Wellnest un espacio
-            especial. Cada instructor trae su experiencia única para guiarte en
-            tu viaje de bienestar.
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Conoce a las personas que dan vida a Wellnest. Un equipo apasionado y altamente
+            preparado, que cuida cada detalle para guiarte con presencia, técnica y calidez
+            en tu camino de bienestar.
           </p>
         </div>
       </section>
@@ -111,34 +112,40 @@ export default async function EquipoPage() {
             Nuestros Valores
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
-            <div>
-              <div className="text-4xl mb-4">🌱</div>
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Sprout className="w-8 h-8 text-primary" />
+              </div>
               <h3 className="font-serif text-xl font-semibold text-foreground mb-2">
                 Crecimiento
               </h3>
               <p className="text-gray-600">
-                Creemos en el potencial de cada persona para transformarse y
-                evolucionar.
+                Acompañamos tu proceso. Creemos en el potencial de cada persona
+                para transformarse y evolucionar a su propio ritmo.
               </p>
             </div>
-            <div>
-              <div className="text-4xl mb-4">💫</div>
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
               <h3 className="font-serif text-xl font-semibold text-foreground mb-2">
                 Autenticidad
               </h3>
               <p className="text-gray-600">
-                Cada práctica y cada instructor refleja genuinamente su pasión
-                y conocimiento.
+                Honramos lo real. Cada disciplina y cada guía comparte su esencia
+                con presencia, conocimiento y cuidado en cada detalle.
               </p>
             </div>
-            <div>
-              <div className="text-4xl mb-4">🤝</div>
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Users className="w-8 h-8 text-primary" />
+              </div>
               <h3 className="font-serif text-xl font-semibold text-foreground mb-2">
                 Comunidad
               </h3>
               <p className="text-gray-600">
-                Fomentamos conexiones significativas entre todos los miembros de
-                nuestro estudio.
+                Creamos un espacio de pertenencia. Fomentamos conexiones genuinas
+                que sostienen tu bienestar y este es tu lugar seguro.
               </p>
             </div>
           </div>

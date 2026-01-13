@@ -17,38 +17,38 @@ const DEFAULT_IMAGES = {
   nutrition: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&q=80',
 }
 
-// Base discipline data
+// Base discipline data - Copy exacto del documento Wellnest
 const baseDisciplines = [
   {
     id: 'yoga',
     assetKey: 'discipline_yoga_image_url',
     title: 'Yoga',
-    shortDescription: 'Encuentra tu equilibrio interior a través de posturas, respiración y meditación.',
-    description: 'Encuentra tu equilibrio interior a través de posturas, respiración y meditación. Una práctica milenaria que une cuerpo, mente y espíritu.',
+    shortDescription: 'Encuentra tu balance interior',
+    description: 'El yoga es una experiencia de presencia: movimiento consciente, respiración y calma. En cada clase te guiamos con cuidado y técnica para que habites tu cuerpo, sueltes tensión y cultives equilibrio—desde donde estés hoy.',
     href: '/clases#yoga',
-    gradient: 'from-[#9CAF88]/70 to-[#7A9A6D]/70',
-    bgColor: 'bg-[#9CAF88]/10',
+    gradient: 'from-[#959D93]/80 to-[#7A9A6D]/80',
+    bgColor: 'bg-[#959D93]/10',
     imageAlt: 'Clase de Yoga en The Wellnest',
   },
   {
     id: 'pilates',
     assetKey: 'discipline_pilates_image_url',
     title: 'Pilates Mat',
-    shortDescription: 'Fortalece tu centro, mejora tu postura y cuida tus articulaciones con movimientos controlados.',
-    description: 'Fortalece tu centro, mejora tu postura y cuida tus articulaciones a través de secuencias conscientes en mat, enfocadas en respiración y alineación.',
+    shortDescription: 'Fortalece tu centro, estiliza tu postura',
+    description: 'Pilates Mat es una práctica en Mat que fortalece el core profundo, mejora la alineación y cultiva un movimiento controlado y elegante. Te guiamos con precisión para que sientas un cuerpo más estable, ligero y armonioso.',
     href: '/clases#pilates',
-    gradient: 'from-[#C4A77D]/70 to-[#A88B5C]/70',
-    bgColor: 'bg-[#C4A77D]/10',
+    gradient: 'from-[#111316]/80 to-[#2A2A2A]/80',
+    bgColor: 'bg-[#111316]/10',
     imageAlt: 'Clase de Pilates Mat en The Wellnest',
   },
   {
     id: 'pole',
     assetKey: 'discipline_pole_image_url',
     title: 'Pole Fitness',
-    shortDescription: 'Empodérate, conecta con tu fuerza y tu sensualidad en un entorno seguro.',
-    description: 'Empodérate, conecta con tu fuerza y tu sensualidad en un entorno seguro y acompañado, combinando fuerza, flexibilidad y expresión corporal.',
+    shortDescription: 'Desafía tus límites, empodera tu energía',
+    description: 'Pole es fuerza y arte en un mismo movimiento: construyes potencia, control y confianza, mientras exploras tu expresión con elegancia. Te acompañamos paso a paso en un espacio seguro y motivador, para que celebres tu progreso—sin prisa, sin presión.',
     href: '/clases#pole',
-    gradient: 'from-[#B0B0B0]/70 to-[#8A8A8A]/70',
+    gradient: 'from-[#B0B0B0]/80 to-[#8A8A8A]/80',
     bgColor: 'bg-[#E5E5E5]',
     imageAlt: 'Clase de Pole Fitness en The Wellnest',
   },
@@ -56,21 +56,21 @@ const baseDisciplines = [
     id: 'sound',
     assetKey: 'discipline_sound_image_url',
     title: 'Terapia de Sonido',
-    shortDescription: 'Relaja tu sistema nervioso a través de baños de sonido y frecuencias terapéuticas.',
-    description: 'Relaja tu sistema nervioso, libera tensión y entra en estados profundos de descanso mediante baños de sonido con cuencos, gongs y otras frecuencias terapéuticas.',
+    shortDescription: 'Conecta con tu ser interior',
+    description: 'La Terapia de Sonido armoniza tu cuerpo a nivel celular, invitándote al descanso y la reconexión. A través de vibraciones, frecuencias y sonido consciente—acompañadas de meditación guiada—tu cuerpo y tu mente sueltan tensión, regulan emociones y regresan a su estado natural de equilibrio.',
     href: '/clases#terapia-de-sonido',
-    gradient: 'from-[#D4C4B0]/70 to-[#C0A888]/70',
-    bgColor: 'bg-[#F5E9DD]',
+    gradient: 'from-[#482F21]/80 to-[#5D4E42]/80',
+    bgColor: 'bg-[#482F21]/10',
     imageAlt: 'Sesión de Terapia de Sonido con cuencos tibetanos',
   },
   {
     id: 'nutrition',
     assetKey: 'discipline_nutrition_image_url',
     title: 'Nutrición',
-    shortDescription: 'Acompañamiento nutricional desde un enfoque integral y consciente.',
-    description: 'Acompañamiento nutricional desde un enfoque integral, funcional y consciente para equilibrar energía, hormonas y bienestar general.',
+    shortDescription: 'Cuidamos tu salud',
+    description: 'En Wellnest integramos nutrición con nutricionistas especializadas para acompañarte con un enfoque completo: movimiento, hábitos y bienestar en un mismo lugar. Honramos tu estilo de vida, tus necesidades y tu ritmo, para que construyas hábitos reales, sostenibles y con consciencia.',
     href: '/clases#nutricion',
-    gradient: 'from-[#B8D4A8]/70 to-[#9AC088]/70',
+    gradient: 'from-[#B8D4A8]/80 to-[#9AC088]/80',
     bgColor: 'bg-[#B8D4A8]/10',
     imageAlt: 'Consulta de Nutrición en The Wellnest',
   },
@@ -150,9 +150,8 @@ export function DisciplinesCarousel({ assets }: DisciplinesCarouselProps) {
           <h2 className="font-serif text-4xl md:text-5xl font-semibold text-foreground mb-4">
             Nuestras Disciplinas
           </h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            Explora nuestras diferentes prácticas y encuentra la que mejor se adapte
-            a tu momento. Con un solo paquete, accede a todas.
+          <p className="text-gray-600 text-lg max-w-3xl mx-auto">
+            Explora prácticas cuidadosamente seleccionadas y elige la que mejor acompañe tu ritmo hoy. Con un solo paquete, accede a todas cuando lo desees y vive la experiencia Wellnest con intención, calma y estilo.
           </p>
         </div>
 

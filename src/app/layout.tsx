@@ -1,14 +1,22 @@
 import type { Metadata } from 'next'
-import { Playfair_Display } from 'next/font/google'
+import { Quicksand, Poppins } from 'next/font/google'
 import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Providers } from '@/components/providers/Providers'
 
-const playfair = Playfair_Display({
+// Tipografía primaria: Quicksand - para logo y títulos de marca
+const quicksand = Quicksand({
   subsets: ['latin'],
-  variable: '--font-playfair',
-  weight: ['400', '500', '600', '700'],
+  variable: '--font-quicksand',
+  weight: ['300', '400', '500', '600', '700'],
+})
+
+// Tipografía secundaria: Poppins - para UI y textos de body
+const poppins = Poppins({
+  subsets: ['latin'],
+  variable: '--font-poppins',
+  weight: ['300', '400', '500', '600', '700'],
 })
 
 export const metadata: Metadata = {
@@ -31,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" className={playfair.variable}>
+    <html lang="es" className={`${quicksand.variable} ${poppins.variable}`}>
       <body className="min-h-screen flex flex-col">
         <Providers>
           <Navbar />

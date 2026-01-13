@@ -127,7 +127,7 @@ export default function PaquetesPage() {
               <p className="text-gray-600">No hay paquetes disponibles en este momento.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {packages.map((pkg, index) => {
                 const isExpanded = expandedId === pkg.id
                 const isUnlimited = pkg.classCount >= 999
@@ -137,50 +137,50 @@ export default function PaquetesPage() {
                 return (
                   <div
                     key={pkg.id}
-                    className={`relative bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-300 cursor-pointer ${
+                    className={`relative bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-300 cursor-pointer w-full ${
                       isExpanded ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'
                     }`}
                     onClick={() => setExpandedId(isExpanded ? null : pkg.id)}
                   >
                     {/* Featured badge */}
                     {pkg.isFeatured && (
-                      <div className="absolute top-4 right-4 z-10">
+                      <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
                         <Badge variant="default">Más Popular</Badge>
                       </div>
                     )}
 
                     {/* Header with gradient */}
                     <div
-                      className={`h-24 bg-gradient-to-r ${color} flex items-end p-6`}
+                      className={`h-20 sm:h-24 bg-gradient-to-r ${color} flex items-end p-4 sm:p-6`}
                     >
-                      <h3 className="font-serif text-2xl font-semibold text-white drop-shadow-sm">
+                      <h3 className="font-serif text-xl sm:text-2xl font-semibold text-white drop-shadow-sm">
                         {pkg.name}
                       </h3>
                     </div>
 
                     {/* Content */}
-                    <div className="p-6">
-                      <p className="text-gray-600 mb-4">{pkg.shortDescription}</p>
+                    <div className="p-4 sm:p-6">
+                      <p className="text-gray-600 text-sm sm:text-base mb-3 sm:mb-4">{pkg.shortDescription}</p>
 
-                      <div className="flex items-baseline gap-1 mb-2">
-                        <span className="font-serif text-4xl font-semibold text-foreground">
+                      <div className="flex items-baseline gap-1 mb-1 sm:mb-2">
+                        <span className="font-serif text-3xl sm:text-4xl font-semibold text-foreground">
                           {formatPrice(pkg.price)}
                         </span>
                       </div>
 
                       {pricePerClass && (
-                        <p className="text-sm text-gray-500 mb-4">
+                        <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
                           {formatPrice(pricePerClass)} por clase
                         </p>
                       )}
 
-                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
                         <span className="flex items-center gap-1">
-                          <Check className="h-4 w-4 text-primary" />
+                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
                           {isUnlimited ? 'Ilimitadas' : `${pkg.classCount} clases`}
                         </span>
                         <span className="flex items-center gap-1">
-                          <Check className="h-4 w-4 text-primary" />
+                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
                           {pkg.validityDays} días
                         </span>
                       </div>

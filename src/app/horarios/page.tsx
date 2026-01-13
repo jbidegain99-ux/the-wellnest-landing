@@ -47,13 +47,14 @@ interface ClassData {
   }
 }
 
+// Colores por disciplina según marca Wellnest
 const disciplineColors: Record<string, string> = {
-  yoga: 'bg-[#9CAF88]',
-  pilates: 'bg-[#C4A77D]',
-  pole: 'bg-[#E5E5E5]',
-  soundbath: 'bg-[#F5E9DD]',
-  'terapia-de-sonido': 'bg-[#F5E9DD]',
-  nutricion: 'bg-[#6B7F5E]',
+  yoga: 'bg-[#959D93]',              // Verde musgo
+  pilates: 'bg-[#111316]',           // Negro
+  pole: 'bg-[#E5E5E5]',              // Gris claro
+  soundbath: 'bg-[#482F21]',         // Café
+  'terapia-de-sonido': 'bg-[#482F21]', // Café
+  nutricion: 'bg-[#6B7F5E]',         // Verde oscuro
 }
 
 interface ActivePurchase {

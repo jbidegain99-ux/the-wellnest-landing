@@ -26,92 +26,92 @@ const ASSET_KEYS = {
   nutricion: 'discipline_nutrition_image_url',
 }
 
-// Base discipline data (without images - will be added dynamically)
+// Base discipline data - Copy exacto del documento Wellnest
 const baseDisciplines = [
   {
     id: 'yoga',
     name: 'Yoga',
-    tagline: 'Encuentra tu equilibrio interior',
+    tagline: 'Encuentra tu balance interior',
     description:
-      'El yoga es una práctica milenaria que une cuerpo, mente y espíritu a través de posturas físicas (asanas), técnicas de respiración (pranayama) y meditación. En nuestras clases, te guiamos en un viaje de autoconocimiento y bienestar.',
+      'El yoga es una experiencia de presencia: movimiento consciente, respiración y calma. En cada clase te guiamos con cuidado y técnica para que habites tu cuerpo, sueltes tensión y cultives equilibrio—desde donde estés hoy.',
     benefits: [
-      'Mejora la flexibilidad y fuerza muscular',
-      'Reduce el estrés y la ansiedad',
-      'Aumenta la concentración y claridad mental',
-      'Mejora la calidad del sueño',
-      'Fortalece el sistema inmunológico',
+      'Mayor flexibilidad y fuerza funcional',
+      'Reduce el estrés y aquieta la mente',
+      'Mejora el enfoque y la claridad mental',
+      'Favorece un descanso más profundo',
+      'Apoya tu sistema inmunológico y bienestar integral',
     ],
-    duration: '60-75 min',
+    duration: '60–75 min',
     level: 'Todos los niveles',
-    color: 'from-[#9CAF88]/50 to-[#6B7F5E]/50',
+    color: 'from-[#959D93]/50 to-[#7A9A6D]/50',
   },
   {
     id: 'pilates',
     name: 'Pilates Mat',
-    tagline: 'Fortalece tu centro, transforma tu cuerpo',
+    tagline: 'Fortalece tu centro, estiliza tu postura',
     description:
-      'Pilates Mat se practica en colchoneta y se enfoca en el fortalecimiento del core, la mejora de la postura y la alineación corporal. Nota importante: Nuestras clases son de Pilates Mat, no utilizamos máquinas reformer.',
+      'Pilates Mat es una práctica en Mat que fortalece el core profundo, mejora la alineación y cultiva un movimiento controlado y elegante. Te guiamos con precisión para que sientas un cuerpo más estable, ligero y armonioso.',
+    note: 'Nota: Nuestras clases son Pilates Mat, no utilizamos maquinas reformer.',
     benefits: [
-      'Fortalece los músculos profundos del core',
-      'Mejora la postura y alineación corporal',
-      'Aumenta la flexibilidad de forma segura',
-      'Previene lesiones y dolores de espalda',
-      'Tonifica el cuerpo de manera equilibrada',
+      'Core profundo más fuerte y estable',
+      'Mejor postura y alineación corporal',
+      'Flexibilidad segura y progresiva',
+      'Definición muscular estilizada',
+      'Tonificación equilibrada',
     ],
     duration: '55 min',
     level: 'Todos los niveles',
-    color: 'from-[#C4A77D]/50 to-[#8B7355]/50',
+    color: 'from-[#111316]/50 to-[#2A2A2A]/50',
   },
   {
     id: 'pole',
     name: 'Pole Fitness',
-    tagline: 'Desafía tus límites, empodera tu ser',
+    tagline: 'Desafía tus límites, empodera tu energía',
     description:
-      'Pole Fitness combina danza, acrobacia y fitness en una disciplina que desarrolla fuerza, flexibilidad y confianza. Es un espacio seguro y empoderador donde cada persona puede explorar su potencial.',
+      'Pole es fuerza y arte en un mismo movimiento: construyes potencia, control y confianza, mientras exploras tu expresión con elegancia. Te acompañamos paso a paso en un espacio seguro y motivador, para que celebres tu progreso—sin prisa, sin presión.',
     benefits: [
-      'Desarrolla fuerza funcional completa',
-      'Mejora la coordinación y equilibrio',
-      'Aumenta la confianza y autoestima',
-      'Quema calorías de forma divertida',
-      'Desarrolla flexibilidad y gracia',
+      'Aumenta fuerza, resistencia y tono muscular',
+      'Mejora coordinación, movilidad y control corporal',
+      'Desarrolla confianza y conexión con tu cuerpo',
+      'Potencia la postura y la estabilidad del core',
     ],
     duration: '60 min',
-    level: 'Principiante a Avanzado',
+    level: 'Todos los niveles',
     color: 'from-[#B0B0B0]/50 to-[#8A8A8A]/50',
   },
   {
     id: 'terapia-de-sonido',
     name: 'Terapia de Sonido',
-    tagline: 'Sana a través del sonido',
+    tagline: 'Conecta con tu ser interior',
     description:
-      'La Terapia de Sonido es una experiencia meditativa donde te sumerges en frecuencias sanadoras producidas por cuencos tibetanos, gongs y otros instrumentos. Una práctica profundamente relajante que promueve la sanación a nivel celular.',
+      'La Terapia de Sonido armoniza tu cuerpo a nivel celular, invitándote al descanso y la reconexión. A través de vibraciones, frecuencias y sonido consciente —acompañadas de meditación guiada— tu cuerpo y tu mente sueltan tensión, regulan emociones y regresan a su estado natural de equilibrio. Ideal si buscas pausar, respirar y recargar desde un espacio seguro y consciente.',
     benefits: [
-      'Reduce el estrés y la ansiedad profundamente',
-      'Promueve la relajación profunda',
+      'Reduce estrés y ansiedad',
       'Mejora la calidad del sueño',
-      'Equilibra el sistema nervioso',
-      'Facilita estados meditativos profundos',
+      'Regula el sistema nervioso',
+      'Libera tensión física y mental',
+      'Aporta claridad y bienestar emocional',
     ],
-    duration: '60-90 min',
+    duration: '40–60 min',
     level: 'Todos los niveles',
-    color: 'from-[#D4C4B0]/50 to-[#C0A888]/50',
+    color: 'from-[#482F21]/50 to-[#5D4E42]/50',
   },
   {
     id: 'nutricion',
     name: 'Nutrición',
-    tagline: 'Nutre tu cuerpo desde adentro',
+    tagline: 'Cuidamos tu salud',
     description:
-      'Nuestras consultas de nutrición te ofrecen un acompañamiento personalizado para mejorar tu alimentación y alcanzar tus objetivos de bienestar. Trabajamos con un enfoque integral que considera tu estilo de vida y necesidades únicas.',
+      'En Wellnest integramos nutrición con nutricionistas especializadas para acompañarte con un enfoque completo: movimiento, hábitos y bienestar en un mismo lugar. Honramos tu estilo de vida, tus necesidades y tu ritmo, para que construyas hábitos reales, sostenibles y con consciencia.',
     benefits: [
-      'Plan alimenticio personalizado',
-      'Mejora tu relación con la comida',
+      'Plan alimenticio personalizado, práctico y adaptable',
+      'Mejora tu relación con la comida, sin culpa ni extremos',
       'Aumenta tu energía y vitalidad',
-      'Alcanza tus objetivos de peso saludable',
-      'Aprende hábitos sostenibles',
+      'Apoya tus objetivos de peso saludable y bienestar integral',
+      'Creas hábitos sostenibles que se mantienen en el tiempo',
     ],
-    duration: '45-60 min',
+    duration: '45–60 min',
     level: 'Consulta individual',
-    color: 'from-[#9CAF88]/50 to-[#C4A77D]/50',
+    color: 'from-[#B8D4A8]/50 to-[#9AC088]/50',
   },
 ]
 
@@ -189,9 +189,16 @@ export default async function ClasesPage() {
                 <p className="text-primary text-lg font-medium mb-6">
                   {discipline.tagline}
                 </p>
-                <p className="text-gray-600 text-lg mb-6 leading-relaxed">
+                <p className="text-gray-600 text-lg mb-4 leading-relaxed">
                   {discipline.description}
                 </p>
+
+                {/* Note for Pilates */}
+                {'note' in discipline && discipline.note && (
+                  <p className="text-sm text-primary font-medium mb-4 p-3 bg-primary/5 rounded-lg">
+                    {discipline.note}
+                  </p>
+                )}
 
                 {/* Meta info */}
                 <div className="flex flex-wrap gap-4 mb-6">

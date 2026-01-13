@@ -125,7 +125,7 @@ export default async function HomePage() {
               ¿Por Qué Elegirnos?
             </h2>
             <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              En wellnest creemos que el bienestar es un viaje único para cada persona.
+              En Wellnest creemos que el bienestar es una elección consciente para cada persona.
             </p>
           </div>
 
@@ -195,9 +195,8 @@ export default async function HomePage() {
                 Visítanos
               </h2>
               <p className="text-gray-600 text-lg mb-6">
-                Nuestro estudio está diseñado para ser tu refugio de paz en medio
-                de la ciudad. Un espacio luminoso, acogedor y equipado para tu
-                práctica de bienestar.
+                Wellnest está diseñado para ser tu equilibrio en medio de la ciudad.
+                Un espacio único y acogedor para conectar y cuidar tu bienestar.
               </p>
               <div className="space-y-4 text-gray-600">
                 <p className="flex items-center gap-2">
