@@ -75,33 +75,27 @@ export default async function EquipoPage() {
 
                     {/* Headline (role) */}
                     {member.headline && (
-                      <p className="text-primary font-medium text-sm sm:text-base mb-4 leading-relaxed">
+                      <p className="text-primary font-medium text-sm sm:text-base mb-3 leading-relaxed">
                         {member.headline}
                       </p>
                     )}
 
                     {/* Tags */}
                     {member.tags && member.tags.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Tags:</p>
-                        <div className="flex flex-wrap justify-center gap-2">
-                          {member.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
+                      <div className="flex flex-wrap justify-center gap-2 mb-4">
+                        {member.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
                       </div>
                     )}
 
                     {/* Short Bio */}
                     {member.shortBio && (
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Bio corta:</p>
-                        <p className="text-gray-600 text-sm leading-relaxed">
-                          {member.shortBio}
-                        </p>
-                      </div>
+                      <p className="text-gray-600 text-sm leading-relaxed">
+                        {member.shortBio}
+                      </p>
                     )}
                   </div>
                 </div>
