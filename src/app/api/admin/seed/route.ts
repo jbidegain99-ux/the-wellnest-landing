@@ -147,98 +147,82 @@ export async function POST() {
       }),
     ])
 
+    // Helper for package upsert by slug (slug is not unique)
+    const upsertPkgBySlug = async (data: Parameters<typeof prisma.package.create>[0]['data']) => {
+      const existing = await prisma.package.findFirst({ where: { slug: data.slug } })
+      if (existing) {
+        return prisma.package.update({ where: { id: existing.id }, data })
+      }
+      return prisma.package.create({ data })
+    }
+
     // Create packages (with slugs for new schema)
     const packages = await Promise.all([
-      prisma.package.upsert({
-        where: { slug: 'drop-in-class' },
-        update: {},
-        create: {
-          slug: 'drop-in-class',
-          name: 'Drop-In Class',
-          subtitle: 'Ideal para fluir a tu propio ritmo',
-          shortDescription: 'Perfecta para regalarte un momento consciente',
-          fullDescription:
-            'Perfecta para regalarte un momento consciente, probar una disciplina o adaptarte a semanas con horarios cambiantes.',
-          classCount: 1,
-          price: 10,
-          validityDays: 5,
-          bulletsTop: ['1 clase', '5 días de vigencia'],
-          bulletsBottom: ['Válida para todas las disciplinas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
-          order: 1,
-        },
+      upsertPkgBySlug({
+        slug: 'drop-in-class',
+        name: 'Drop-In Class',
+        subtitle: 'Ideal para fluir a tu propio ritmo',
+        shortDescription: 'Perfecta para regalarte un momento consciente',
+        fullDescription: 'Perfecta para regalarte un momento consciente, probar una disciplina o adaptarte a semanas con horarios cambiantes.',
+        classCount: 1,
+        price: 10,
+        validityDays: 5,
+        bulletsTop: ['1 clase', '5 días de vigencia'],
+        bulletsBottom: ['Válida para todas las disciplinas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+        order: 1,
       }),
-      prisma.package.upsert({
-        where: { slug: 'mini-flow-4' },
-        update: {},
-        create: {
-          slug: 'mini-flow-4',
-          name: 'Mini Flow (4 clases)',
-          subtitle: 'Una pausa semanal para reconectar',
-          shortDescription: 'Un paquete suave y accesible',
-          fullDescription:
-            'Un paquete suave y accesible para iniciar tu camino de bienestar, crear constancia y sentir el movimiento como medicina.',
-          classCount: 4,
-          price: 49.99,
-          validityDays: 30,
-          bulletsTop: ['4 clases', '30 días de vigencia'],
-          bulletsBottom: ['Ideal para comenzar', 'Todas las disciplinas incluidas', 'Reserva fácil desde la app', 'Cancela tu clase 8 horas antes'],
-          order: 2,
-        },
+      upsertPkgBySlug({
+        slug: 'mini-flow-4',
+        name: 'Mini Flow (4 clases)',
+        subtitle: 'Una pausa semanal para reconectar',
+        shortDescription: 'Un paquete suave y accesible',
+        fullDescription: 'Un paquete suave y accesible para iniciar tu camino de bienestar, crear constancia y sentir el movimiento como medicina.',
+        classCount: 4,
+        price: 49.99,
+        validityDays: 30,
+        bulletsTop: ['4 clases', '30 días de vigencia'],
+        bulletsBottom: ['Ideal para comenzar', 'Todas las disciplinas incluidas', 'Reserva fácil desde la app', 'Cancela tu clase 8 horas antes'],
+        order: 2,
       }),
-      prisma.package.upsert({
-        where: { slug: 'balance-pass-8' },
-        update: {},
-        create: {
-          slug: 'balance-pass-8',
-          name: 'Balance Pass (8 clases)',
-          subtitle: 'Encuentra tu ritmo y sosténlo',
-          shortDescription: 'Dos veces por semana',
-          fullDescription:
-            'Diseñado para quienes desean integrar el movimiento consciente como parte de su semana y equilibrar cuerpo y mente.',
-          classCount: 8,
-          price: 69.99,
-          validityDays: 30,
-          bulletsTop: ['8 clases', '30 días de vigencia'],
-          bulletsBottom: ['Dos veces por semana', 'Acceso a todas las disciplinas', 'Flexibilidad total de horarios', 'Cancela tu clase 8 horas antes'],
-          isFeatured: true,
-          order: 3,
-        },
+      upsertPkgBySlug({
+        slug: 'balance-pass-8',
+        name: 'Balance Pass (8 clases)',
+        subtitle: 'Encuentra tu ritmo y sosténlo',
+        shortDescription: 'Dos veces por semana',
+        fullDescription: 'Diseñado para quienes desean integrar el movimiento consciente como parte de su semana y equilibrar cuerpo y mente.',
+        classCount: 8,
+        price: 69.99,
+        validityDays: 30,
+        bulletsTop: ['8 clases', '30 días de vigencia'],
+        bulletsBottom: ['Dos veces por semana', 'Acceso a todas las disciplinas', 'Flexibilidad total de horarios', 'Cancela tu clase 8 horas antes'],
+        isFeatured: true,
+        order: 3,
       }),
-      prisma.package.upsert({
-        where: { slug: 'energia-total-12' },
-        update: {},
-        create: {
-          slug: 'energia-total-12',
-          name: 'Energía Total (12 clases)',
-          subtitle: 'Movimiento constante, energía en expansión',
-          shortDescription: 'Tres veces por semana',
-          fullDescription:
-            'Un impulso energético para quienes buscan mayor presencia, fuerza y conexión interior a través del movimiento regular.',
-          classCount: 12,
-          price: 95,
-          validityDays: 30,
-          bulletsTop: ['12 clases', '30 días de vigencia'],
-          bulletsBottom: ['Ideal para crear hábito', 'Todas las disciplinas incluidas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
-          order: 4,
-        },
+      upsertPkgBySlug({
+        slug: 'energia-total-12',
+        name: 'Energía Total (12 clases)',
+        subtitle: 'Movimiento constante, energía en expansión',
+        shortDescription: 'Tres veces por semana',
+        fullDescription: 'Un impulso energético para quienes buscan mayor presencia, fuerza y conexión interior a través del movimiento regular.',
+        classCount: 12,
+        price: 95,
+        validityDays: 30,
+        bulletsTop: ['12 clases', '30 días de vigencia'],
+        bulletsBottom: ['Ideal para crear hábito', 'Todas las disciplinas incluidas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+        order: 4,
       }),
-      prisma.package.upsert({
-        where: { slug: 'vital-plan-16' },
-        update: {},
-        create: {
-          slug: 'vital-plan-16',
-          name: 'Vital Plan (16 clases)',
-          subtitle: 'Tu bienestar como prioridad',
-          shortDescription: 'Hasta 4 clases por semana',
-          fullDescription:
-            'Pensado para quienes eligen sostener su bienestar con intención, constancia y variedad de disciplinas.',
-          classCount: 16,
-          price: 115,
-          validityDays: 30,
-          bulletsTop: ['16 clases', '30 días de vigencia'],
-          bulletsBottom: ['Hasta 4 clases por semana', 'Movimiento consciente y flexible', 'Acompaña tu ritmo de vida', 'Cancela tu clase 8 horas antes'],
-          order: 5,
-        },
+      upsertPkgBySlug({
+        slug: 'vital-plan-16',
+        name: 'Vital Plan (16 clases)',
+        subtitle: 'Tu bienestar como prioridad',
+        shortDescription: 'Hasta 4 clases por semana',
+        fullDescription: 'Pensado para quienes eligen sostener su bienestar con intención, constancia y variedad de disciplinas.',
+        classCount: 16,
+        price: 115,
+        validityDays: 30,
+        bulletsTop: ['16 clases', '30 días de vigencia'],
+        bulletsBottom: ['Hasta 4 clases por semana', 'Movimiento consciente y flexible', 'Acompaña tu ritmo de vida', 'Cancela tu clase 8 horas antes'],
+        order: 5,
       }),
     ])
 
