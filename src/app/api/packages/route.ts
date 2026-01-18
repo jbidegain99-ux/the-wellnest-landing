@@ -37,14 +37,26 @@ export async function POST(request: Request) {
 
     const body = await request.json()
 
+    // Generate slug from name if not provided
+    const slug = body.slug || body.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+
     const pkg = await prisma.package.create({
       data: {
+        slug,
         name: body.name,
+        subtitle: body.subtitle || null,
         shortDescription: body.shortDescription,
         fullDescription: body.fullDescription || body.shortDescription,
         classCount: body.classCount,
         price: body.price,
+        currency: body.currency || 'USD',
         validityDays: body.validityDays,
+        validityText: body.validityText || null,
+        bulletsTop: body.bulletsTop || [],
+        bulletsBottom: body.bulletsBottom || [],
         image: body.image,
         isActive: body.isActive ?? true,
         isFeatured: body.isFeatured ?? false,

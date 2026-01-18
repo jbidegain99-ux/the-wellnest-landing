@@ -67,7 +67,7 @@ export default async function HomePage() {
         {/* Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center text-white">
           {/* Logo */}
-          <h1 className="font-logo text-6xl md:text-8xl lg:text-9xl font-bold tracking-[0.1em] mb-6 animate-fade-in">
+          <h1 className="font-logo text-6xl md:text-8xl lg:text-9xl font-normal tracking-[0.1em] mb-6 animate-fade-in">
             wellnest.
           </h1>
 

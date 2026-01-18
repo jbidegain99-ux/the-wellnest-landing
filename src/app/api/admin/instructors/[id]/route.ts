@@ -7,8 +7,11 @@ import { z } from 'zod'
 
 const updateInstructorSchema = z.object({
   name: z.string().min(2, 'El nombre es muy corto').optional(),
-  bio: z.string().min(10, 'La biografía debe tener al menos 10 caracteres').optional(),
-  disciplines: z.array(z.string()).min(1, 'Debe seleccionar al menos una disciplina').optional(),
+  headline: z.string().nullable().optional(),
+  bio: z.string().optional(),
+  shortBio: z.string().nullable().optional(),
+  tags: z.array(z.string()).optional(),
+  disciplines: z.array(z.string()).optional(),
   image: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
   order: z.number().optional(),
@@ -88,7 +91,10 @@ export async function PUT(
     const updateData: Record<string, unknown> = {}
 
     if (data.name !== undefined) updateData.name = data.name
+    if (data.headline !== undefined) updateData.headline = data.headline || null
     if (data.bio !== undefined) updateData.bio = data.bio
+    if (data.shortBio !== undefined) updateData.shortBio = data.shortBio || null
+    if (data.tags !== undefined) updateData.tags = data.tags
     if (data.disciplines !== undefined) updateData.disciplines = data.disciplines
     if (data.image !== undefined) updateData.image = data.image
     if (data.isActive !== undefined) updateData.isActive = data.isActive
