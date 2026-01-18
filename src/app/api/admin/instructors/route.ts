@@ -7,8 +7,11 @@ import { z } from 'zod'
 
 const instructorSchema = z.object({
   name: z.string().min(2, 'El nombre es muy corto'),
-  bio: z.string().min(10, 'La biografía debe tener al menos 10 caracteres'),
-  disciplines: z.array(z.string()).min(1, 'Debe seleccionar al menos una disciplina'),
+  headline: z.string().nullable().optional(),
+  bio: z.string().optional().default(''),
+  shortBio: z.string().nullable().optional(),
+  tags: z.array(z.string()).optional().default([]),
+  disciplines: z.array(z.string()).optional().default([]),
   image: z.string().nullable().optional(),
   isActive: z.boolean().default(true),
   order: z.number().optional(),
@@ -67,8 +70,11 @@ export async function POST(request: Request) {
     const instructor = await prisma.instructor.create({
       data: {
         name: data.name,
-        bio: data.bio,
-        disciplines: data.disciplines,
+        headline: data.headline || null,
+        bio: data.bio || '',
+        shortBio: data.shortBio || null,
+        tags: data.tags || [],
+        disciplines: data.disciplines || [],
         image: data.image || null,
         isActive: data.isActive,
         order: data.order ?? newOrder,

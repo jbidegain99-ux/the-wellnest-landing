@@ -20,6 +20,7 @@ import {
   ModalFooter,
 } from '@/components/ui/Modal'
 import { cn, getWeekDays, getMonthName } from '@/lib/utils'
+import { disciplineColors, getDisciplineColor } from '@/config/disciplineColors'
 
 interface Discipline {
   id: string
@@ -49,14 +50,7 @@ interface ClassItem {
   reservationsCount?: number
 }
 
-const disciplineColors: Record<string, string> = {
-  yoga: 'bg-[#9CAF88]',
-  pilates: 'bg-[#C4A77D]',
-  pole: 'bg-[#E5E5E5]',
-  soundbath: 'bg-[#F5E9DD]',
-  'terapia-de-sonido': 'bg-[#F5E9DD]',
-  nutricion: 'bg-[#6B7F5E]',
-}
+// Colores importados desde @/config/disciplineColors (fuente única de verdad)
 
 export default function AdminHorariosPage() {
   // Data from database
@@ -188,9 +182,9 @@ export default function AdminHorariosPage() {
       .sort((a, b) => a.time.localeCompare(b.time))
   }
 
-  const getDisciplineColor = (disciplineName: string) => {
+  const getDisciplineColorForClass = (disciplineName: string) => {
     const discipline = disciplines.find(d => d.name === disciplineName)
-    return discipline ? (disciplineColors[discipline.slug] || 'bg-primary') : 'bg-primary'
+    return discipline ? getDisciplineColor(discipline.slug) : 'bg-primary'
   }
 
   const handleCreate = (dayOfWeek?: number) => {
@@ -393,7 +387,7 @@ export default function AdminHorariosPage() {
                     key={cls.id}
                     className={cn(
                       'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
-                      cls.isCancelled ? 'bg-gray-400' : getDisciplineColor(cls.discipline)
+                      cls.isCancelled ? 'bg-gray-400' : getDisciplineColorForClass(cls.discipline)
                     )}
                     onClick={() => handleEdit(cls)}
                   >

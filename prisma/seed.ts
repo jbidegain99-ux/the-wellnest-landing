@@ -39,7 +39,7 @@ async function main() {
       where: { slug: 'pole' },
       update: {},
       create: {
-        name: 'Pole',
+        name: 'Pole Fitness',
         slug: 'pole',
         description:
           'Pole combina danza, acrobacia y fitness en una disciplina que desarrolla fuerza, flexibilidad y confianza.',
@@ -52,7 +52,7 @@ async function main() {
       where: { slug: 'soundbath' },
       update: {},
       create: {
-        name: 'Sound Bath',
+        name: 'Terapia de Sonido',
         slug: 'soundbath',
         description:
           'Sound Bath es una experiencia meditativa donde te sumerges en frecuencias sanadoras producidas por cuencos tibetanos y otros instrumentos.',
@@ -65,7 +65,7 @@ async function main() {
       where: { slug: 'nutricion' },
       update: {},
       create: {
-        name: 'Nutrition',
+        name: 'Nutrición',
         slug: 'nutricion',
         description:
           'Consultas de nutrición personalizadas para mejorar tu alimentación y alcanzar tus objetivos de bienestar.',
@@ -78,146 +78,422 @@ async function main() {
 
   console.log('Created disciplines:', disciplines.length)
 
-  // Create instructors - based on actual wellnest team
+  // =====================================================
+  // INSTRUCTORES REALES - The Wellnest Team
+  // =====================================================
   const instructors = await Promise.all([
     prisma.instructor.upsert({
-      where: { id: 'instructor-nicole' },
-      update: {},
+      where: { id: 'instructor-nicolle' },
+      update: {
+        name: 'Nicolle Soundy',
+        headline: 'Nutricionista · Especialidad en Nutrición Deportiva · Maestra de Yoga',
+        bio: 'Acompaña tu bienestar desde el movimiento consciente y la práctica de yoga.',
+        shortBio: 'Acompaña tu bienestar desde el movimiento consciente y la práctica de yoga. Su enfoque integra fuerza sutil, respiración y equilibrio para habitar tu cuerpo con presencia.',
+        tags: ['Yoga', 'Nutrición', 'Nutrición Deportiva'],
+        disciplines: ['Yoga', 'Nutrición'],
+        isActive: true,
+        order: 1,
+      },
       create: {
-        id: 'instructor-nicole',
-        name: 'Nicole Soundy',
-        bio: 'Co-fundadora de wellnest. Certificada en Yoga y Sound Healing. Con más de 8 años de experiencia guiando prácticas de bienestar integral.',
-        disciplines: ['Yoga', 'Sound Bath'],
+        id: 'instructor-nicolle',
+        name: 'Nicolle Soundy',
+        headline: 'Nutricionista · Especialidad en Nutrición Deportiva · Maestra de Yoga',
+        bio: 'Acompaña tu bienestar desde el movimiento consciente y la práctica de yoga.',
+        shortBio: 'Acompaña tu bienestar desde el movimiento consciente y la práctica de yoga. Su enfoque integra fuerza sutil, respiración y equilibrio para habitar tu cuerpo con presencia.',
+        tags: ['Yoga', 'Nutrición', 'Nutrición Deportiva'],
+        disciplines: ['Yoga', 'Nutrición'],
+        isActive: true,
         order: 1,
       },
     }),
     prisma.instructor.upsert({
       where: { id: 'instructor-florence' },
-      update: {},
+      update: {
+        name: 'Florence Cervantes',
+        headline: 'Nutricionista · Especialidad en Nutrición Deportiva · Instructora de Mat Pilates',
+        bio: 'Guía sesiones de Pilates mat con técnica, delicadeza, precisión y cuidado.',
+        shortBio: 'Guía sesiones de Pilates mat con técnica, delicadeza, precisión y cuidado. Fortalece tu cuerpo desde adentro, mejora tu postura y sostiene resultados con constancia.',
+        tags: ['Mat Pilates', 'Nutrición', 'Nutrición Deportiva'],
+        disciplines: ['Mat Pilates', 'Nutrición'],
+        isActive: true,
+        order: 2,
+      },
       create: {
         id: 'instructor-florence',
         name: 'Florence Cervantes',
-        bio: 'Instructora certificada en Mat Pilates por BASI. Especialista en alineación corporal y rehabilitación postural.',
-        disciplines: ['Mat Pilates'],
+        headline: 'Nutricionista · Especialidad en Nutrición Deportiva · Instructora de Mat Pilates',
+        bio: 'Guía sesiones de Pilates mat con técnica, delicadeza, precisión y cuidado.',
+        shortBio: 'Guía sesiones de Pilates mat con técnica, delicadeza, precisión y cuidado. Fortalece tu cuerpo desde adentro, mejora tu postura y sostiene resultados con constancia.',
+        tags: ['Mat Pilates', 'Nutrición', 'Nutrición Deportiva'],
+        disciplines: ['Mat Pilates', 'Nutrición'],
+        isActive: true,
         order: 2,
       },
     }),
     prisma.instructor.upsert({
       where: { id: 'instructor-adriana' },
-      update: {},
-      create: {
-        id: 'instructor-adriana',
-        name: 'Adriana Lopez',
-        bio: 'Instructora de Pole con certificación internacional. Crea un ambiente empoderador y seguro para todos los niveles.',
-        disciplines: ['Pole'],
+      update: {
+        name: 'Adriana Bidegain',
+        headline: 'Nutricionista · Especialidad en Naturopatía · Instructora de Terapia de Sonido (Soundbath)',
+        bio: 'Facilita la calma profunda con soundbath y meditaciones guiadas.',
+        shortBio: 'Facilita la calma profunda con soundbath y meditaciones guiadas, apoyando la regulación del sistema nervioso. Te acompaña a volver a tu centro y nutrir tu ser con presencia, suavidad e intención.',
+        tags: ['Terapia de Sonido', 'Nutrición', 'Naturopatía'],
+        disciplines: ['Terapia de Sonido', 'Nutrición'],
+        isActive: true,
         order: 3,
       },
-    }),
-    prisma.instructor.upsert({
-      where: { id: 'instructor-denisse' },
-      update: {},
       create: {
-        id: 'instructor-denisse',
-        name: 'Denisse Soundy',
-        bio: 'Co-fundadora de wellnest. Instructora de Yoga y facilitadora de Sound Bath. Apasionada por el bienestar holístico.',
-        disciplines: ['Yoga', 'Sound Bath'],
-        order: 4,
+        id: 'instructor-adriana',
+        name: 'Adriana Bidegain',
+        headline: 'Nutricionista · Especialidad en Naturopatía · Instructora de Terapia de Sonido (Soundbath)',
+        bio: 'Facilita la calma profunda con soundbath y meditaciones guiadas.',
+        shortBio: 'Facilita la calma profunda con soundbath y meditaciones guiadas, apoyando la regulación del sistema nervioso. Te acompaña a volver a tu centro y nutrir tu ser con presencia, suavidad e intención.',
+        tags: ['Terapia de Sonido', 'Nutrición', 'Naturopatía'],
+        disciplines: ['Terapia de Sonido', 'Nutrición'],
+        isActive: true,
+        order: 3,
       },
     }),
     prisma.instructor.upsert({
       where: { id: 'instructor-kevin' },
-      update: {},
+      update: {
+        name: 'Kevin Cano',
+        headline: 'Lic. en Ciencias Aplicadas al Deporte y Educación Física · Instructor de Pole Fitness, Telas & Aéreo',
+        bio: 'Energía, técnica y seguridad en cada clase.',
+        shortBio: 'Energía, técnica y seguridad en cada clase. Te acompaña a ganar fuerza, control y confianza, con un enfoque deportivo que respeta tu proceso y celebra tus avances paso a paso.',
+        tags: ['Pole Fitness', 'Telas', 'Aéreo', 'Entrenamiento Funcional'],
+        disciplines: ['Pole Fitness'],
+        isActive: true,
+        order: 4,
+      },
       create: {
         id: 'instructor-kevin',
         name: 'Kevin Cano',
-        bio: 'Nutriólogo certificado. Especialista en nutrición deportiva y planes alimenticios personalizados para bienestar integral.',
-        disciplines: ['Nutrition'],
+        headline: 'Lic. en Ciencias Aplicadas al Deporte y Educación Física · Instructor de Pole Fitness, Telas & Aéreo',
+        bio: 'Energía, técnica y seguridad en cada clase.',
+        shortBio: 'Energía, técnica y seguridad en cada clase. Te acompaña a ganar fuerza, control y confianza, con un enfoque deportivo que respeta tu proceso y celebra tus avances paso a paso.',
+        tags: ['Pole Fitness', 'Telas', 'Aéreo', 'Entrenamiento Funcional'],
+        disciplines: ['Pole Fitness'],
+        isActive: true,
+        order: 4,
+      },
+    }),
+    prisma.instructor.upsert({
+      where: { id: 'instructor-denisse' },
+      update: {
+        name: 'Denisse Soundy',
+        headline: 'HR Administrative · Instructora de Pole Fitness',
+        bio: 'Aporta dinamismo y actitud en cada sesión.',
+        shortBio: 'Aporta dinamismo y actitud en cada sesión, cuidando que el espacio sea cómodo, seguro y motivador. Acompaña el día a día del estudio desde la organización y la calidez humana.',
+        tags: ['Pole Fitness', 'Comunidad'],
+        disciplines: ['Pole Fitness'],
+        isActive: true,
+        order: 5,
+      },
+      create: {
+        id: 'instructor-denisse',
+        name: 'Denisse Soundy',
+        headline: 'HR Administrative · Instructora de Pole Fitness',
+        bio: 'Aporta dinamismo y actitud en cada sesión.',
+        shortBio: 'Aporta dinamismo y actitud en cada sesión, cuidando que el espacio sea cómodo, seguro y motivador. Acompaña el día a día del estudio desde la organización y la calidez humana.',
+        tags: ['Pole Fitness', 'Comunidad'],
+        disciplines: ['Pole Fitness'],
+        isActive: true,
         order: 5,
       },
     }),
   ])
 
+  // Desactivar instructores de prueba si existen
+  await prisma.instructor.updateMany({
+    where: {
+      OR: [
+        { name: { contains: 'Prueba' } },
+        { name: { contains: 'Test' } },
+        { id: 'instructor-nicole' }, // Old ID
+      ],
+    },
+    data: { isActive: false },
+  })
+
   console.log('Created instructors:', instructors.length)
 
-  // Create packages
+  // =====================================================
+  // PAQUETES REALES - 7 paquetes con slugs estables
+  // =====================================================
   const packages = await Promise.all([
+    // 1) Drop-In Class
     prisma.package.upsert({
-      where: { id: 'package-1' },
-      update: {},
-      create: {
-        id: 'package-1',
-        name: '1 Clase',
-        shortDescription: 'Ideal para probar',
-        fullDescription:
-          'Perfecto para conocer nuestro estudio o para quienes tienen horarios muy flexibles.',
+      where: { slug: 'drop-in-class' },
+      update: {
+        name: 'Drop-In Class',
+        subtitle: 'Ideal para fluir a tu propio ritmo',
+        shortDescription: 'Ideal para fluir a tu propio ritmo',
+        fullDescription: 'Perfecta para regalarte un momento consciente, probar una disciplina o adaptarte a semanas con horarios cambiantes.',
         classCount: 1,
-        price: 15,
-        validityDays: 30,
+        price: 10.00,
+        currency: 'USD',
+        validityDays: 5,
+        validityText: null,
+        bulletsTop: ['1 clase', '5 días de vigencia'],
+        bulletsBottom: ['Válida para todas las disciplinas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
+        order: 1,
+      },
+      create: {
+        slug: 'drop-in-class',
+        name: 'Drop-In Class',
+        subtitle: 'Ideal para fluir a tu propio ritmo',
+        shortDescription: 'Ideal para fluir a tu propio ritmo',
+        fullDescription: 'Perfecta para regalarte un momento consciente, probar una disciplina o adaptarte a semanas con horarios cambiantes.',
+        classCount: 1,
+        price: 10.00,
+        currency: 'USD',
+        validityDays: 5,
+        validityText: null,
+        bulletsTop: ['1 clase', '5 días de vigencia'],
+        bulletsBottom: ['Válida para todas las disciplinas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
         order: 1,
       },
     }),
+    // 2) Mini Flow (4 clases)
     prisma.package.upsert({
-      where: { id: 'package-4' },
-      update: {},
-      create: {
-        id: 'package-4',
-        name: '4 Clases',
-        shortDescription: 'Una vez por semana',
-        fullDescription:
-          'El paquete perfecto para mantener una práctica semanal constante.',
+      where: { slug: 'mini-flow-4' },
+      update: {
+        name: 'Mini Flow (4 clases)',
+        subtitle: 'Una pausa semanal para reconectar',
+        shortDescription: 'Una pausa semanal para reconectar',
+        fullDescription: 'Un paquete suave y accesible para iniciar tu camino de bienestar, crear constancia y sentir el movimiento como medicina.',
         classCount: 4,
-        price: 50,
-        validityDays: 45,
+        price: 49.99,
+        currency: 'USD',
+        validityDays: 30,
+        validityText: null,
+        bulletsTop: ['4 clases', '30 días de vigencia'],
+        bulletsBottom: ['Ideal para comenzar', 'Todas las disciplinas incluidas', 'Reserva fácil desde la app', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
+        order: 2,
+      },
+      create: {
+        slug: 'mini-flow-4',
+        name: 'Mini Flow (4 clases)',
+        subtitle: 'Una pausa semanal para reconectar',
+        shortDescription: 'Una pausa semanal para reconectar',
+        fullDescription: 'Un paquete suave y accesible para iniciar tu camino de bienestar, crear constancia y sentir el movimiento como medicina.',
+        classCount: 4,
+        price: 49.99,
+        currency: 'USD',
+        validityDays: 30,
+        validityText: null,
+        bulletsTop: ['4 clases', '30 días de vigencia'],
+        bulletsBottom: ['Ideal para comenzar', 'Todas las disciplinas incluidas', 'Reserva fácil desde la app', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
         order: 2,
       },
     }),
+    // 3) Balance Pass (8 clases) - FEATURED
     prisma.package.upsert({
-      where: { id: 'package-8' },
-      update: {},
-      create: {
-        id: 'package-8',
-        name: '8 Clases',
-        shortDescription: 'Dos veces por semana',
-        fullDescription:
-          'Duplica tu práctica y acelera tus resultados. Perfecto para quienes quieren profundizar.',
+      where: { slug: 'balance-pass-8' },
+      update: {
+        name: 'Balance Pass (8 clases)',
+        subtitle: 'Encuentra tu ritmo y sosténlo',
+        shortDescription: 'Encuentra tu ritmo y sosténlo',
+        fullDescription: 'Diseñado para quienes desean integrar el movimiento consciente como parte de su semana y equilibrar cuerpo y mente.',
         classCount: 8,
-        price: 90,
-        validityDays: 60,
+        price: 69.99,
+        currency: 'USD',
+        validityDays: 30,
+        validityText: null,
+        bulletsTop: ['8 clases', '30 días de vigencia'],
+        bulletsBottom: ['Dos veces por semana', 'Acceso a todas las disciplinas', 'Flexibilidad total de horarios', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: true,
+        order: 3,
+      },
+      create: {
+        slug: 'balance-pass-8',
+        name: 'Balance Pass (8 clases)',
+        subtitle: 'Encuentra tu ritmo y sosténlo',
+        shortDescription: 'Encuentra tu ritmo y sosténlo',
+        fullDescription: 'Diseñado para quienes desean integrar el movimiento consciente como parte de su semana y equilibrar cuerpo y mente.',
+        classCount: 8,
+        price: 69.99,
+        currency: 'USD',
+        validityDays: 30,
+        validityText: null,
+        bulletsTop: ['8 clases', '30 días de vigencia'],
+        bulletsBottom: ['Dos veces por semana', 'Acceso a todas las disciplinas', 'Flexibilidad total de horarios', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
         isFeatured: true,
         order: 3,
       },
     }),
+    // 4) Energía Total (12 clases)
     prisma.package.upsert({
-      where: { id: 'package-12' },
-      update: {},
-      create: {
-        id: 'package-12',
-        name: '12 Clases',
-        shortDescription: 'Tres veces por semana',
-        fullDescription:
-          'Para los comprometidos con su bienestar. Máxima flexibilidad para combinar disciplinas.',
+      where: { slug: 'energia-total-12' },
+      update: {
+        name: 'Energía Total (12 clases)',
+        subtitle: 'Movimiento constante, energía en expansión',
+        shortDescription: 'Movimiento constante, energía en expansión',
+        fullDescription: 'Un impulso energético para quienes buscan mayor presencia, fuerza y conexión interior a través del movimiento regular.',
         classCount: 12,
-        price: 120,
-        validityDays: 60,
+        price: 95.00,
+        currency: 'USD',
+        validityDays: 30,
+        validityText: null,
+        bulletsTop: ['12 clases', '30 días de vigencia'],
+        bulletsBottom: ['Ideal para crear hábito', 'Todas las disciplinas incluidas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
+        order: 4,
+      },
+      create: {
+        slug: 'energia-total-12',
+        name: 'Energía Total (12 clases)',
+        subtitle: 'Movimiento constante, energía en expansión',
+        shortDescription: 'Movimiento constante, energía en expansión',
+        fullDescription: 'Un impulso energético para quienes buscan mayor presencia, fuerza y conexión interior a través del movimiento regular.',
+        classCount: 12,
+        price: 95.00,
+        currency: 'USD',
+        validityDays: 30,
+        validityText: null,
+        bulletsTop: ['12 clases', '30 días de vigencia'],
+        bulletsBottom: ['Ideal para crear hábito', 'Todas las disciplinas incluidas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
         order: 4,
       },
     }),
+    // 5) Vital Plan (16 clases)
     prisma.package.upsert({
-      where: { id: 'package-unlimited' },
-      update: {},
-      create: {
-        id: 'package-unlimited',
-        name: 'Mensual Ilimitado',
-        shortDescription: 'Sin límites',
-        fullDescription:
-          'Clases ilimitadas durante un mes completo. La libertad total para practicar cuando quieras.',
-        classCount: 999,
-        price: 150,
+      where: { slug: 'vital-plan-16' },
+      update: {
+        name: 'Vital Plan (16 clases)',
+        subtitle: 'Tu bienestar como prioridad',
+        shortDescription: 'Tu bienestar como prioridad',
+        fullDescription: 'Pensado para quienes eligen sostener su bienestar con intención, constancia y variedad de disciplinas.',
+        classCount: 16,
+        price: 115.00,
+        currency: 'USD',
         validityDays: 30,
+        validityText: null,
+        bulletsTop: ['16 clases', '30 días de vigencia'],
+        bulletsBottom: ['Hasta 4 clases por semana', 'Movimiento consciente y flexible', 'Acompaña tu ritmo de vida', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
+        order: 5,
+      },
+      create: {
+        slug: 'vital-plan-16',
+        name: 'Vital Plan (16 clases)',
+        subtitle: 'Tu bienestar como prioridad',
+        shortDescription: 'Tu bienestar como prioridad',
+        fullDescription: 'Pensado para quienes eligen sostener su bienestar con intención, constancia y variedad de disciplinas.',
+        classCount: 16,
+        price: 115.00,
+        currency: 'USD',
+        validityDays: 30,
+        validityText: null,
+        bulletsTop: ['16 clases', '30 días de vigencia'],
+        bulletsBottom: ['Hasta 4 clases por semana', 'Movimiento consciente y flexible', 'Acompaña tu ritmo de vida', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
         order: 5,
       },
     }),
+    // 6) Full Access (24 clases)
+    prisma.package.upsert({
+      where: { slug: 'full-access-24' },
+      update: {
+        name: 'Full Access (24 clases)',
+        subtitle: 'Compromiso profundo con tu bienestar',
+        shortDescription: 'Compromiso profundo con tu bienestar',
+        fullDescription: 'Nuestro plan más completo para quienes desean integrar el movimiento como un estilo de vida consciente y presente en día a día.',
+        classCount: 24,
+        price: 145.00,
+        currency: 'USD',
+        validityDays: 35,
+        validityText: null,
+        bulletsTop: ['24 clases', '35 días de vigencia'],
+        bulletsBottom: ['Máxima flexibilidad', 'Acceso total a disciplinas', 'Ideal para rutinas activas', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
+        order: 6,
+      },
+      create: {
+        slug: 'full-access-24',
+        name: 'Full Access (24 clases)',
+        subtitle: 'Compromiso profundo con tu bienestar',
+        shortDescription: 'Compromiso profundo con tu bienestar',
+        fullDescription: 'Nuestro plan más completo para quienes desean integrar el movimiento como un estilo de vida consciente y presente en día a día.',
+        classCount: 24,
+        price: 145.00,
+        currency: 'USD',
+        validityDays: 35,
+        validityText: null,
+        bulletsTop: ['24 clases', '35 días de vigencia'],
+        bulletsBottom: ['Máxima flexibilidad', 'Acceso total a disciplinas', 'Ideal para rutinas activas', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
+        order: 6,
+      },
+    }),
+    // 7) Wellnest Trimestral (80 clases)
+    prisma.package.upsert({
+      where: { slug: 'wellnest-trimestral-80' },
+      update: {
+        name: 'Wellnest Trimestral (80 clases)',
+        subtitle: 'Una experiencia integral de bienestar',
+        shortDescription: 'Una experiencia integral de bienestar',
+        fullDescription: 'Diseñado para quienes desean una transformación profunda, sostenida y consciente durante todo el trimestre.',
+        classCount: 80,
+        price: 355.00,
+        currency: 'USD',
+        validityDays: 90,
+        validityText: 'Vigencia trimestral',
+        bulletsTop: ['80 clases', 'Vigencia trimestral'],
+        bulletsBottom: ['Acceso ilimitado a disciplinas', 'Ideal para práctica constante', 'La mejor inversión en tu bienestar', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
+        order: 7,
+      },
+      create: {
+        slug: 'wellnest-trimestral-80',
+        name: 'Wellnest Trimestral (80 clases)',
+        subtitle: 'Una experiencia integral de bienestar',
+        shortDescription: 'Una experiencia integral de bienestar',
+        fullDescription: 'Diseñado para quienes desean una transformación profunda, sostenida y consciente durante todo el trimestre.',
+        classCount: 80,
+        price: 355.00,
+        currency: 'USD',
+        validityDays: 90,
+        validityText: 'Vigencia trimestral',
+        bulletsTop: ['80 clases', 'Vigencia trimestral'],
+        bulletsBottom: ['Acceso ilimitado a disciplinas', 'Ideal para práctica constante', 'La mejor inversión en tu bienestar', 'Cancela tu clase 8 horas antes'],
+        isActive: true,
+        isFeatured: false,
+        order: 7,
+      },
+    }),
   ])
+
+  // Desactivar paquetes viejos/de prueba (los que no tienen nuestros slugs oficiales)
+  const officialSlugs = [
+    'drop-in-class', 'mini-flow-4', 'balance-pass-8',
+    'energia-total-12', 'vital-plan-16', 'full-access-24', 'wellnest-trimestral-80'
+  ]
+  await prisma.package.updateMany({
+    where: {
+      NOT: { slug: { in: officialSlugs } },
+    },
+    data: { isActive: false },
+  })
 
   console.log('Created packages:', packages.length)
 
@@ -291,15 +567,16 @@ async function main() {
 
   console.log('Created discount codes')
 
-  // Get discipline and instructor IDs
+  // Get discipline and instructor IDs for classes
   const yoga = disciplines.find((d) => d.slug === 'yoga')!
   const pilates = disciplines.find((d) => d.slug === 'pilates')!
   const pole = disciplines.find((d) => d.slug === 'pole')!
   const soundbath = disciplines.find((d) => d.slug === 'soundbath')!
 
-  const nicole = instructors.find((i) => i.name === 'Nicole Soundy')!
+  const nicolle = instructors.find((i) => i.name === 'Nicolle Soundy')!
   const florence = instructors.find((i) => i.name === 'Florence Cervantes')!
-  const adriana = instructors.find((i) => i.name === 'Adriana Lopez')!
+  const adriana = instructors.find((i) => i.name === 'Adriana Bidegain')!
+  const kevin = instructors.find((i) => i.name === 'Kevin Cano')!
   const denisse = instructors.find((i) => i.name === 'Denisse Soundy')!
 
   // Delete existing classes to avoid duplicates
@@ -319,34 +596,34 @@ async function main() {
   const weeklySchedule = [
     // Monday
     { day: 1, hour: 6, minute: 30, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
-    { day: 1, hour: 8, minute: 0, discipline: yoga, instructor: nicole, duration: 60, capacity: 15 },
-    { day: 1, hour: 17, minute: 30, discipline: pole, instructor: adriana, duration: 60, capacity: 8 },
-    { day: 1, hour: 19, minute: 0, discipline: yoga, instructor: denisse, duration: 60, capacity: 15 },
+    { day: 1, hour: 8, minute: 0, discipline: yoga, instructor: nicolle, duration: 60, capacity: 15 },
+    { day: 1, hour: 17, minute: 30, discipline: pole, instructor: kevin, duration: 60, capacity: 8 },
+    { day: 1, hour: 19, minute: 0, discipline: yoga, instructor: nicolle, duration: 60, capacity: 15 },
     // Tuesday
-    { day: 2, hour: 6, minute: 30, discipline: yoga, instructor: denisse, duration: 60, capacity: 15 },
+    { day: 2, hour: 6, minute: 30, discipline: yoga, instructor: nicolle, duration: 60, capacity: 15 },
     { day: 2, hour: 8, minute: 0, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
     { day: 2, hour: 17, minute: 30, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
-    { day: 2, hour: 19, minute: 0, discipline: pole, instructor: adriana, duration: 60, capacity: 8 },
+    { day: 2, hour: 19, minute: 0, discipline: pole, instructor: denisse, duration: 60, capacity: 8 },
     // Wednesday
     { day: 3, hour: 6, minute: 30, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
-    { day: 3, hour: 8, minute: 0, discipline: yoga, instructor: nicole, duration: 60, capacity: 15 },
-    { day: 3, hour: 17, minute: 30, discipline: yoga, instructor: denisse, duration: 60, capacity: 15 },
-    { day: 3, hour: 19, minute: 0, discipline: pole, instructor: adriana, duration: 60, capacity: 8 },
+    { day: 3, hour: 8, minute: 0, discipline: yoga, instructor: nicolle, duration: 60, capacity: 15 },
+    { day: 3, hour: 17, minute: 30, discipline: yoga, instructor: nicolle, duration: 60, capacity: 15 },
+    { day: 3, hour: 19, minute: 0, discipline: pole, instructor: kevin, duration: 60, capacity: 8 },
     // Thursday
-    { day: 4, hour: 6, minute: 30, discipline: yoga, instructor: nicole, duration: 60, capacity: 15 },
+    { day: 4, hour: 6, minute: 30, discipline: yoga, instructor: nicolle, duration: 60, capacity: 15 },
     { day: 4, hour: 8, minute: 0, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
-    { day: 4, hour: 17, minute: 30, discipline: pole, instructor: adriana, duration: 60, capacity: 8 },
+    { day: 4, hour: 17, minute: 30, discipline: pole, instructor: denisse, duration: 60, capacity: 8 },
     { day: 4, hour: 19, minute: 0, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
     // Friday
     { day: 5, hour: 6, minute: 30, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
-    { day: 5, hour: 8, minute: 0, discipline: yoga, instructor: denisse, duration: 60, capacity: 15 },
-    { day: 5, hour: 17, minute: 30, discipline: yoga, instructor: nicole, duration: 60, capacity: 15 },
-    { day: 5, hour: 19, minute: 0, discipline: soundbath, instructor: nicole, duration: 75, capacity: 20 },
+    { day: 5, hour: 8, minute: 0, discipline: yoga, instructor: nicolle, duration: 60, capacity: 15 },
+    { day: 5, hour: 17, minute: 30, discipline: yoga, instructor: nicolle, duration: 60, capacity: 15 },
+    { day: 5, hour: 19, minute: 0, discipline: soundbath, instructor: adriana, duration: 75, capacity: 20 },
     // Saturday
-    { day: 6, hour: 8, minute: 0, discipline: yoga, instructor: nicole, duration: 60, capacity: 15 },
+    { day: 6, hour: 8, minute: 0, discipline: yoga, instructor: nicolle, duration: 60, capacity: 15 },
     { day: 6, hour: 9, minute: 30, discipline: pilates, instructor: florence, duration: 50, capacity: 12 },
-    { day: 6, hour: 11, minute: 0, discipline: pole, instructor: adriana, duration: 60, capacity: 8 },
-    { day: 6, hour: 17, minute: 0, discipline: soundbath, instructor: denisse, duration: 75, capacity: 20 },
+    { day: 6, hour: 11, minute: 0, discipline: pole, instructor: kevin, duration: 60, capacity: 8 },
+    { day: 6, hour: 17, minute: 0, discipline: soundbath, instructor: adriana, duration: 75, capacity: 20 },
   ]
 
   // Generate classes for the next 90 days (3 months)
@@ -376,19 +653,19 @@ async function main() {
 
   console.log('Created classes:', classesToCreate.length)
 
-  // Create a test purchase for the test user (8 classes package)
-  const eightClassPackage = packages.find((p) => p.name === '8 Clases')!
+  // Create a test purchase for the test user (Balance Pass 8 clases)
+  const balancePassPackage = packages.find((p) => p.slug === 'balance-pass-8')!
   await prisma.purchase.upsert({
     where: { id: 'test-purchase-1' },
     update: {},
     create: {
       id: 'test-purchase-1',
       userId: testUser.id,
-      packageId: eightClassPackage.id,
+      packageId: balancePassPackage.id,
       classesRemaining: 6,
       expiresAt: addDays(new Date(), 45),
-      originalPrice: 90,
-      finalPrice: 90,
+      originalPrice: 69.99,
+      finalPrice: 69.99,
       status: 'ACTIVE',
     },
   })

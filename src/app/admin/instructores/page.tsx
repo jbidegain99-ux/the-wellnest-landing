@@ -23,7 +23,10 @@ interface Discipline {
 interface Instructor {
   id: string
   name: string
+  headline: string | null
   bio: string
+  shortBio: string | null
+  tags: string[]
   disciplines: string[]
   image: string | null
   isActive: boolean
@@ -46,13 +49,23 @@ export default function AdminInstructoresPage() {
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
-  // Form state
+  // Form state with new fields
   const [formData, setFormData] = React.useState({
     name: '',
+    headline: '',
     bio: '',
+    shortBio: '',
+    tags: [] as string[],
     disciplines: [] as string[],
     isActive: true,
   })
+
+  // Common tags for quick selection
+  const commonTags = [
+    'Yoga', 'Mat Pilates', 'Pole Fitness', 'Telas', 'Aéreo',
+    'Terapia de Sonido', 'Nutrición', 'Nutrición Deportiva',
+    'Naturopatía', 'Entrenamiento Funcional', 'Comunidad'
+  ]
 
   // Fetch data from database
   const fetchInstructors = React.useCallback(async () => {
@@ -102,6 +115,9 @@ export default function AdminInstructoresPage() {
       instructor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       instructor.disciplines.some((d) =>
         d.toLowerCase().includes(searchQuery.toLowerCase())
+      ) ||
+      instructor.tags?.some((t) =>
+        t.toLowerCase().includes(searchQuery.toLowerCase())
       )
   )
 
@@ -116,7 +132,10 @@ export default function AdminInstructoresPage() {
       setEditingInstructor(instructor)
       setFormData({
         name: instructor.name,
+        headline: instructor.headline || '',
         bio: instructor.bio,
+        shortBio: instructor.shortBio || '',
+        tags: instructor.tags || [],
         disciplines: instructor.disciplines,
         isActive: instructor.isActive,
       })
@@ -124,7 +143,10 @@ export default function AdminInstructoresPage() {
       setEditingInstructor(null)
       setFormData({
         name: '',
+        headline: '',
         bio: '',
+        shortBio: '',
+        tags: [],
         disciplines: [],
         isActive: true,
       })
@@ -137,7 +159,10 @@ export default function AdminInstructoresPage() {
     setEditingInstructor(null)
     setFormData({
       name: '',
+      headline: '',
       bio: '',
+      shortBio: '',
+      tags: [],
       disciplines: [],
       isActive: true,
     })
@@ -243,6 +268,15 @@ export default function AdminInstructoresPage() {
     }))
   }
 
+  const toggleTag = (tag: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      tags: prev.tags.includes(tag)
+        ? prev.tags.filter((t) => t !== tag)
+        : [...prev.tags, tag],
+    }))
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -288,7 +322,7 @@ export default function AdminInstructoresPage() {
       <div className="flex gap-4">
         <div className="flex-1 max-w-md">
           <Input
-            placeholder="Buscar por nombre o disciplina..."
+            placeholder="Buscar por nombre, disciplina o tag..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             icon={<Search className="h-5 w-5" />}
@@ -307,7 +341,7 @@ export default function AdminInstructoresPage() {
                     Instructor
                   </th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
-                    Disciplinas
+                    Tags
                   </th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Estado
@@ -332,19 +366,24 @@ export default function AdminInstructoresPage() {
                           <p className="font-medium text-foreground">
                             {instructor.name}
                           </p>
-                          <p className="text-sm text-gray-500">
-                            {formatDisciplines(instructor.disciplines)}
+                          <p className="text-sm text-gray-500 line-clamp-1 max-w-xs">
+                            {instructor.headline || formatDisciplines(instructor.disciplines)}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex flex-wrap gap-1">
-                        {instructor.disciplines.map((discipline) => (
-                          <Badge key={discipline} variant="secondary" className="text-xs">
-                            {discipline}
+                      <div className="flex flex-wrap gap-1 max-w-xs">
+                        {(instructor.tags || []).slice(0, 3).map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
                           </Badge>
                         ))}
+                        {instructor.tags && instructor.tags.length > 3 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{instructor.tags.length - 3}
+                          </Badge>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -387,7 +426,7 @@ export default function AdminInstructoresPage() {
 
       {/* Add/Edit Modal */}
       <Modal open={isModalOpen} onOpenChange={closeModal}>
-        <ModalContent className="max-w-lg">
+        <ModalContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <ModalHeader>
             <ModalTitle>
               {editingInstructor ? 'Editar Instructor' : 'Agregar Instructor'}
@@ -404,9 +443,18 @@ export default function AdminInstructoresPage() {
               required
             />
 
+            <Input
+              label="Headline (rol)"
+              value={formData.headline}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, headline: e.target.value }))
+              }
+              placeholder="Ej: Nutricionista · Especialidad en Nutrición Deportiva · Maestra de Yoga"
+            />
+
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Disciplinas
+                Disciplinas (para horarios)
               </label>
               <div className="flex flex-wrap gap-2">
                 {disciplineOptions.map((discipline) => (
@@ -427,8 +475,45 @@ export default function AdminInstructoresPage() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Tags (para página pública)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {commonTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      formData.tags.includes(tag)
+                        ? 'bg-primary text-white'
+                        : 'bg-beige text-gray-600 hover:bg-beige-dark'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-foreground mb-1">
-                Biografía
+                Bio corta (para cards públicas)
+              </label>
+              <textarea
+                value={formData.shortBio}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, shortBio: e.target.value }))
+                }
+                rows={2}
+                className="w-full px-4 py-3 rounded-xl border border-beige-dark bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors resize-none"
+                placeholder="Descripción breve para la card pública..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Biografía completa (interno)
               </label>
               <textarea
                 value={formData.bio}
@@ -437,7 +522,7 @@ export default function AdminInstructoresPage() {
                 }
                 rows={3}
                 className="w-full px-4 py-3 rounded-xl border border-beige-dark bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors resize-none"
-                placeholder="Breve descripción del instructor..."
+                placeholder="Biografía completa del instructor..."
               />
             </div>
 

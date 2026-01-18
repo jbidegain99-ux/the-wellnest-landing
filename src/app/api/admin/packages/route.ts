@@ -7,11 +7,17 @@ import { z } from 'zod'
 
 const packageSchema = z.object({
   name: z.string().min(2, 'El nombre es muy corto'),
+  slug: z.string().optional(),
+  subtitle: z.string().nullable().optional(),
   shortDescription: z.string().min(5, 'La descripción es muy corta'),
   fullDescription: z.string().optional(),
   classCount: z.number().min(1, 'Debe tener al menos 1 clase'),
   price: z.number().min(0, 'El precio no puede ser negativo'),
+  currency: z.string().optional().default('USD'),
   validityDays: z.number().min(1, 'La vigencia debe ser al menos 1 día'),
+  validityText: z.string().nullable().optional(),
+  bulletsTop: z.array(z.string()).optional().default([]),
+  bulletsBottom: z.array(z.string()).optional().default([]),
   isActive: z.boolean().optional().default(true),
   isFeatured: z.boolean().optional().default(false),
 })
@@ -66,14 +72,26 @@ export async function POST(request: Request) {
     })
     const newOrder = (lastPackage?.order ?? 0) + 1
 
+    // Generate slug from name if not provided
+    const slug = data.slug || data.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+
     const pkg = await prisma.package.create({
       data: {
         name: data.name,
+        slug,
+        subtitle: data.subtitle || null,
         shortDescription: data.shortDescription,
         fullDescription: data.fullDescription || data.shortDescription,
         classCount: data.classCount,
         price: data.price,
+        currency: data.currency || 'USD',
         validityDays: data.validityDays,
+        validityText: data.validityText || null,
+        bulletsTop: data.bulletsTop || [],
+        bulletsBottom: data.bulletsBottom || [],
         isActive: data.isActive,
         isFeatured: data.isFeatured,
         order: newOrder,

@@ -97,11 +97,16 @@ model Discipline {
 model Instructor {
   id          String   @id @default(cuid())
   name        String
-  bio         String   @db.Text
+  headline    String?  @db.Text // Ej: "Nutricionista · Especialidad en Nutrición Deportiva · Maestra de Yoga"
+  bio         String   @db.Text // Descripción larga (legacy)
+  shortBio    String?  @db.Text // Bio corta para cards públicas
+  tags        String[] // Lista de tags: ["Yoga", "Nutrición", "Nutrición Deportiva"]
   image       String?
-  disciplines String[] // disciplinas que imparte
+  disciplines String[] // disciplinas que imparte (para horarios)
   isActive    Boolean  @default(true)
   order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   classes Class[]
 }
@@ -109,12 +114,18 @@ model Instructor {
 // Paquete de clases
 model Package {
   id               String   @id @default(cuid())
+  slug             String   @unique // Slug estable para referencias (ej: "drop-in-class")
   name             String
-  shortDescription String
-  fullDescription  String   @db.Text
+  subtitle         String?  // Línea breve (ej: "Ideal para fluir a tu propio ritmo")
+  shortDescription String   // Legacy - mantener para compatibilidad
+  fullDescription  String   @db.Text // Descripción completa
   classCount       Int      // número de clases
   price            Float
+  currency         String   @default("USD")
   validityDays     Int      // días de vigencia
+  validityText     String?  // Texto alternativo (ej: "Vigencia trimestral")
+  bulletsTop       String[] // Lista ✓ inicial (ej: ["1 clase", "5 días de vigencia"])
+  bulletsBottom    String[] // Lista ✓ final (beneficios/condiciones)
   image            String?
   isActive         Boolean  @default(true)
   isFeatured       Boolean  @default(false)
