@@ -50,21 +50,23 @@ interface ClassData {
 
 // Colores por disciplina según marca Wellnest
 const disciplineColors: Record<string, string> = {
-  yoga: 'bg-[#788a16]',              // Verde oliva
-  pilates: 'bg-[#111316]',           // Negro
-  pole: 'bg-[#737373]',              // Gris medio
-  'pole-fitness': 'bg-[#737373]',    // Gris medio (alias)
-  soundbath: 'bg-[#482F21]',         // Café
-  'terapia-de-sonido': 'bg-[#482F21]', // Café
+  yoga: 'bg-[#6A6F4C]',              // Verde oliva
+  pilates: 'bg-[#806044]',           // Café tierra
+  'mat-pilates': 'bg-[#806044]',     // Café tierra (alias)
+  pole: 'bg-[#806044]',              // Café tierra
+  'pole-fitness': 'bg-[#806044]',    // Café tierra (alias)
+  soundbath: 'bg-[#482F21]',         // Café oscuro
+  'terapia-de-sonido': 'bg-[#482F21]', // Café oscuro
   nutricion: 'bg-[#6B7F5E]',         // Verde oscuro
 }
 
 // Colores para borde izquierdo en móvil (más visibles)
 const disciplineBorderColors: Record<string, string> = {
-  yoga: 'border-l-[#788a16]',
-  pilates: 'border-l-[#111316]',
-  pole: 'border-l-[#737373]',
-  'pole-fitness': 'border-l-[#737373]',
+  yoga: 'border-l-[#6A6F4C]',
+  pilates: 'border-l-[#806044]',
+  'mat-pilates': 'border-l-[#806044]',
+  pole: 'border-l-[#806044]',
+  'pole-fitness': 'border-l-[#806044]',
   soundbath: 'border-l-[#482F21]',
   'terapia-de-sonido': 'border-l-[#482F21]',
   nutricion: 'border-l-[#6B7F5E]',
@@ -72,10 +74,11 @@ const disciplineBorderColors: Record<string, string> = {
 
 // Badge colors para móvil (texto visible)
 const disciplineBadgeColors: Record<string, string> = {
-  yoga: 'bg-[#788a16] text-white',
-  pilates: 'bg-[#111316] text-white',
-  pole: 'bg-[#737373] text-white',
-  'pole-fitness': 'bg-[#737373] text-white',
+  yoga: 'bg-[#6A6F4C] text-white',
+  pilates: 'bg-[#806044] text-white',
+  'mat-pilates': 'bg-[#806044] text-white',
+  pole: 'bg-[#806044] text-white',
+  'pole-fitness': 'bg-[#806044] text-white',
   soundbath: 'bg-[#482F21] text-white',
   'terapia-de-sonido': 'bg-[#482F21] text-white',
   nutricion: 'bg-[#6B7F5E] text-white',
