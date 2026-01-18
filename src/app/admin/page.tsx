@@ -5,10 +5,12 @@ import {
   TrendingUp,
   Package,
   Clock,
+  Settings,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice, formatDate } from '@/lib/utils'
+import { SeedDatabaseButton } from '@/components/admin/SeedDatabaseButton'
 
 // Mock data
 const stats = {
@@ -289,6 +291,24 @@ export default function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Admin Tools */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Herramientas de Administración
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="max-w-sm">
+            <p className="text-sm text-gray-600 mb-4">
+              Reinicializa la base de datos con los datos por defecto (disciplinas, instructores, paquetes y clases).
+            </p>
+            <SeedDatabaseButton />
           </div>
         </CardContent>
       </Card>
