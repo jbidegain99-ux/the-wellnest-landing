@@ -106,7 +106,7 @@ model Instructor {
   isActive    Boolean  @default(true)
   order       Int      @default(0)
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt
 
   classes Class[]
 }
@@ -114,7 +114,7 @@ model Instructor {
 // Paquete de clases
 model Package {
   id               String   @id @default(cuid())
-  slug             String   @unique // Slug estable para referencias (ej: "drop-in-class")
+  slug             String?  @unique // Slug estable para referencias (ej: "drop-in-class") - nullable for legacy packages
   name             String
   subtitle         String?  // Línea breve (ej: "Ideal para fluir a tu propio ritmo")
   shortDescription String   // Legacy - mantener para compatibilidad
