@@ -3,8 +3,9 @@
 @tailwind utilities;
 
 /* Tipografía The Wellnest
-   - Primaria: Quicksand (logo, títulos, branding)
-   - Secundaria: Poppins (body, UI, textos generales)
+   - Quicksand para todo el sitio
+   - Regular (400) para textos y párrafos
+   - Medium (500) para títulos, labels, botones, precios
 */
 
 :root {
@@ -51,12 +52,17 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--font-poppins), 'Poppins', system-ui, sans-serif;
+    font-family: var(--font-quicksand), 'Quicksand', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-weight: 400;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-quicksand), 'Quicksand', system-ui, sans-serif;
-    font-weight: 600;
+    font-family: var(--font-quicksand), 'Quicksand', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-weight: 500;
+  }
+
+  button, .btn, label, strong {
+    font-weight: 500;
   }
 }
 
