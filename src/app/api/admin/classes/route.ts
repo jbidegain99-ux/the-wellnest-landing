@@ -150,13 +150,32 @@ export async function POST(request: Request) {
 
     const data = validation.data
 
+    console.log('[ADMIN CLASSES API] Validated data:', {
+      disciplineId: data.disciplineId,
+      instructorId: data.instructorId,
+      dayOfWeek: data.dayOfWeek,
+      time: data.time,
+    })
+
     // Verify discipline exists
     const discipline = await prisma.discipline.findUnique({
       where: { id: data.disciplineId },
     })
+    console.log('[ADMIN CLASSES API] Discipline lookup result:', discipline ? {
+      id: discipline.id,
+      name: discipline.name,
+      slug: discipline.slug,
+      isActive: discipline.isActive,
+    } : 'NOT FOUND')
+
     if (!discipline) {
+      // List all available disciplines for debugging
+      const allDisciplines = await prisma.discipline.findMany({
+        select: { id: true, name: true, slug: true, isActive: true },
+      })
+      console.log('[ADMIN CLASSES API] Available disciplines in DB:', allDisciplines)
       return NextResponse.json(
-        { error: 'La disciplina no existe' },
+        { error: `La disciplina no existe. ID recibido: ${data.disciplineId}` },
         { status: 400 }
       )
     }
@@ -165,9 +184,20 @@ export async function POST(request: Request) {
     const instructor = await prisma.instructor.findUnique({
       where: { id: data.instructorId },
     })
+    console.log('[ADMIN CLASSES API] Instructor lookup result:', instructor ? {
+      id: instructor.id,
+      name: instructor.name,
+      isActive: instructor.isActive,
+    } : 'NOT FOUND')
+
     if (!instructor) {
+      // List all available instructors for debugging
+      const allInstructors = await prisma.instructor.findMany({
+        select: { id: true, name: true, isActive: true },
+      })
+      console.log('[ADMIN CLASSES API] Available instructors in DB:', allInstructors)
       return NextResponse.json(
-        { error: 'El instructor no existe' },
+        { error: `El instructor no existe. ID recibido: ${data.instructorId}` },
         { status: 400 }
       )
     }
