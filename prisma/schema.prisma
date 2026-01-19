@@ -454,3 +454,29 @@ model SiteSettings {
   value                 String   @db.Text
   updatedAt             DateTime @updatedAt
 }
+
+// Solicitudes de reseteo de contraseña
+// Flujo: Usuario solicita → Admin verifica por WhatsApp → Aprueba/Rechaza
+model PasswordResetRequest {
+  id              String                     @id @default(cuid())
+  email           String
+  userName        String?                    // Nombre del usuario (si existe en sistema)
+  userId          String?                    // ID del usuario (si existe)
+  status          PasswordResetRequestStatus @default(PENDING)
+  tempPassword    String?                    // Contraseña temporal generada (solo si aprobada)
+  adminNotes      String?                    @db.Text // Notas del admin
+  processedBy     String?                    // Email/nombre del admin que procesó
+  processedAt     DateTime?                  // Fecha de procesamiento
+  createdAt       DateTime                   @default(now())
+  expiresAt       DateTime                   // Expira después de 24 horas
+
+  @@index([status])
+  @@index([email])
+}
+
+enum PasswordResetRequestStatus {
+  PENDING    // Esperando revisión
+  APPROVED   // Aprobada - contraseña reseteada
+  REJECTED   // Rechazada
+  EXPIRED    // Expirada sin procesar
+}

@@ -3,10 +3,8 @@ import { prisma } from '@/lib/prisma'
 
 /**
  * POST /api/auth/forgot-password
- * Solicita un enlace de recuperación de contraseña
- *
- * NOTA: Por seguridad, siempre retornamos éxito para no revelar
- * si el email existe o no en el sistema.
+ * Crea una solicitud de reseteo de contraseña
+ * El admin la revisará y aprobará/rechazará desde el panel
  */
 export async function POST(request: Request) {
   try {
@@ -19,25 +17,57 @@ export async function POST(request: Request) {
       )
     }
 
-    // Buscar el usuario (sin revelar si existe)
+    const normalizedEmail = email.toLowerCase().trim()
+
+    // Buscar el usuario
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email: normalizedEmail },
+      select: { id: true, name: true, email: true },
     })
 
-    if (user) {
-      // TODO: Implementar envío de email con enlace de recuperación
-      // Por ahora solo logueamos para debug
-      console.log(`[FORGOT PASSWORD] Solicitud para: ${email}`)
+    // Verificar si ya hay una solicitud pendiente reciente (últimas 24 horas)
+    const existingRequest = await prisma.passwordResetRequest.findFirst({
+      where: {
+        email: normalizedEmail,
+        status: 'PENDING',
+        expiresAt: { gt: new Date() },
+      },
+    })
 
-      // En producción, aquí enviarías el email con:
-      // 1. Generar un token único y guardarlo en DB con expiración
-      // 2. Enviar email con enlace: /restablecer-contrasena?token=xxx
-      // 3. En esa página, validar token y permitir cambiar contraseña
+    if (existingRequest) {
+      // Ya hay una solicitud pendiente, pero no revelamos esto por seguridad
+      console.log(`[FORGOT PASSWORD] Solicitud duplicada ignorada para: ${normalizedEmail}`)
+      return NextResponse.json({
+        message: 'Solicitud recibida',
+        success: true,
+      })
+    }
+
+    // Crear la solicitud (incluso si el usuario no existe, por seguridad no revelamos)
+    // Pero solo guardamos si el usuario existe para no llenar la BD de spam
+    if (user) {
+      const expiresAt = new Date()
+      expiresAt.setHours(expiresAt.getHours() + 24) // Expira en 24 horas
+
+      await prisma.passwordResetRequest.create({
+        data: {
+          email: normalizedEmail,
+          userName: user.name,
+          userId: user.id,
+          status: 'PENDING',
+          expiresAt,
+        },
+      })
+
+      console.log(`[FORGOT PASSWORD] Nueva solicitud creada para: ${normalizedEmail}`)
+    } else {
+      console.log(`[FORGOT PASSWORD] Email no encontrado: ${normalizedEmail}`)
     }
 
     // Siempre retornamos éxito por seguridad
     return NextResponse.json({
-      message: 'Si el email existe, recibirás un enlace de recuperación',
+      message: 'Solicitud recibida',
+      success: true,
     })
   } catch (error) {
     console.error('Error in forgot password:', error)
