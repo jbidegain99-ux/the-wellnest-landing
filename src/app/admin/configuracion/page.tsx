@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Save, Globe, CreditCard, Database, AlertTriangle, Loader2, CheckCircle } from 'lucide-react'
+import { Save, Globe, CreditCard, Database, AlertTriangle, Loader2, CheckCircle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -44,6 +44,12 @@ export default function AdminConfiguracionPage() {
     success?: boolean
     message?: string
     data?: Record<string, number>
+  } | null>(null)
+  const [isCleanupLoading, setIsCleanupLoading] = React.useState(false)
+  const [cleanupResult, setCleanupResult] = React.useState<{
+    success?: boolean
+    message?: string
+    results?: Record<string, number>
   } | null>(null)
 
   // Load settings on mount
@@ -130,6 +136,43 @@ export default function AdminConfiguracionPage() {
       })
     } finally {
       setIsSeedLoading(false)
+    }
+  }
+
+  const handleCleanupDatabase = async () => {
+    if (!confirm('¿Estás seguro de que quieres eliminar los datos de prueba (instructores y paquetes no oficiales)?')) {
+      return
+    }
+
+    setIsCleanupLoading(true)
+    setCleanupResult(null)
+
+    try {
+      const response = await fetch('/api/admin/cleanup', {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setCleanupResult({
+          success: true,
+          message: 'Limpieza completada exitosamente',
+          results: data.results,
+        })
+      } else {
+        setCleanupResult({
+          success: false,
+          message: data.error || 'Error al limpiar la base de datos',
+        })
+      }
+    } catch {
+      setCleanupResult({
+        success: false,
+        message: 'Error de conexión',
+      })
+    } finally {
+      setIsCleanupLoading(false)
     }
   }
 
@@ -315,6 +358,48 @@ export default function AdminConfiguracionPage() {
               )}
             </div>
           )}
+
+          {/* Cleanup Section */}
+          <div className="border-t border-gray-200 pt-4 mt-6">
+            <h4 className="font-medium text-foreground mb-2">Limpieza de Datos de Prueba</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              Elimina instructores, paquetes y disciplinas de prueba que no son parte de los datos oficiales.
+              Solo quedarán los 5 instructores reales, las 5 disciplinas oficiales y los 7 paquetes oficiales.
+              También elimina clases asociadas a datos de prueba.
+            </p>
+            <Button
+              onClick={handleCleanupDatabase}
+              isLoading={isCleanupLoading}
+              variant="outline"
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Limpiar Datos de Prueba
+            </Button>
+
+            {cleanupResult && (
+              <div
+                className={`mt-4 p-4 rounded-lg ${
+                  cleanupResult.success
+                    ? 'bg-green-50 border border-green-200 text-green-800'
+                    : 'bg-red-50 border border-red-200 text-red-800'
+                }`}
+              >
+                <p className="font-medium">{cleanupResult.message}</p>
+                {cleanupResult.results && (
+                  <ul className="mt-2 text-sm space-y-1">
+                    <li>Instructores eliminados: {cleanupResult.results.instructorsDeleted}</li>
+                    <li>Instructores desactivados: {cleanupResult.results.instructorsDeactivated}</li>
+                    <li>Paquetes eliminados: {cleanupResult.results.packagesDeleted}</li>
+                    <li>Paquetes desactivados: {cleanupResult.results.packagesDeactivated}</li>
+                    <li>Disciplinas eliminadas: {cleanupResult.results.disciplinesDeleted || 0}</li>
+                    <li>Disciplinas desactivadas: {cleanupResult.results.disciplinesDeactivated || 0}</li>
+                    <li>Clases eliminadas: {cleanupResult.results.classesDeleted || 0}</li>
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

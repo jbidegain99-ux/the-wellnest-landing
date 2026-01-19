@@ -360,20 +360,45 @@ export async function POST() {
       }),
     ])
 
-    // Deactivate old/test packages (those without our official slugs)
+    // DELETE old/test packages (those without our official slugs)
+    // Only keep the 7 official packages
     const officialSlugs = [
       'drop-in-class', 'mini-flow-4', 'balance-pass-8',
       'energia-total-12', 'vital-plan-16', 'full-access-24', 'wellnest-trimestral-80'
     ]
-    await prisma.package.updateMany({
+
+    // First, find packages with purchases (can't delete, only deactivate)
+    const packagesWithPurchases = await prisma.package.findMany({
       where: {
         OR: [
           { slug: null },
           { NOT: { slug: { in: officialSlugs } } },
         ],
+        purchases: { some: {} },
       },
-      data: { isActive: false },
+      select: { id: true },
     })
+
+    // Deactivate packages that have purchases
+    if (packagesWithPurchases.length > 0) {
+      await prisma.package.updateMany({
+        where: { id: { in: packagesWithPurchases.map((p) => p.id) } },
+        data: { isActive: false },
+      })
+      console.log(`[SEED] Deactivated ${packagesWithPurchases.length} packages with purchases`)
+    }
+
+    // DELETE packages without purchases
+    const deletedPackages = await prisma.package.deleteMany({
+      where: {
+        OR: [
+          { slug: null },
+          { NOT: { slug: { in: officialSlugs } } },
+        ],
+        purchases: { none: {} },
+      },
+    })
+    console.log(`[SEED] Deleted ${deletedPackages.count} packages without purchases`)
 
     // Create admin user
     const hashedPassword = await bcrypt.hash('admin123', 12)

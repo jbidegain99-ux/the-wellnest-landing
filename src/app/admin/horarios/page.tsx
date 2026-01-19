@@ -71,8 +71,12 @@ export default function AdminHorariosPage() {
   const [currentWeekStart, setCurrentWeekStart] = React.useState(() => {
     const today = new Date()
     const day = today.getDay()
+    // Calculate Monday of current week (or previous Monday if today is Sunday)
     const diff = today.getDate() - day + (day === 0 ? -6 : 1)
-    return new Date(today.setDate(diff))
+    const monday = new Date(today.setDate(diff))
+    // Reset to midnight to ensure consistent date comparisons
+    monday.setHours(0, 0, 0, 0)
+    return monday
   })
 
   const showSuccess = (message: string) => {
@@ -90,12 +94,23 @@ export default function AdminHorariosPage() {
   // Fetch classes for the current week
   const fetchClasses = React.useCallback(async () => {
     try {
+      // Create start date at midnight local time to include all classes of the day
+      const startOfWeek = new Date(currentWeekStart)
+      startOfWeek.setHours(0, 0, 0, 0)
+
       const weekEnd = new Date(currentWeekStart)
       weekEnd.setDate(weekEnd.getDate() + 6)
       weekEnd.setHours(23, 59, 59, 999)
 
+      console.log('[ADMIN HORARIOS] Fetching classes:', {
+        startLocal: startOfWeek.toLocaleString(),
+        endLocal: weekEnd.toLocaleString(),
+        startISO: startOfWeek.toISOString(),
+        endISO: weekEnd.toISOString(),
+      })
+
       const response = await fetch(
-        `/api/admin/classes?startDate=${currentWeekStart.toISOString()}&endDate=${weekEnd.toISOString()}`
+        `/api/admin/classes?startDate=${startOfWeek.toISOString()}&endDate=${weekEnd.toISOString()}`
       )
 
       if (response.ok) {

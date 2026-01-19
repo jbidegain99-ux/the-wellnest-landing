@@ -22,8 +22,21 @@ const packageSchema = z.object({
   isFeatured: z.boolean().optional().default(false),
 })
 
-// GET all packages (admin view - includes inactive)
-export async function GET() {
+// Official package slugs - only these should be shown
+const OFFICIAL_PACKAGE_SLUGS = [
+  'drop-in-class',
+  'mini-flow-4',
+  'balance-pass-8',
+  'energia-total-12',
+  'vital-plan-16',
+  'full-access-24',
+  'wellnest-trimestral-80',
+]
+
+// GET packages (admin view)
+// By default returns only official packages
+// Pass ?all=true to include all (for debugging)
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -31,9 +44,18 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const includeAll = searchParams.get('all') === 'true'
+
     const packages = await prisma.package.findMany({
+      where: includeAll ? {} : {
+        slug: { in: OFFICIAL_PACKAGE_SLUGS },
+        isActive: true,
+      },
       orderBy: { order: 'asc' },
     })
+
+    console.log(`[ADMIN PACKAGES API] Returning ${packages.length} packages (includeAll: ${includeAll})`)
 
     return NextResponse.json(packages)
   } catch (error) {
