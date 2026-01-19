@@ -120,7 +120,18 @@ export default function AdminHorariosPage() {
 
       if (response.ok) {
         const data = await response.json()
+        console.log('[ADMIN HORARIOS] fetchClasses() received:', data.length, 'classes')
+
+        // Desglose por disciplina
+        const byDiscipline: Record<string, number> = {}
+        data.forEach((cls: ClassItem) => {
+          byDiscipline[cls.discipline] = (byDiscipline[cls.discipline] || 0) + 1
+        })
+        console.log('[ADMIN HORARIOS] Desglose por disciplina:', byDiscipline)
+
         setClasses(data)
+      } else {
+        console.error('[ADMIN HORARIOS] fetchClasses() failed:', response.status)
       }
     } catch (error) {
       console.error('Error fetching classes:', error)
@@ -138,12 +149,25 @@ export default function AdminHorariosPage() {
 
         if (disciplinesRes.ok) {
           const disciplinesData = await disciplinesRes.json()
+          console.log('[ADMIN HORARIOS] Disciplines loaded:', disciplinesData.map((d: Discipline) => ({
+            id: d.id,
+            name: d.name,
+            slug: d.slug,
+          })))
           setDisciplines(disciplinesData)
+        } else {
+          console.error('[ADMIN HORARIOS] Failed to load disciplines:', disciplinesRes.status)
         }
 
         if (instructorsRes.ok) {
           const instructorsData = await instructorsRes.json()
+          console.log('[ADMIN HORARIOS] Instructors loaded:', instructorsData.map((i: Instructor) => ({
+            id: i.id,
+            name: i.name,
+          })))
           setInstructors(instructorsData)
+        } else {
+          console.error('[ADMIN HORARIOS] Failed to load instructors:', instructorsRes.status)
         }
       } catch (error) {
         console.error('Error fetching data:', error)
@@ -307,16 +331,24 @@ export default function AdminHorariosPage() {
 
         const data = await response.json()
 
+        console.log('[ADMIN HORARIOS] === POST RESPONSE ===')
+        console.log('[ADMIN HORARIOS] Status:', response.status)
+        console.log('[ADMIN HORARIOS] Response data:', JSON.stringify(data, null, 2))
+
         if (!response.ok) {
+          console.log('[ADMIN HORARIOS] ERROR - No cerrando modal')
           showError(data.error || 'Error al crear la clase')
           return
         }
 
+        console.log('[ADMIN HORARIOS] SUCCESS - Refreshing classes...')
         showSuccess(data.message || 'Clase creada correctamente')
       }
 
       // Refresh classes
+      console.log('[ADMIN HORARIOS] Calling fetchClasses()...')
       await fetchClasses()
+      console.log('[ADMIN HORARIOS] fetchClasses() completed, closing modal')
       setIsModalOpen(false)
     } catch (error) {
       console.error('Error saving class:', error)
