@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Mail, ArrowLeft, CheckCircle, Phone, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -56,15 +56,49 @@ export default function RecuperarContrasenaPage() {
               <CheckCircle className="h-8 w-8 text-primary" />
             </div>
             <h1 className="font-serif text-2xl font-semibold text-foreground mb-4">
-              Revisa tu correo
+              Solicitud recibida
             </h1>
             <p className="text-gray-600 mb-6">
-              Si existe una cuenta con el email <strong>{email}</strong>,
-              recibirás un enlace para restablecer tu contraseña.
+              Hemos registrado tu solicitud para el email <strong>{email}</strong>.
             </p>
-            <p className="text-sm text-gray-500 mb-6">
-              No olvides revisar tu carpeta de spam.
-            </p>
+
+            <div className="bg-beige/50 rounded-xl p-6 mb-6 text-left">
+              <p className="text-sm text-gray-700 mb-4">
+                Para proteger tu cuenta, necesitamos verificar tu identidad.
+                Por favor contáctanos por cualquiera de estos medios:
+              </p>
+
+              <div className="space-y-3">
+                <a
+                  href="https://wa.me/50379449795?text=Hola,%20necesito%20recuperar%20mi%20contraseña%20para%20el%20email:%20"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <MessageCircle className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="font-medium text-sm">WhatsApp</p>
+                    <p className="text-xs text-gray-500">+503 7944-9795</p>
+                  </div>
+                </a>
+
+                <a
+                  href="tel:+50379449795"
+                  className="flex items-center gap-3 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <Phone className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium text-sm">Llamar</p>
+                    <p className="text-xs text-gray-500">+503 7944-9795</p>
+                  </div>
+                </a>
+              </div>
+
+              <p className="text-xs text-gray-500 mt-4">
+                Te daremos una contraseña temporal que podrás cambiar desde tu perfil.
+              </p>
+            </div>
+
             <Link href="/login">
               <Button variant="outline" className="w-full">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -90,7 +124,7 @@ export default function RecuperarContrasenaPage() {
             Recuperar contraseña
           </h1>
           <p className="text-gray-600 mt-2">
-            Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña
+            Ingresa tu email para iniciar el proceso de recuperación
           </p>
         </div>
 
@@ -114,7 +148,7 @@ export default function RecuperarContrasenaPage() {
             />
 
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Enviar enlace de recuperación
+              Solicitar recuperación
             </Button>
           </form>
 
