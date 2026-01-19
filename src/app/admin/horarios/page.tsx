@@ -481,7 +481,7 @@ export default function AdminHorariosPage() {
         </div>
 
         {/* Classes grid */}
-        <div className="grid grid-cols-7 min-h-[500px]">
+        <div className="grid grid-cols-7 min-h-[500px] max-h-[700px]">
           {weekDates.map((date, dayIndex) => {
             const dayClasses = getClassesForDay(date)
             // DEBUG: Log classes for each day
@@ -493,8 +493,14 @@ export default function AdminHorariosPage() {
             return (
               <div
                 key={dayIndex}
-                className="border-r last:border-r-0 border-beige p-2 space-y-2"
+                className="border-r last:border-r-0 border-beige p-2 space-y-2 overflow-y-auto max-h-[650px]"
               >
+                {/* DEBUG: Show class count per day */}
+                {dayClasses.length > 0 && (
+                  <div className="text-xs text-gray-400 text-center mb-1">
+                    {dayClasses.length} clases
+                  </div>
+                )}
                 {dayClasses.map((cls) => (
                   <div
                     key={cls.id}
