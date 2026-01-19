@@ -57,37 +57,20 @@ export async function GET(request: Request) {
     }
 
     if (startDate && endDate) {
-      // Parse dates for El Salvador timezone (UTC-6)
-      // The frontend sends dates in YYYY-MM-DD format representing El Salvador dates
-      const startParts = startDate.split('-').map(Number)
-      const endParts = endDate.split('-').map(Number)
-
-      // Convert El Salvador dates to UTC range:
-      // El Salvador midnight = UTC + 6 hours
-      const start = new Date(Date.UTC(
-        startParts[0],
-        startParts[1] - 1,
-        startParts[2],
-        EL_SALVADOR_UTC_OFFSET, // 6 AM UTC = midnight El Salvador
-        0, 0, 0
-      ))
-      const end = new Date(Date.UTC(
-        endParts[0],
-        endParts[1] - 1,
-        endParts[2] + 1, // Next day
-        EL_SALVADOR_UTC_OFFSET - 1, // 5 AM UTC = 11 PM El Salvador previous day
-        59, 59, 999
-      ))
+      // Frontend sends ISO strings (e.g., "2025-01-19T06:00:00.000Z")
+      // Use new Date() which handles ISO strings correctly
+      const start = new Date(startDate)
+      const end = new Date(endDate)
 
       where.dateTime = {
         gte: start,
         lte: end,
       }
-      console.log('[ADMIN CLASSES API] Date filter (El Salvador -> UTC):', {
+      console.log('[ADMIN CLASSES API] Date filter:', {
         startInput: startDate,
         endInput: endDate,
-        startUTC: start.toISOString(),
-        endUTC: end.toISOString(),
+        startParsed: start.toISOString(),
+        endParsed: end.toISOString(),
       })
     }
 
