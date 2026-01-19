@@ -88,6 +88,14 @@ export async function GET(request: Request) {
 
     console.log('[ADMIN CLASSES API] Found classes:', classes.length)
 
+    // DESGLOSE POR DISCIPLINA para debug
+    const classesByDiscipline: Record<string, number> = {}
+    classes.forEach((cls) => {
+      const key = `${cls.discipline.name} (${cls.discipline.slug})`
+      classesByDiscipline[key] = (classesByDiscipline[key] || 0) + 1
+    })
+    console.log('[ADMIN CLASSES API] Desglose por disciplina:', classesByDiscipline)
+
     // Transform to include day of week info (using El Salvador timezone)
     const transformedClasses = classes.map((cls) => ({
       id: cls.id,
@@ -272,9 +280,46 @@ export async function POST(request: Request) {
 
     console.log('[ADMIN CLASSES API] Classes created successfully:', result.count)
 
+    // VERIFICACIÓN POST-CREACIÓN: Confirmar que las clases existen en DB
+    if (classesToCreate.length > 0) {
+      const firstClassDate = classesToCreate[0].dateTime
+      const verifyClasses = await prisma.class.findMany({
+        where: {
+          disciplineId: data.disciplineId,
+          instructorId: data.instructorId,
+          dateTime: {
+            gte: new Date(firstClassDate.getTime() - 60000), // 1 min tolerance
+            lte: new Date(firstClassDate.getTime() + 60000),
+          },
+        },
+        include: {
+          discipline: { select: { id: true, name: true, slug: true } },
+          instructor: { select: { id: true, name: true } },
+        },
+      })
+      console.log('[ADMIN CLASSES API] === VERIFICACIÓN POST-CREACIÓN ===')
+      console.log('[ADMIN CLASSES API] Clases encontradas con mismo disciplineId/instructorId/fecha:', verifyClasses.length)
+      if (verifyClasses.length > 0) {
+        console.log('[ADMIN CLASSES API] Primera clase verificada:', {
+          id: verifyClasses[0].id,
+          disciplineId: verifyClasses[0].disciplineId,
+          disciplineName: verifyClasses[0].discipline.name,
+          disciplineSlug: verifyClasses[0].discipline.slug,
+          instructorId: verifyClasses[0].instructorId,
+          instructorName: verifyClasses[0].instructor.name,
+          dateTime: verifyClasses[0].dateTime.toISOString(),
+        })
+      }
+    }
+
     return NextResponse.json({
       message: `Se crearon ${result.count} clase(s) correctamente`,
       count: result.count,
+      debug: {
+        disciplineId: data.disciplineId,
+        instructorId: data.instructorId,
+        firstClassDate: classesToCreate[0]?.dateTime.toISOString(),
+      },
     })
   } catch (error) {
     console.error('[ADMIN CLASSES API] Error creating class:', error)
