@@ -245,8 +245,45 @@ export default function AdminHorariosPage() {
   }
 
   const getDisciplineColorForClass = (disciplineName: string) => {
+    // First try exact match with loaded disciplines
     const discipline = disciplines.find(d => d.name === disciplineName)
-    return discipline ? getDisciplineColor(discipline.slug) : 'bg-primary'
+    if (discipline) {
+      return getDisciplineColor(discipline.slug)
+    }
+
+    // Fallback: normalize the class discipline name and look up directly in color map
+    // This handles cases where class has "Mat Pilates" but discipline is "Pilates"
+    const normalizedName = disciplineName.toLowerCase().replace(/\s+/g, '-')
+    const directColor = disciplineColors[normalizedName]
+    if (directColor) {
+      return directColor
+    }
+
+    // Additional fallback mappings for common cases
+    const fallbackMappings: Record<string, string> = {
+      'yoga': 'bg-[#6A6F4C]',
+      'pilates': 'bg-[#806044]',
+      'mat-pilates': 'bg-[#806044]',
+      'mat pilates': 'bg-[#806044]',
+      'pole': 'bg-[#806044]',
+      'pole-fitness': 'bg-[#806044]',
+      'pole fitness': 'bg-[#806044]',
+      'soundbath': 'bg-[#482F21]',
+      'terapia-de-sonido': 'bg-[#482F21]',
+      'terapia de sonido': 'bg-[#482F21]',
+      'nutricion': 'bg-[#6B7F5E]',
+      'nutrición': 'bg-[#6B7F5E]',
+      'nutrition': 'bg-[#6B7F5E]',
+    }
+
+    const lowerName = disciplineName.toLowerCase()
+    if (fallbackMappings[lowerName]) {
+      return fallbackMappings[lowerName]
+    }
+
+    // Ultimate fallback: visible gray color (not bg-primary which may be transparent)
+    console.warn(`[COLOR] No color found for discipline: "${disciplineName}"`)
+    return 'bg-gray-600'
   }
 
   const handleCreate = (dayOfWeek?: number) => {
