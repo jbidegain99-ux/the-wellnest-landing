@@ -3,7 +3,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { addDays, setHours, setMinutes, startOfDay } from 'date-fns'
+import { addDays, startOfDay } from 'date-fns'
+
+// El Salvador is UTC-6. To store times that display correctly for El Salvador users,
+// we need to add 6 hours to the desired local time to get UTC.
+const EL_SALVADOR_UTC_OFFSET = 6
 
 const classSchema = z.object({
   disciplineId: z.string().min(1, 'Debe seleccionar una disciplina'),
@@ -16,8 +20,25 @@ const classSchema = z.object({
   weeksAhead: z.number().min(1).max(12).default(4), // How many weeks to create classes for
 })
 
+// Helper to convert UTC date to El Salvador local time string (HH:MM)
+function getElSalvadorTime(utcDate: Date): string {
+  // El Salvador is UTC-6, so subtract 6 hours from UTC
+  const elSalvadorDate = new Date(utcDate.getTime() - EL_SALVADOR_UTC_OFFSET * 60 * 60 * 1000)
+  const hours = elSalvadorDate.getUTCHours().toString().padStart(2, '0')
+  const minutes = elSalvadorDate.getUTCMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+// Helper to get day of week in El Salvador timezone
+function getElSalvadorDayOfWeek(utcDate: Date): number {
+  const elSalvadorDate = new Date(utcDate.getTime() - EL_SALVADOR_UTC_OFFSET * 60 * 60 * 1000)
+  return elSalvadorDate.getUTCDay()
+}
+
 // GET - Fetch classes for the schedule view (grouped by day of week)
 export async function GET(request: Request) {
+  console.log('[ADMIN CLASSES API] ========== GET REQUEST ==========')
+
   try {
     const session = await getServerSession(authOptions)
 
@@ -29,6 +50,8 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
+    console.log('[ADMIN CLASSES API] Query params:', { startDate, endDate })
+
     const where: Record<string, unknown> = {
       isCancelled: false,
     }
@@ -38,6 +61,10 @@ export async function GET(request: Request) {
         gte: new Date(startDate),
         lte: new Date(endDate),
       }
+      console.log('[ADMIN CLASSES API] Date filter:', {
+        gte: new Date(startDate).toISOString(),
+        lte: new Date(endDate).toISOString(),
+      })
     }
 
     const classes = await prisma.class.findMany({
@@ -52,16 +79,18 @@ export async function GET(request: Request) {
       orderBy: { dateTime: 'asc' },
     })
 
-    // Transform to include day of week info
+    console.log('[ADMIN CLASSES API] Found classes:', classes.length)
+
+    // Transform to include day of week info (using El Salvador timezone)
     const transformedClasses = classes.map((cls) => ({
       id: cls.id,
       disciplineId: cls.disciplineId,
       discipline: cls.discipline.name,
       instructorId: cls.instructorId,
       instructor: cls.instructor.name,
-      dateTime: cls.dateTime,
-      time: cls.dateTime.toTimeString().slice(0, 5),
-      dayOfWeek: cls.dateTime.getDay(),
+      dateTime: cls.dateTime.toISOString(),
+      time: getElSalvadorTime(cls.dateTime),
+      dayOfWeek: getElSalvadorDayOfWeek(cls.dateTime),
       duration: cls.duration,
       maxCapacity: cls.maxCapacity,
       currentCount: cls.currentCount,
@@ -70,9 +99,18 @@ export async function GET(request: Request) {
       isCancelled: cls.isCancelled,
     }))
 
+    if (classes.length > 0) {
+      console.log('[ADMIN CLASSES API] Sample class:', {
+        id: transformedClasses[0].id,
+        discipline: transformedClasses[0].discipline,
+        dateTimeUTC: transformedClasses[0].dateTime,
+        timeElSalvador: transformedClasses[0].time,
+      })
+    }
+
     return NextResponse.json(transformedClasses)
   } catch (error) {
-    console.error('Error fetching classes:', error)
+    console.error('[ADMIN CLASSES API] Error:', error)
     return NextResponse.json(
       { error: 'Error al obtener las clases' },
       { status: 500 }
@@ -82,6 +120,8 @@ export async function GET(request: Request) {
 
 // POST - Create a new class (or recurring classes)
 export async function POST(request: Request) {
+  console.log('[ADMIN CLASSES API] ========== POST REQUEST ==========')
+
   try {
     const session = await getServerSession(authOptions)
 
@@ -90,6 +130,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
+    console.log('[ADMIN CLASSES API] Request body:', body)
+
     const validation = classSchema.safeParse(body)
 
     if (!validation.success) {
@@ -144,8 +186,17 @@ export async function POST(request: Request) {
       for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
         const currentDate = addDays(today, week * 7 + dayOffset)
         if (currentDate.getDay() === data.dayOfWeek) {
+          // Create date in UTC that represents the correct El Salvador local time
+          // e.g., 10:00 AM El Salvador = 16:00 UTC (10:00 + 6 hours offset)
+          const classDateTime = new Date(Date.UTC(
+            currentDate.getFullYear(),
+            currentDate.getMonth(),
+            currentDate.getDate(),
+            hours + EL_SALVADOR_UTC_OFFSET,
+            minutes
+          ))
+
           // Only create if date is in the future
-          const classDateTime = setMinutes(setHours(currentDate, hours), minutes)
           if (classDateTime > new Date()) {
             classesToCreate.push({
               disciplineId: data.disciplineId,
@@ -169,18 +220,29 @@ export async function POST(request: Request) {
     }
 
     // Create all classes
+    console.log('[ADMIN CLASSES API] Creating classes:', classesToCreate.length)
+    if (classesToCreate.length > 0) {
+      console.log('[ADMIN CLASSES API] First class to create:', {
+        ...classesToCreate[0],
+        dateTimeISO: classesToCreate[0].dateTime.toISOString(),
+        dateTimeElSalvador: getElSalvadorTime(classesToCreate[0].dateTime),
+      })
+    }
+
     const result = await prisma.class.createMany({
       data: classesToCreate,
     })
+
+    console.log('[ADMIN CLASSES API] Classes created successfully:', result.count)
 
     return NextResponse.json({
       message: `Se crearon ${result.count} clase(s) correctamente`,
       count: result.count,
     })
   } catch (error) {
-    console.error('Error creating class:', error)
+    console.error('[ADMIN CLASSES API] Error creating class:', error)
     return NextResponse.json(
-      { error: 'Error al crear la clase' },
+      { error: 'Error al crear la clase. Por favor intenta de nuevo.' },
       { status: 500 }
     )
   }
