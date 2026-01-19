@@ -212,27 +212,37 @@ export default function AdminHorariosPage() {
     setCurrentWeekStart(newDate)
   }
 
+  // Helper to get date string in El Salvador timezone (UTC-6)
+  // This ensures calendar displays correctly regardless of browser timezone
+  const getElSalvadorDateStr = (utcDateStr: string): string => {
+    const date = new Date(utcDateStr)
+    // El Salvador is UTC-6, subtract 6 hours from UTC to get local time
+    const elSalvadorTime = new Date(date.getTime() - 6 * 60 * 60 * 1000)
+    return `${elSalvadorTime.getUTCFullYear()}-${String(elSalvadorTime.getUTCMonth() + 1).padStart(2, '0')}-${String(elSalvadorTime.getUTCDate()).padStart(2, '0')}`
+  }
+
   const getClassesForDay = (date: Date) => {
     // Filter classes for this specific date
-    // IMPORTANT: Compare dates in local timezone for correct display
+    // IMPORTANT: Compare dates in El Salvador timezone for correct display
+    // The calendar shows El Salvador local dates, so classes must match that timezone
     const targetDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
     const filtered = classes.filter((cls) => {
-      const classDate = new Date(cls.dateTime)
-      const classDateStr = `${classDate.getFullYear()}-${String(classDate.getMonth() + 1).padStart(2, '0')}-${String(classDate.getDate()).padStart(2, '0')}`
+      // Convert UTC class datetime to El Salvador date string
+      const classDateStr = getElSalvadorDateStr(cls.dateTime)
       return classDateStr === targetDateStr
     })
 
-    // Debug logging for first call
-    if (date.getDay() === 1 && classes.length > 0) { // Monday
-      console.log('[ADMIN HORARIOS] getClassesForDay debug for Monday:', {
+    // Debug logging for any day that has issues
+    if (date.getDay() === 2 && classes.length > 0) { // Tuesday - day the user tested
+      console.log('[ADMIN HORARIOS] getClassesForDay debug for Tuesday:', {
         targetDate: targetDateStr,
         totalClasses: classes.length,
         matchedClasses: filtered.length,
-        sampleClassDates: classes.slice(0, 3).map(c => ({
+        sampleClassDates: classes.slice(0, 5).map(c => ({
           discipline: c.discipline,
           dateTimeRaw: c.dateTime,
-          parsedLocal: new Date(c.dateTime).toLocaleString(),
+          elSalvadorDate: getElSalvadorDateStr(c.dateTime),
         })),
       })
     }
