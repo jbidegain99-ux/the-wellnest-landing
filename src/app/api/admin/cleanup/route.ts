@@ -113,6 +113,7 @@ export async function POST() {
     // ===============================================
     // STEP 3: CLEANUP PACKAGES
     // ===============================================
+    // First, get all unofficial packages to log them
     const unofficialPackages = await prisma.package.findMany({
       where: {
         OR: [
@@ -132,22 +133,32 @@ export async function POST() {
       console.log(`  - ${p.name} (${p.slug || 'no-slug'}): ${p._count.purchases} purchases`)
     })
 
-    for (const pkg of unofficialPackages) {
-      if (pkg._count.purchases === 0) {
-        await prisma.package.delete({
-          where: { id: pkg.id },
-        })
-        results.packagesDeleted++
-        console.log(`[CLEANUP API] Deleted package: ${pkg.name}`)
-      } else {
-        await prisma.package.update({
-          where: { id: pkg.id },
-          data: { isActive: false },
-        })
-        results.packagesDeactivated++
-        console.log(`[CLEANUP API] Deactivated package: ${pkg.name}`)
-      }
-    }
+    // Delete packages without purchases in bulk
+    const deletedPackagesResult = await prisma.package.deleteMany({
+      where: {
+        OR: [
+          { slug: null },
+          { slug: { notIn: OFFICIAL_PACKAGE_SLUGS } },
+        ],
+        purchases: { none: {} },
+      },
+    })
+    results.packagesDeleted = deletedPackagesResult.count
+    console.log(`[CLEANUP API] Deleted ${deletedPackagesResult.count} packages without purchases`)
+
+    // Deactivate packages that have purchases (can't delete due to FK constraint)
+    const deactivatedPackagesResult = await prisma.package.updateMany({
+      where: {
+        OR: [
+          { slug: null },
+          { slug: { notIn: OFFICIAL_PACKAGE_SLUGS } },
+        ],
+        purchases: { some: {} },
+      },
+      data: { isActive: false },
+    })
+    results.packagesDeactivated = deactivatedPackagesResult.count
+    console.log(`[CLEANUP API] Deactivated ${deactivatedPackagesResult.count} packages with purchases`)
 
     // ===============================================
     // STEP 4: CLEANUP DUPLICATE DISCIPLINES
