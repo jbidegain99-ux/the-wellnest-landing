@@ -233,18 +233,12 @@ export default function AdminHorariosPage() {
       return classDateStr === targetDateStr
     })
 
-    // Debug logging for any day that has issues
-    if (date.getDay() === 2 && classes.length > 0) { // Tuesday - day the user tested
-      console.log('[ADMIN HORARIOS] getClassesForDay debug for Tuesday:', {
-        targetDate: targetDateStr,
-        totalClasses: classes.length,
-        matchedClasses: filtered.length,
-        sampleClassDates: classes.slice(0, 5).map(c => ({
-          discipline: c.discipline,
-          dateTimeRaw: c.dateTime,
-          elSalvadorDate: getElSalvadorDateStr(c.dateTime),
-        })),
-      })
+    // Debug logging - log for ALL days to understand the issue
+    console.log(`[FILTER] Day ${date.getDate()} (${date.getDay()}): targetDate=${targetDateStr}, matched=${filtered.length}/${classes.length}`)
+    if (filtered.length > 0) {
+      console.log(`[FILTER] Matched classes for day ${date.getDate()}:`,
+        filtered.map(c => ({ discipline: c.discipline, time: c.time, elSalvadorDate: getElSalvadorDateStr(c.dateTime) }))
+      )
     }
 
     return filtered.sort((a, b) => a.time.localeCompare(b.time))
@@ -490,6 +484,12 @@ export default function AdminHorariosPage() {
         <div className="grid grid-cols-7 min-h-[500px]">
           {weekDates.map((date, dayIndex) => {
             const dayClasses = getClassesForDay(date)
+            // DEBUG: Log classes for each day
+            if (dayClasses.length > 0) {
+              console.log(`[RENDER] Day ${date.getDate()} (${weekDays[date.getDay()]}): ${dayClasses.length} classes`,
+                dayClasses.map(c => ({ discipline: c.discipline, time: c.time, dateTime: c.dateTime }))
+              )
+            }
             return (
               <div
                 key={dayIndex}
