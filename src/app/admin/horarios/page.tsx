@@ -63,6 +63,11 @@ export default function AdminHorariosPage() {
   const [isModalOpen, setIsModalOpen] = React.useState(false)
   const [editingClass, setEditingClass] = React.useState<ClassItem | null>(null)
   const [selectedDay, setSelectedDay] = React.useState<number | null>(null)
+
+  // Controlled state for form selects (Radix Select + FormData is unreliable)
+  const [selectedDisciplineId, setSelectedDisciplineId] = React.useState<string>('')
+  const [selectedInstructorId, setSelectedInstructorId] = React.useState<string>('')
+  const [selectedDayOfWeek, setSelectedDayOfWeek] = React.useState<string>('')
   const [isLoading, setIsLoading] = React.useState(false)
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
@@ -205,12 +210,20 @@ export default function AdminHorariosPage() {
   const handleCreate = (dayOfWeek?: number) => {
     setEditingClass(null)
     setSelectedDay(dayOfWeek ?? null)
+    // Reset controlled state for new class
+    setSelectedDisciplineId('')
+    setSelectedInstructorId('')
+    setSelectedDayOfWeek(dayOfWeek !== undefined ? dayOfWeek.toString() : '')
     setIsModalOpen(true)
   }
 
   const handleEdit = (cls: ClassItem) => {
     setEditingClass(cls)
     setSelectedDay(null)
+    // Set controlled state from existing class
+    setSelectedDisciplineId(cls.disciplineId)
+    setSelectedInstructorId(cls.instructorId)
+    setSelectedDayOfWeek(cls.dayOfWeek.toString())
     setIsModalOpen(true)
   }
 
@@ -220,8 +233,37 @@ export default function AdminHorariosPage() {
     setErrorMessage(null)
 
     const formData = new FormData(e.currentTarget)
-    const disciplineId = formData.get('disciplineId') as string
-    const instructorId = formData.get('instructorId') as string
+
+    // Use controlled state instead of FormData for Select values (Radix Select + FormData is unreliable)
+    const disciplineId = selectedDisciplineId
+    const instructorId = selectedInstructorId
+    const dayOfWeek = selectedDayOfWeek
+
+    // DEBUG: Log form data for verification
+    console.log('[ADMIN HORARIOS] ========== FORM SUBMIT ==========')
+    console.log('[ADMIN HORARIOS] Using CONTROLLED STATE (not FormData):')
+    console.log('[ADMIN HORARIOS] disciplineId:', disciplineId)
+    console.log('[ADMIN HORARIOS] instructorId:', instructorId)
+    console.log('[ADMIN HORARIOS] dayOfWeek:', dayOfWeek)
+    console.log('[ADMIN HORARIOS] Available disciplines:', disciplines.map(d => ({ id: d.id, name: d.name, slug: d.slug })))
+    console.log('[ADMIN HORARIOS] Available instructors:', instructors.map(i => ({ id: i.id, name: i.name })))
+
+    // Validate that we have the required IDs
+    if (!disciplineId) {
+      showError('Error: Debes seleccionar una disciplina')
+      setIsLoading(false)
+      return
+    }
+    if (!instructorId) {
+      showError('Error: Debes seleccionar un instructor')
+      setIsLoading(false)
+      return
+    }
+    if (!editingClass && !dayOfWeek) {
+      showError('Error: Debes seleccionar un día de la semana')
+      setIsLoading(false)
+      return
+    }
 
     try {
       if (editingClass) {
@@ -254,7 +296,7 @@ export default function AdminHorariosPage() {
           body: JSON.stringify({
             disciplineId,
             instructorId,
-            dayOfWeek: parseInt(formData.get('dayOfWeek') as string),
+            dayOfWeek: parseInt(dayOfWeek),
             time: formData.get('time') as string,
             duration: parseInt(formData.get('duration') as string),
             maxCapacity: parseInt(formData.get('maxCapacity') as string),
@@ -445,8 +487,8 @@ export default function AdminHorariosPage() {
                   Disciplina
                 </label>
                 <Select
-                  name="disciplineId"
-                  defaultValue={editingClass?.disciplineId}
+                  value={selectedDisciplineId}
+                  onValueChange={setSelectedDisciplineId}
                   required
                 >
                   <SelectTrigger>
@@ -467,8 +509,8 @@ export default function AdminHorariosPage() {
                   Instructor
                 </label>
                 <Select
-                  name="instructorId"
-                  defaultValue={editingClass?.instructorId}
+                  value={selectedInstructorId}
+                  onValueChange={setSelectedInstructorId}
                   required
                 >
                   <SelectTrigger>
@@ -490,8 +532,8 @@ export default function AdminHorariosPage() {
                     Día de la semana
                   </label>
                   <Select
-                    name="dayOfWeek"
-                    defaultValue={selectedDay?.toString()}
+                    value={selectedDayOfWeek}
+                    onValueChange={setSelectedDayOfWeek}
                     required
                   >
                     <SelectTrigger>
