@@ -10,14 +10,25 @@ const OFFICIAL_INSTRUCTOR_IDS = [
   'instructor-kevin', 'instructor-denisse',
 ]
 
+// Helper to format date for El Salvador timezone
+function toElSalvadorString(utcDate: Date): string {
+  return utcDate.toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })
+}
+
 // Debug endpoint to inspect database state
-export async function GET() {
+// Use ?week=true to see this week's classes
+// Use ?discipline=yoga to filter by discipline slug
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
+
+    const { searchParams } = new URL(request.url)
+    const showWeek = searchParams.get('week') === 'true'
+    const filterDiscipline = searchParams.get('discipline')
 
     // Get all disciplines (including inactive)
     const allDisciplines = await prisma.discipline.findMany({
@@ -35,15 +46,70 @@ export async function GET() {
       orderBy: { order: 'asc' },
     })
 
-    // Get class count by discipline
+    // Get class count by discipline with discipline names
     const classesByDiscipline = await prisma.class.groupBy({
       by: ['disciplineId'],
       _count: { id: true },
     })
 
-    // Get recent classes
+    // Enrich with discipline names
+    const classesByDisciplineEnriched = classesByDiscipline.map(item => {
+      const discipline = allDisciplines.find(d => d.id === item.disciplineId)
+      return {
+        disciplineId: item.disciplineId,
+        disciplineName: discipline?.name || 'UNKNOWN',
+        disciplineSlug: discipline?.slug || 'UNKNOWN',
+        count: item._count.id,
+      }
+    })
+
+    // Get classes for this week if requested
+    let weekClasses: Array<{
+      id: string
+      dateTimeUTC: string
+      dateTimeElSalvador: string
+      discipline: { id: string; name: string; slug: string }
+      instructor: { id: string; name: string }
+      isCancelled: boolean
+    }> = []
+
+    if (showWeek) {
+      const now = new Date()
+      const startOfWeek = new Date(now)
+      startOfWeek.setDate(now.getDate() - now.getDay() + 1) // Monday
+      startOfWeek.setHours(0, 0, 0, 0)
+
+      const endOfWeek = new Date(startOfWeek)
+      endOfWeek.setDate(startOfWeek.getDate() + 6)
+      endOfWeek.setHours(23, 59, 59, 999)
+
+      const weekClassesRaw = await prisma.class.findMany({
+        where: {
+          dateTime: { gte: startOfWeek, lte: endOfWeek },
+          ...(filterDiscipline ? {
+            discipline: { slug: filterDiscipline },
+          } : {}),
+        },
+        include: {
+          discipline: { select: { id: true, name: true, slug: true } },
+          instructor: { select: { id: true, name: true } },
+        },
+        orderBy: { dateTime: 'asc' },
+      })
+
+      weekClasses = weekClassesRaw.map(c => ({
+        id: c.id,
+        dateTimeUTC: c.dateTime.toISOString(),
+        dateTimeElSalvador: toElSalvadorString(c.dateTime),
+        discipline: c.discipline,
+        instructor: c.instructor,
+        isCancelled: c.isCancelled,
+      }))
+    }
+
+    // Get recent classes (by date, descending - most recent first)
     const recentClasses = await prisma.class.findMany({
-      take: 10,
+      take: 20,
       orderBy: { dateTime: 'desc' },
       include: {
         discipline: { select: { id: true, name: true, slug: true } },
@@ -69,6 +135,7 @@ export async function GET() {
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
+      serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       disciplines: allDisciplines.map(d => ({
         id: d.id,
         name: d.name,
@@ -85,12 +152,15 @@ export async function GET() {
         isOfficial: OFFICIAL_INSTRUCTOR_IDS.includes(i.id),
       })),
       packages: packages,
-      classesByDiscipline: classesByDiscipline,
+      classesByDiscipline: classesByDisciplineEnriched,
+      weekClasses: showWeek ? weekClasses : 'Use ?week=true to see this week\'s classes',
       recentClasses: recentClasses.map(c => ({
         id: c.id,
-        dateTime: c.dateTime,
+        dateTimeUTC: c.dateTime.toISOString(),
+        dateTimeElSalvador: toElSalvadorString(c.dateTime),
         discipline: c.discipline,
         instructor: c.instructor,
+        isCancelled: c.isCancelled,
       })),
       warnings: {
         unofficialDisciplines: duplicateDisciplines.map(d => ({ id: d.id, name: d.name, slug: d.slug })),
@@ -106,6 +176,10 @@ export async function GET() {
         officialInstructors: allInstructors.filter(i => OFFICIAL_INSTRUCTOR_IDS.includes(i.id)).length,
         totalPackages: packages.length,
         activePackages: packages.filter(p => p.isActive).length,
+      },
+      usage: {
+        showWeekClasses: '/api/admin/debug?week=true',
+        filterByDiscipline: '/api/admin/debug?week=true&discipline=yoga',
       },
     })
   } catch (error) {
