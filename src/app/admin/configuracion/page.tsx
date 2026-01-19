@@ -363,8 +363,9 @@ export default function AdminConfiguracionPage() {
           <div className="border-t border-gray-200 pt-4 mt-6">
             <h4 className="font-medium text-foreground mb-2">Limpieza de Datos de Prueba</h4>
             <p className="text-sm text-gray-600 mb-4">
-              Elimina instructores y paquetes de prueba que no son parte de los datos oficiales.
-              Solo quedarán los 5 instructores reales y los 7 paquetes oficiales.
+              Elimina instructores, paquetes y disciplinas de prueba que no son parte de los datos oficiales.
+              Solo quedarán los 5 instructores reales, las 5 disciplinas oficiales y los 7 paquetes oficiales.
+              También elimina clases asociadas a datos de prueba.
             </p>
             <Button
               onClick={handleCleanupDatabase}
@@ -391,6 +392,9 @@ export default function AdminConfiguracionPage() {
                     <li>Instructores desactivados: {cleanupResult.results.instructorsDeactivated}</li>
                     <li>Paquetes eliminados: {cleanupResult.results.packagesDeleted}</li>
                     <li>Paquetes desactivados: {cleanupResult.results.packagesDeactivated}</li>
+                    <li>Disciplinas eliminadas: {cleanupResult.results.disciplinesDeleted || 0}</li>
+                    <li>Disciplinas desactivadas: {cleanupResult.results.disciplinesDeactivated || 0}</li>
+                    <li>Clases eliminadas: {cleanupResult.results.classesDeleted || 0}</li>
                   </ul>
                 )}
               </div>

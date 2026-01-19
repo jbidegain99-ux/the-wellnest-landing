@@ -67,10 +67,11 @@ export default function AdminInstructoresPage() {
     'Naturopatía', 'Entrenamiento Funcional', 'Comunidad'
   ]
 
-  // Fetch data from database
+  // Fetch data from database (all instructors for admin management)
   const fetchInstructors = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/instructors')
+      // Use ?all=true to include inactive instructors for admin list
+      const response = await fetch('/api/admin/instructors?all=true')
       if (response.ok) {
         const data = await response.json()
         setInstructors(data)
@@ -85,7 +86,7 @@ export default function AdminInstructoresPage() {
       try {
         const [disciplinesRes, instructorsRes] = await Promise.all([
           fetch('/api/disciplines'),
-          fetch('/api/admin/instructors'),
+          fetch('/api/admin/instructors?all=true'), // Include inactive for admin list
         ])
 
         if (disciplinesRes.ok) {

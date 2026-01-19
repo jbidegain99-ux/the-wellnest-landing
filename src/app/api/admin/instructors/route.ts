@@ -17,8 +17,10 @@ const instructorSchema = z.object({
   order: z.number().optional(),
 })
 
-// GET - Fetch all instructors (including inactive) for admin
-export async function GET() {
+// GET - Fetch instructors for admin
+// By default returns only active instructors for dropdowns
+// Pass ?all=true to include inactive (for admin list view)
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
@@ -26,9 +28,15 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const includeAll = searchParams.get('all') === 'true'
+
     const instructors = await prisma.instructor.findMany({
+      where: includeAll ? {} : { isActive: true },
       orderBy: { order: 'asc' },
     })
+
+    console.log(`[ADMIN INSTRUCTORS API] Returning ${instructors.length} instructors (includeAll: ${includeAll})`)
 
     return NextResponse.json(instructors)
   } catch (error) {
