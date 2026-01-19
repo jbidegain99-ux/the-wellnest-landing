@@ -107,31 +107,13 @@ export default function AdminHorariosPage() {
       weekEnd.setDate(weekEnd.getDate() + 6)
       weekEnd.setHours(23, 59, 59, 999)
 
-      console.log('[ADMIN HORARIOS] Fetching classes:', {
-        startLocal: startOfWeek.toLocaleString(),
-        endLocal: weekEnd.toLocaleString(),
-        startISO: startOfWeek.toISOString(),
-        endISO: weekEnd.toISOString(),
-      })
-
       const response = await fetch(
         `/api/admin/classes?startDate=${startOfWeek.toISOString()}&endDate=${weekEnd.toISOString()}`
       )
 
       if (response.ok) {
         const data = await response.json()
-        console.log('[ADMIN HORARIOS] fetchClasses() received:', data.length, 'classes')
-
-        // Desglose por disciplina
-        const byDiscipline: Record<string, number> = {}
-        data.forEach((cls: ClassItem) => {
-          byDiscipline[cls.discipline] = (byDiscipline[cls.discipline] || 0) + 1
-        })
-        console.log('[ADMIN HORARIOS] Desglose por disciplina:', byDiscipline)
-
         setClasses(data)
-      } else {
-        console.error('[ADMIN HORARIOS] fetchClasses() failed:', response.status)
       }
     } catch (error) {
       console.error('Error fetching classes:', error)
@@ -149,25 +131,12 @@ export default function AdminHorariosPage() {
 
         if (disciplinesRes.ok) {
           const disciplinesData = await disciplinesRes.json()
-          console.log('[ADMIN HORARIOS] Disciplines loaded:', disciplinesData.map((d: Discipline) => ({
-            id: d.id,
-            name: d.name,
-            slug: d.slug,
-          })))
           setDisciplines(disciplinesData)
-        } else {
-          console.error('[ADMIN HORARIOS] Failed to load disciplines:', disciplinesRes.status)
         }
 
         if (instructorsRes.ok) {
           const instructorsData = await instructorsRes.json()
-          console.log('[ADMIN HORARIOS] Instructors loaded:', instructorsData.map((i: Instructor) => ({
-            id: i.id,
-            name: i.name,
-          })))
           setInstructors(instructorsData)
-        } else {
-          console.error('[ADMIN HORARIOS] Failed to load instructors:', instructorsRes.status)
         }
       } catch (error) {
         console.error('Error fetching data:', error)
@@ -233,14 +202,6 @@ export default function AdminHorariosPage() {
       return classDateStr === targetDateStr
     })
 
-    // Debug logging - log for ALL days to understand the issue
-    console.log(`[FILTER] Day ${date.getDate()} (${date.getDay()}): targetDate=${targetDateStr}, matched=${filtered.length}/${classes.length}`)
-    if (filtered.length > 0) {
-      console.log(`[FILTER] Matched classes for day ${date.getDate()}:`,
-        filtered.map(c => ({ discipline: c.discipline, time: c.time, elSalvadorDate: getElSalvadorDateStr(c.dateTime) }))
-      )
-    }
-
     return filtered.sort((a, b) => a.time.localeCompare(b.time))
   }
 
@@ -282,7 +243,6 @@ export default function AdminHorariosPage() {
     }
 
     // Ultimate fallback: visible gray color (not bg-primary which may be transparent)
-    console.warn(`[COLOR] No color found for discipline: "${disciplineName}"`)
     return 'bg-gray-600'
   }
 
@@ -317,15 +277,6 @@ export default function AdminHorariosPage() {
     const disciplineId = selectedDisciplineId
     const instructorId = selectedInstructorId
     const dayOfWeek = selectedDayOfWeek
-
-    // DEBUG: Log form data for verification
-    console.log('[ADMIN HORARIOS] ========== FORM SUBMIT ==========')
-    console.log('[ADMIN HORARIOS] Using CONTROLLED STATE (not FormData):')
-    console.log('[ADMIN HORARIOS] disciplineId:', disciplineId)
-    console.log('[ADMIN HORARIOS] instructorId:', instructorId)
-    console.log('[ADMIN HORARIOS] dayOfWeek:', dayOfWeek)
-    console.log('[ADMIN HORARIOS] Available disciplines:', disciplines.map(d => ({ id: d.id, name: d.name, slug: d.slug })))
-    console.log('[ADMIN HORARIOS] Available instructors:', instructors.map(i => ({ id: i.id, name: i.name })))
 
     // Validate that we have the required IDs
     if (!disciplineId) {
@@ -386,24 +337,16 @@ export default function AdminHorariosPage() {
 
         const data = await response.json()
 
-        console.log('[ADMIN HORARIOS] === POST RESPONSE ===')
-        console.log('[ADMIN HORARIOS] Status:', response.status)
-        console.log('[ADMIN HORARIOS] Response data:', JSON.stringify(data, null, 2))
-
         if (!response.ok) {
-          console.log('[ADMIN HORARIOS] ERROR - No cerrando modal')
           showError(data.error || 'Error al crear la clase')
           return
         }
 
-        console.log('[ADMIN HORARIOS] SUCCESS - Refreshing classes...')
         showSuccess(data.message || 'Clase creada correctamente')
       }
 
       // Refresh classes
-      console.log('[ADMIN HORARIOS] Calling fetchClasses()...')
       await fetchClasses()
-      console.log('[ADMIN HORARIOS] fetchClasses() completed, closing modal')
       setIsModalOpen(false)
     } catch (error) {
       console.error('Error saving class:', error)
@@ -521,23 +464,11 @@ export default function AdminHorariosPage() {
         <div className="grid grid-cols-7 min-h-[500px] max-h-[700px]">
           {weekDates.map((date, dayIndex) => {
             const dayClasses = getClassesForDay(date)
-            // DEBUG: Log classes for each day
-            if (dayClasses.length > 0) {
-              console.log(`[RENDER] Day ${date.getDate()} (${weekDays[date.getDay()]}): ${dayClasses.length} classes`,
-                dayClasses.map(c => ({ discipline: c.discipline, time: c.time, dateTime: c.dateTime }))
-              )
-            }
             return (
               <div
                 key={dayIndex}
                 className="border-r last:border-r-0 border-beige p-2 space-y-2 overflow-y-auto max-h-[650px]"
               >
-                {/* DEBUG: Show class count per day */}
-                {dayClasses.length > 0 && (
-                  <div className="text-xs text-gray-400 text-center mb-1">
-                    {dayClasses.length} clases
-                  </div>
-                )}
                 {dayClasses.map((cls) => (
                   <div
                     key={cls.id}
