@@ -3,10 +3,24 @@ import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 
+// Only return the 7 official packages
+const OFFICIAL_PACKAGE_SLUGS = [
+  'drop-in-class',
+  'mini-flow-4',
+  'balance-pass-8',
+  'energia-total-12',
+  'vital-plan-16',
+  'full-access-24',
+  'wellnest-trimestral-80',
+]
+
 export async function GET() {
   try {
     const packages = await prisma.package.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        slug: { in: OFFICIAL_PACKAGE_SLUGS },
+      },
       include: {
         disciplines: {
           include: {
@@ -16,6 +30,8 @@ export async function GET() {
       },
       orderBy: { order: 'asc' },
     })
+
+    console.log(`[PACKAGES API] Returning ${packages.length} official packages`)
 
     return NextResponse.json(packages)
   } catch (error) {
