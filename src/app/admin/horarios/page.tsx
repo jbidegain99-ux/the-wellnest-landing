@@ -214,16 +214,30 @@ export default function AdminHorariosPage() {
 
   const getClassesForDay = (date: Date) => {
     // Filter classes for this specific date
-    return classes
-      .filter((cls) => {
-        const classDate = new Date(cls.dateTime)
-        return (
-          classDate.getDate() === date.getDate() &&
-          classDate.getMonth() === date.getMonth() &&
-          classDate.getFullYear() === date.getFullYear()
-        )
+    // IMPORTANT: Compare dates in local timezone for correct display
+    const targetDateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
+    const filtered = classes.filter((cls) => {
+      const classDate = new Date(cls.dateTime)
+      const classDateStr = `${classDate.getFullYear()}-${String(classDate.getMonth() + 1).padStart(2, '0')}-${String(classDate.getDate()).padStart(2, '0')}`
+      return classDateStr === targetDateStr
+    })
+
+    // Debug logging for first call
+    if (date.getDay() === 1 && classes.length > 0) { // Monday
+      console.log('[ADMIN HORARIOS] getClassesForDay debug for Monday:', {
+        targetDate: targetDateStr,
+        totalClasses: classes.length,
+        matchedClasses: filtered.length,
+        sampleClassDates: classes.slice(0, 3).map(c => ({
+          discipline: c.discipline,
+          dateTimeRaw: c.dateTime,
+          parsedLocal: new Date(c.dateTime).toLocaleString(),
+        })),
       })
-      .sort((a, b) => a.time.localeCompare(b.time))
+    }
+
+    return filtered.sort((a, b) => a.time.localeCompare(b.time))
   }
 
   const getDisciplineColorForClass = (disciplineName: string) => {
