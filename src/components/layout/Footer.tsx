@@ -45,7 +45,7 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-2">
             <Link href="/" className="inline-block">
-              <span className="font-logo text-3xl font-bold tracking-[0.1em] text-[#453C34]">
+              <span className="font-logo text-3xl font-normal tracking-[0.1em] text-[#453C34]">
                 wellnest.
               </span>
             </Link>

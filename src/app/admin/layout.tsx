@@ -89,7 +89,7 @@ export default function AdminLayout({
           {/* Logo */}
           <div className="p-6 border-b border-beige">
             <Link href="/admin" className="flex items-center gap-2">
-              <span className="font-logo text-2xl font-light tracking-[0.1em] text-[#453C34]">
+              <span className="font-logo text-2xl font-normal tracking-[0.1em] text-[#453C34]">
                 wellnest.
               </span>
             </Link>

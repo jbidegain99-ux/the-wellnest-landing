@@ -254,7 +254,7 @@ async function main() {
       shortDescription: 'Ideal para fluir a tu propio ritmo',
       fullDescription: 'Perfecta para regalarte un momento consciente, probar una disciplina o adaptarte a semanas con horarios cambiantes.',
       classCount: 1,
-      price: 10.00,
+      price: 15.00,
       currency: 'USD',
       validityDays: 5,
       validityText: null,
