@@ -54,7 +54,7 @@ export default async function PaquetesPage() {
       <section className="pt-32 pb-16 bg-gradient-to-b from-beige to-cream">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-medium text-foreground mb-6">
-            Paquetes de Clases · The Wellnest
+            Paquetes de Clases Wellnest
           </h1>
           <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
             Elige el paquete que mejor se adapte a ti. Recuerda: puedes usar tus

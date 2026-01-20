@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// Only return the 5 official disciplines
+// Only return the 4 official class disciplines (nutricion is not a class)
 const OFFICIAL_DISCIPLINE_SLUGS = [
   'yoga',
   'pilates',
   'pole',
   'soundbath',
-  'nutricion',
 ]
 
 export async function GET() {

@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   Image,
   RefreshCcw,
+  KeyRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'Instructores', href: '/admin/instructores', icon: UserCheck },
   { name: 'Promociones', href: '/admin/promociones', icon: Tag },
   { name: 'Reembolsos', href: '/admin/reembolsos', icon: RefreshCcw },
+  { name: 'Contraseñas', href: '/admin/reset-password', icon: KeyRound },
   { name: 'Brand Assets', href: '/admin/assets', icon: Image },
   { name: 'Configuración', href: '/admin/configuracion', icon: Settings },
 ]
@@ -87,7 +89,7 @@ export default function AdminLayout({
           {/* Logo */}
           <div className="p-6 border-b border-beige">
             <Link href="/admin" className="flex items-center gap-2">
-              <span className="font-logo text-2xl font-light tracking-[0.1em] text-[#453C34]">
+              <span className="font-logo text-2xl font-normal tracking-[0.1em] text-[#453C34]">
                 wellnest.
               </span>
             </Link>
