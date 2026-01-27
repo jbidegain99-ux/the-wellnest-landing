@@ -106,8 +106,8 @@ export async function POST(request: Request) {
 
     // 5. Check if order is already PAID (idempotency)
     if (order.status === 'PAID') {
-      console.log('[PAYWAY CALLBACK] Order already PAID, redirecting to success:', orderId)
-      return NextResponse.redirect(new URL(`/checkout/success/${orderId}`, request.url))
+      console.log('[PAYWAY CALLBACK] Order already PAID, redirecting to packages:', orderId)
+      return NextResponse.redirect(new URL(`/perfil/paquetes?payment=success`, request.url))
     }
 
     // 6. Check if order is in PENDING status
@@ -151,8 +151,8 @@ export async function POST(request: Request) {
       purchaseCount: result.purchases?.length,
     })
 
-    // 8. Redirect to success page
-    return NextResponse.redirect(new URL(`/checkout/success/${orderId}`, request.url))
+    // 8. Redirect to packages page with success flag
+    return NextResponse.redirect(new URL(`/perfil/paquetes?payment=success`, request.url))
   } catch (error) {
     console.error('[PAYWAY CALLBACK] Error processing callback:', error)
 
@@ -218,7 +218,7 @@ export async function GET(request: Request) {
         })
 
         if (result.success) {
-          return NextResponse.redirect(new URL(`/checkout/success/${orderId}`, request.url))
+          return NextResponse.redirect(new URL(`/perfil/paquetes?payment=success`, request.url))
         }
       }
     }
@@ -230,7 +230,7 @@ export async function GET(request: Request) {
   })
 
   if (order?.status === 'PAID') {
-    return NextResponse.redirect(new URL(`/checkout/success/${orderId}`, request.url))
+    return NextResponse.redirect(new URL(`/perfil/paquetes?payment=success`, request.url))
   }
 
   // Default: redirect back to payment page

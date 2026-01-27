@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Package, Calendar, AlertCircle, ArrowRight, Loader2 } from 'lucide-react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { Package, Calendar, AlertCircle, ArrowRight, Loader2, CheckCircle2, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -28,9 +29,26 @@ interface PurchasesData {
 }
 
 export default function PaquetesPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [data, setData] = React.useState<PurchasesData | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+  const [showSuccessToast, setShowSuccessToast] = React.useState(false)
+
+  // Check for payment success query param
+  React.useEffect(() => {
+    if (searchParams.get('payment') === 'success') {
+      setShowSuccessToast(true)
+      // Clean up URL
+      router.replace('/perfil/paquetes', { scroll: false })
+      // Auto-hide after 3 seconds
+      const timer = setTimeout(() => {
+        setShowSuccessToast(false)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams, router])
 
   React.useEffect(() => {
     const fetchPurchases = async () => {
@@ -76,6 +94,27 @@ export default function PaquetesPage() {
 
   return (
     <div className="space-y-8">
+      {/* Success Toast */}
+      {showSuccessToast && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+          <div className="bg-white border border-primary/20 shadow-lg rounded-xl p-4 flex items-center gap-3 min-w-[320px]">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-foreground">Pago exitoso</p>
+              <p className="text-sm text-gray-600">Tu paquete ha sido activado</p>
+            </div>
+            <button
+              onClick={() => setShowSuccessToast(false)}
+              className="p-1 hover:bg-beige rounded-full transition-colors"
+            >
+              <X className="h-4 w-4 text-gray-400" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
