@@ -19,18 +19,9 @@ export async function POST(request: Request) {
   console.log('[PAYWAY CALLBACK] Received callback')
 
   try {
-    // 1. Get orderId from query string
     const url = new URL(request.url)
-    const orderId = url.searchParams.get('oid')
 
-    if (!orderId) {
-      console.error('[PAYWAY CALLBACK] Missing orderId in query string')
-      return NextResponse.json({ error: 'Missing orderId' }, { status: 400 })
-    }
-
-    console.log('[PAYWAY CALLBACK] Processing for order:', orderId)
-
-    // 2. Parse form data from PayWay
+    // 1. Parse form data from PayWay first (we need it to extract orderId)
     let formData: Record<string, string> = {}
 
     const contentType = request.headers.get('content-type') || ''
@@ -53,13 +44,47 @@ export async function POST(request: Request) {
     }
 
     console.log('[PAYWAY CALLBACK] Received data keys:', Object.keys(formData))
+    console.log('[PAYWAY CALLBACK] Form data:', formData)
+
+    // 2. Get orderId from multiple sources
+    let orderId = url.searchParams.get('oid')
+
+    // Try to extract from serviceProduct if not in query string
+    // serviceProduct format: "wellnest_order_<orderId>"
+    if (!orderId && formData.serviceProduct) {
+      const match = formData.serviceProduct.match(/wellnest_order_(.+)/)
+      if (match) {
+        orderId = match[1]
+        console.log('[PAYWAY CALLBACK] Extracted orderId from serviceProduct:', orderId)
+      }
+    }
+
+    // Also try pwoServiceProduct (PayWay might use this name)
+    if (!orderId && formData.pwoServiceProduct) {
+      const match = formData.pwoServiceProduct.match(/wellnest_order_(.+)/)
+      if (match) {
+        orderId = match[1]
+        console.log('[PAYWAY CALLBACK] Extracted orderId from pwoServiceProduct:', orderId)
+      }
+    }
+
+    if (!orderId) {
+      console.error('[PAYWAY CALLBACK] Could not find orderId in query or body')
+      console.error('[PAYWAY CALLBACK] Available fields:', Object.keys(formData))
+      return NextResponse.json({
+        error: 'Missing orderId',
+        availableFields: Object.keys(formData)
+      }, { status: 400 })
+    }
+
+    console.log('[PAYWAY CALLBACK] Processing for order:', orderId)
 
     // 3. Parse callback data
     const callbackData = parsePaywayCallback(url.searchParams, formData)
 
-    if (!callbackData) {
-      console.error('[PAYWAY CALLBACK] Failed to parse callback data')
-      return NextResponse.json({ error: 'Invalid callback data' }, { status: 400 })
+    // We already have orderId, so update callbackData
+    if (callbackData) {
+      callbackData.orderId = orderId
     }
 
     // 4. Verify order exists
