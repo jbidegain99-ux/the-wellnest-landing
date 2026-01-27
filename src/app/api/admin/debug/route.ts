@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// Force dynamic rendering (uses headers via getServerSession)
+export const dynamic = 'force-dynamic'
+
 // Official data for duplicate detection
 const OFFICIAL_DISCIPLINE_SLUGS = ['yoga', 'pilates', 'pole', 'soundbath', 'nutricion']
 const OFFICIAL_INSTRUCTOR_IDS = [
