@@ -43,7 +43,13 @@ export async function POST(request: Request) {
     // 2. Get orderId from multiple sources
     let orderId = url.searchParams.get('oid')
 
-    // Try to extract from serviceProduct if not in query string
+    // Check if oid is in the form data body (PayWay sends it here)
+    if (!orderId && formData.oid) {
+      orderId = formData.oid
+      console.log('[PAYWAY DENIED] Found orderId in form data body:', orderId)
+    }
+
+    // Try to extract from serviceProduct if not found yet
     if (!orderId && formData.serviceProduct) {
       const match = formData.serviceProduct.match(/wellnest_order_(.+)/)
       if (match) {
