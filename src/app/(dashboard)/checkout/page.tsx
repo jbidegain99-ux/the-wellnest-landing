@@ -130,31 +130,56 @@ export default function CheckoutPage() {
     })
 
     try {
-      const response = await fetch('/api/checkout', {
+      // For free orders, use the old checkout flow
+      if (isFreeOrder) {
+        const response = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            discountCode: appliedDiscount?.code,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          console.log('[CHECKOUT] Free order success!')
+          setPurchases(data.purchases || [])
+          setIsComplete(true)
+          sessionStorage.removeItem('cartDiscount')
+        } else {
+          setError(data.error || 'Error al procesar la orden')
+        }
+        return
+      }
+
+      // For paid orders, create Order and redirect to PayWay
+      const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           discountCode: appliedDiscount?.code,
+          paymentMethod: 'payway',
         }),
       })
 
       const data = await response.json()
 
-      console.log('[CHECKOUT] Response:', {
+      console.log('[CHECKOUT] Order response:', {
         ok: response.ok,
         status: response.status,
         data
       })
 
-      if (response.ok) {
-        console.log('[CHECKOUT] Success! Purchases:', data.purchases)
-        setPurchases(data.purchases || [])
-        setIsComplete(true)
+      if (response.ok && data.order?.id) {
+        console.log('[CHECKOUT] Order created, redirecting to PayWay:', data.order.id)
         // Clear discount from sessionStorage
         sessionStorage.removeItem('cartDiscount')
+        // Redirect to PayWay checkout
+        router.push(`/checkout/payway/${data.order.id}`)
       } else {
         console.error('[CHECKOUT] Error:', data.error)
-        setError(data.error || 'Error al procesar el pago')
+        setError(data.error || 'Error al crear la orden')
       }
     } catch (err) {
       console.error('[CHECKOUT] Network error:', err)
@@ -288,18 +313,16 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Test mode or Free order banner */}
-      {showSimplifiedForm && (
+      {/* Free order banner */}
+      {isFreeOrder && (
         <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
           <TestTube2 className="h-5 w-5 text-amber-600" />
           <div className="flex-1">
             <p className="font-medium text-amber-800">
-              {isFreeOrder ? '¡Orden gratuita!' : 'Modo de prueba activo'}
+              ¡Orden gratuita!
             </p>
             <p className="text-sm text-amber-700">
-              {isFreeOrder
-                ? 'Tu código de descuento cubre el 100% del total. No se requiere pago.'
-                : 'Los pagos serán simulados. No se realizarán cargos reales.'}
+              Tu codigo de descuento cubre el 100% del total. No se requiere pago.
             </p>
           </div>
         </div>
@@ -325,51 +348,33 @@ export default function CheckoutPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {showSimplifiedForm ? (
-                  // Test mode or Free order - simplified form
+                {isFreeOrder ? (
+                  // Free order - no payment needed
                   <div className="text-center py-6">
                     <TestTube2 className="h-12 w-12 mx-auto text-amber-500 mb-4" />
                     <p className="text-gray-600 mb-2">
-                      {isFreeOrder
-                        ? '¡Tu descuento cubre el 100% del total!'
-                        : 'En modo prueba, el pago se simula automáticamente.'}
+                      ¡Tu descuento cubre el 100% del total!
                     </p>
                     <p className="text-sm text-gray-500">
-                      {isFreeOrder
-                        ? 'Haz clic en "Confirmar" para activar tu paquete gratis.'
-                        : 'Haz clic en "Confirmar compra" para activar tu paquete.'}
+                      Haz clic en "Confirmar" para activar tu paquete gratis.
                     </p>
                   </div>
                 ) : (
-                  // Production mode - full payment form (for future Stripe integration)
-                  <>
-                    <Input
-                      label="Nombre en la tarjeta"
-                      placeholder="Como aparece en la tarjeta"
-                      required
-                    />
-
-                    <Input
-                      label="Número de tarjeta"
-                      placeholder="1234 5678 9012 3456"
-                      required
-                    />
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        label="Fecha de expiración"
-                        placeholder="MM/AA"
-                        required
-                      />
-                      <Input
-                        label="CVV"
-                        placeholder="123"
-                        type="password"
-                        maxLength={4}
-                        required
-                      />
+                  // PayWay payment - show info and redirect
+                  <div className="text-center py-6">
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      <Lock className="h-8 w-8 text-primary" />
+                      <span className="font-serif text-xl font-semibold text-foreground">
+                        PayWay One
+                      </span>
                     </div>
-                  </>
+                    <p className="text-gray-600 mb-2">
+                      Pago seguro con Banco Cuscatlan
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Haz clic en "Continuar al pago" para procesar tu tarjeta de forma segura.
+                    </p>
+                  </div>
                 )}
 
                 <div className="flex items-center gap-2 p-4 bg-beige rounded-lg">
@@ -389,9 +394,7 @@ export default function CheckoutPage() {
                     ? 'Procesando...'
                     : isFreeOrder
                     ? 'Confirmar Paquete Gratis'
-                    : showSimplifiedForm
-                    ? `Confirmar compra ${formatPrice(total)}`
-                    : `Pagar ${formatPrice(total)}`}
+                    : `Continuar al pago ${formatPrice(total)}`}
                 </Button>
               </CardContent>
             </Card>
@@ -400,11 +403,11 @@ export default function CheckoutPage() {
           {/* Payment methods */}
           <div className="mt-6 flex items-center justify-center gap-4">
             <span className="text-sm text-gray-500">
-              {isFreeOrder ? 'Orden gratuita' : showSimplifiedForm ? 'Modo prueba' : 'Procesado por'}
+              {isFreeOrder ? 'Orden gratuita' : 'Procesado por'}
             </span>
             <div className="flex items-center gap-2 text-gray-400">
               <span className="font-bold">
-                {isFreeOrder ? 'Descuento 100%' : showSimplifiedForm ? 'Sin cargos reales' : 'Stripe'}
+                {isFreeOrder ? 'Descuento 100%' : 'PayWay One - Banco Cuscatlan'}
               </span>
             </div>
           </div>
