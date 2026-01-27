@@ -14,18 +14,9 @@ export async function POST(request: Request) {
   console.log('[PAYWAY DENIED] Received denied callback')
 
   try {
-    // 1. Get orderId from query string
     const url = new URL(request.url)
-    const orderId = url.searchParams.get('oid')
 
-    if (!orderId) {
-      console.error('[PAYWAY DENIED] Missing orderId in query string')
-      return NextResponse.redirect(new URL('/checkout?error=missing_order', request.url))
-    }
-
-    console.log('[PAYWAY DENIED] Processing for order:', orderId)
-
-    // 2. Parse form data from PayWay
+    // 1. Parse form data from PayWay first
     let formData: Record<string, string> = {}
 
     const contentType = request.headers.get('content-type') || ''
@@ -48,6 +39,33 @@ export async function POST(request: Request) {
     }
 
     console.log('[PAYWAY DENIED] Received data keys:', Object.keys(formData))
+
+    // 2. Get orderId from multiple sources
+    let orderId = url.searchParams.get('oid')
+
+    // Try to extract from serviceProduct if not in query string
+    if (!orderId && formData.serviceProduct) {
+      const match = formData.serviceProduct.match(/wellnest_order_(.+)/)
+      if (match) {
+        orderId = match[1]
+        console.log('[PAYWAY DENIED] Extracted orderId from serviceProduct:', orderId)
+      }
+    }
+
+    if (!orderId && formData.pwoServiceProduct) {
+      const match = formData.pwoServiceProduct.match(/wellnest_order_(.+)/)
+      if (match) {
+        orderId = match[1]
+        console.log('[PAYWAY DENIED] Extracted orderId from pwoServiceProduct:', orderId)
+      }
+    }
+
+    if (!orderId) {
+      console.error('[PAYWAY DENIED] Missing orderId')
+      return NextResponse.redirect(new URL('/checkout?error=missing_order', request.url))
+    }
+
+    console.log('[PAYWAY DENIED] Processing for order:', orderId)
 
     // 3. Parse callback data
     const callbackData = parsePaywayCallback(url.searchParams, formData)
