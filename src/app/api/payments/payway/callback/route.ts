@@ -101,22 +101,24 @@ export async function POST(request: Request) {
     if (!order) {
       console.error('[PAYWAY CALLBACK] Order not found:', orderId)
       // Still redirect to avoid exposing order existence
-      return NextResponse.redirect(new URL(`/checkout/payway/${orderId}?status=error`, request.url))
+      // Use 303 status to force GET request
+      return NextResponse.redirect(new URL(`/checkout/payway/${orderId}?status=error`, request.url), 303)
     }
 
     // 5. Check if order is already PAID (idempotency)
     if (order.status === 'PAID') {
       console.log('[PAYWAY CALLBACK] Order already PAID, redirecting to success:', orderId)
       // Redirect to public success page (not protected by auth)
-      // This page will then use client-side navigation to /perfil/paquetes
-      return NextResponse.redirect(new URL(`/payment/success?oid=${orderId}`, request.url))
+      // Use 303 status to force GET request (307 would preserve POST method)
+      return NextResponse.redirect(new URL(`/payment/success?oid=${orderId}`, request.url), 303)
     }
 
     // 6. Check if order is in PENDING status
     if (order.status !== 'PENDING') {
       console.error('[PAYWAY CALLBACK] Order not PENDING:', { orderId, status: order.status })
       return NextResponse.redirect(
-        new URL(`/checkout/payway/${orderId}?status=error&reason=invalid_status`, request.url)
+        new URL(`/checkout/payway/${orderId}?status=error&reason=invalid_status`, request.url),
+        303
       )
     }
 
@@ -140,7 +142,8 @@ export async function POST(request: Request) {
     if (!result.success) {
       console.error('[PAYWAY CALLBACK] Failed to process payment:', result.error)
       return NextResponse.redirect(
-        new URL(`/checkout/payway/${orderId}?status=error&reason=processing_failed`, request.url)
+        new URL(`/checkout/payway/${orderId}?status=error&reason=processing_failed`, request.url),
+        303
       )
     }
 
@@ -155,7 +158,8 @@ export async function POST(request: Request) {
 
     // 8. Redirect to public success page (not protected by auth)
     // This avoids session cookie issues with cross-site redirects
-    return NextResponse.redirect(new URL(`/payment/success?oid=${orderId}`, request.url))
+    // Use 303 status to force GET request (307 would preserve POST method)
+    return NextResponse.redirect(new URL(`/payment/success?oid=${orderId}`, request.url), 303)
   } catch (error) {
     console.error('[PAYWAY CALLBACK] Error processing callback:', error)
 
@@ -165,7 +169,8 @@ export async function POST(request: Request) {
 
     if (orderId) {
       return NextResponse.redirect(
-        new URL(`/checkout/payway/${orderId}?status=error&reason=server_error`, request.url)
+        new URL(`/checkout/payway/${orderId}?status=error&reason=server_error`, request.url),
+        303
       )
     }
 
