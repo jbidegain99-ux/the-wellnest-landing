@@ -14,11 +14,16 @@ import {
   RefreshCw,
   XCircle,
   ShieldCheck,
+  Check,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/lib/utils'
+
+// Texto del checkbox de términos (obligatorio)
+const TERMS_CHECKBOX_TEXT = 'He leído y acepto los Términos y Condiciones y confirmo que practico bajo mi propia responsabilidad. La participación en las actividades de Wellnest se realiza bajo responsabilidad personal. El usuario declara que su estado de salud le permite realizar actividad física.'
 
 // PayWay global type declaration
 declare global {
@@ -61,6 +66,7 @@ interface Order {
   discount: number
   total: number
   discountCode?: string
+  termsAcceptedAt?: string | null
   items: OrderItem[]
 }
 
@@ -94,6 +100,9 @@ export default function PayWayCheckoutPage() {
   const [scriptUrl, setScriptUrl] = React.useState<string>('')
   const [scriptLoaded, setScriptLoaded] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [acceptedTerms, setAcceptedTerms] = React.useState(false)
+  const [termsError, setTermsError] = React.useState(false)
+  const [updatingTerms, setUpdatingTerms] = React.useState(false)
 
   // Fetch order data on mount
   React.useEffect(() => {
@@ -144,6 +153,10 @@ export default function PayWayCheckoutPage() {
       }
 
       setOrder(data.order)
+      // Si la orden ya tiene términos aceptados, marcar el checkbox
+      if (data.order.termsAcceptedAt) {
+        setAcceptedTerms(true)
+      }
       setPageStatus('ready')
     } catch (err) {
       console.error('Error fetching order:', err)
@@ -152,12 +165,57 @@ export default function PayWayCheckoutPage() {
     }
   }
 
+  // Función para actualizar la aceptación de términos
+  const updateTermsAcceptance = async (accept: boolean) => {
+    if (!order) return
+
+    setUpdatingTerms(true)
+    setTermsError(false)
+
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          acceptTerms: accept,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setAcceptedTerms(accept)
+        // Actualizar la orden local
+        setOrder({
+          ...order,
+          termsAcceptedAt: data.order.termsAcceptedAt,
+        })
+      } else {
+        setError(data.error || 'Error al actualizar términos')
+      }
+    } catch (err) {
+      console.error('Error updating terms:', err)
+      setError('Error de conexión. Por favor intenta de nuevo.')
+    } finally {
+      setUpdatingTerms(false)
+    }
+  }
+
   const initializePayment = async () => {
     if (!order) return
+
+    // Validar términos aceptados (client-side)
+    if (!acceptedTerms) {
+      setTermsError(true)
+      setError('Debes aceptar los Términos y Condiciones antes de pagar')
+      return
+    }
 
     try {
       setPageStatus('initializing')
       setError(null)
+      setTermsError(false)
 
       // 1. Get encrypted payload from server
       const response = await fetch('/api/payments/payway/init', {
@@ -169,6 +227,11 @@ export default function PayWayCheckoutPage() {
       const data = await response.json()
 
       if (!response.ok) {
+        // Si el error es por términos no aceptados, mostrar error específico
+        if (data.termsRequired) {
+          setTermsError(true)
+          setAcceptedTerms(false)
+        }
         setError(data.error || 'Error al inicializar el pago')
         setPageStatus('error')
         return
@@ -390,18 +453,101 @@ export default function PayWayCheckoutPage() {
 
               {/* Payment states */}
               {pageStatus === 'ready' && (
-                <div className="text-center py-4">
-                  <p className="text-gray-600 mb-6">
-                    Haz clic en el boton para abrir la ventana de pago seguro.
-                  </p>
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto min-w-[250px]"
-                    onClick={initializePayment}
-                  >
-                    <CreditCard className="h-5 w-5 mr-2" />
-                    Pagar con tarjeta
-                  </Button>
+                <div className="space-y-6 py-4">
+                  {/* Checkbox de Términos y Condiciones (si no están aceptados) */}
+                  {!order?.termsAcceptedAt && (
+                    <div className={`p-4 rounded-lg border-2 transition-colors ${
+                      termsError
+                        ? 'border-red-500 bg-red-50'
+                        : acceptedTerms
+                        ? 'border-primary/50 bg-primary/5'
+                        : 'border-beige bg-beige/50'
+                    }`}>
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <div className="relative flex-shrink-0 mt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={acceptedTerms}
+                            onChange={(e) => {
+                              const checked = e.target.checked
+                              setAcceptedTerms(checked)
+                              if (checked) {
+                                setTermsError(false)
+                                setError(null)
+                                // Guardar aceptación en la orden
+                                updateTermsAcceptance(true)
+                              }
+                            }}
+                            disabled={updatingTerms}
+                            className="sr-only peer"
+                            aria-describedby="terms-description-payway"
+                            aria-invalid={termsError}
+                            aria-required="true"
+                          />
+                          <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
+                            acceptedTerms
+                              ? 'bg-primary border-primary'
+                              : termsError
+                              ? 'border-red-500 bg-white'
+                              : 'border-gray-400 bg-white'
+                          }`}>
+                            {acceptedTerms && (
+                              <Check className="h-3.5 w-3.5 text-white" />
+                            )}
+                            {updatingTerms && (
+                              <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                            )}
+                          </div>
+                        </div>
+                        <span id="terms-description-payway" className="text-sm text-gray-700 leading-relaxed">
+                          <FileText className="h-4 w-4 inline-block mr-1 text-primary" />
+                          {TERMS_CHECKBOX_TEXT}{' '}
+                          <Link
+                            href="/terminos"
+                            target="_blank"
+                            className="text-primary hover:underline font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Ver Términos completos
+                          </Link>
+                        </span>
+                      </label>
+                      {termsError && (
+                        <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                          <AlertCircle className="h-4 w-4" />
+                          Debes aceptar los Términos y Condiciones
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Términos ya aceptados */}
+                  {order?.termsAcceptedAt && (
+                    <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                      <Check className="h-5 w-5 text-primary flex-shrink-0" />
+                      <p className="text-sm text-gray-700">
+                        Has aceptado los{' '}
+                        <Link href="/terminos" target="_blank" className="text-primary hover:underline">
+                          Términos y Condiciones
+                        </Link>
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="text-center">
+                    <p className="text-gray-600 mb-6">
+                      Haz clic en el boton para abrir la ventana de pago seguro.
+                    </p>
+                    <Button
+                      size="lg"
+                      className="w-full sm:w-auto min-w-[250px]"
+                      onClick={initializePayment}
+                      disabled={!acceptedTerms && !order?.termsAcceptedAt}
+                    >
+                      <CreditCard className="h-5 w-5 mr-2" />
+                      Pagar con tarjeta
+                    </Button>
+                  </div>
                 </div>
               )}
 

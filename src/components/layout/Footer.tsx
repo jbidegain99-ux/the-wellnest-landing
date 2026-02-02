@@ -9,6 +9,7 @@ const navigation = {
     { name: 'Yoga', href: '/clases#yoga' },
     { name: 'Pilates Mat', href: '/clases#pilates' },
     { name: 'Pole Fitness', href: '/clases#pole' },
+    { name: 'Aro y Telas', href: '/clases#aro-telas' },
     { name: 'Terapia de Sonido', href: '/clases#terapia-de-sonido' },
     { name: 'Nutrición', href: '/clases#nutricion' },
   ],
@@ -139,8 +140,18 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Bottom */}
+        {/* Disclaimer - Términos y Condiciones */}
         <div className="mt-12 pt-8 border-t border-beige-dark">
+          <div className="bg-beige-dark/30 rounded-lg p-4 mb-6">
+            <p className="text-xs text-gray-600 leading-relaxed text-center">
+              <strong>Aviso Legal:</strong> Wellnest no se hace responsable por lesiones o condiciones médicas derivadas de la práctica de actividades físicas. Cada participante es responsable de conocer su estado de salud y practicar bajo su propia responsabilidad.{' '}
+              <Link href="/terminos" className="text-primary hover:underline">
+                Ver Términos y Condiciones completos
+              </Link>
+            </p>
+          </div>
+
+          {/* Bottom */}
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-gray-600">
               © {new Date().getFullYear()} wellnest. Todos los derechos reservados.

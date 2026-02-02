@@ -72,6 +72,15 @@ export async function POST(request: Request) {
       )
     }
 
+    // 5.1 Verify terms were accepted (OBLIGATORIO - server-side validation)
+    if (!order.termsAcceptedAt) {
+      console.log('[PAYWAY INIT] Terms not accepted for order:', orderId)
+      return NextResponse.json(
+        { error: 'Debes aceptar los Términos y Condiciones antes de pagar', termsRequired: true },
+        { status: 400 }
+      )
+    }
+
     // 6. Check PayWay configuration
     const config = getPaywayConfig()
 

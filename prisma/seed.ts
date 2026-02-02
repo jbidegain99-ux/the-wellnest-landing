@@ -74,6 +74,19 @@ async function main() {
         order: 5,
       },
     }),
+    prisma.discipline.upsert({
+      where: { slug: 'aro-telas' },
+      update: {},
+      create: {
+        name: 'Aro y Telas',
+        slug: 'aro-telas',
+        description:
+          'Aro y Telas (aéreos) es una mezcla perfecta de potencia y ligereza: desarrollas fuerza real, control y flexibilidad mientras aprendés a moverte en el aire con técnica y gracia. Te guiamos paso a paso en un ambiente seguro y motivador, para que disfrutes el proceso, construyas confianza y celebres cada logro—sin prisa, sin presión.',
+        benefits:
+          'Fuerza de agarre y antebrazos, estabilidad de hombros y espalda alta, técnica de subidas y control de descenso en telas, control de giros, balances y transiciones en aro, flexibilidad para líneas y aperturas en el aire.',
+        order: 6,
+      },
+    }),
   ])
 
   console.log('Created disciplines:', disciplines.length)
@@ -134,22 +147,22 @@ async function main() {
       where: { id: 'instructor-adriana' },
       update: {
         name: 'Adriana Bidegain',
-        headline: 'Nutricionista · Especialidad en Naturopatía · Instructora de Terapia de Sonido (Soundbath)',
+        headline: 'Facilitadora de Soundbath (terapia de sonido) · Instructora de Pilates Clásico · Nutricionista · Especialidad en Naturopatía',
         bio: 'Facilita la calma profunda con soundbath y meditaciones guiadas.',
         shortBio: 'Facilita la calma profunda con soundbath y meditaciones guiadas, apoyando la regulación del sistema nervioso. Te acompaña a volver a tu centro y nutrir tu ser con presencia, suavidad e intención.',
-        tags: ['Terapia de Sonido', 'Nutrición', 'Naturopatía'],
-        disciplines: ['Terapia de Sonido', 'Nutrición'],
+        tags: ['Soundbath', 'Pilates Clásico', 'Nutrición', 'Naturopatía'],
+        disciplines: ['Terapia de Sonido', 'Pilates', 'Nutrición'],
         isActive: true,
         order: 3,
       },
       create: {
         id: 'instructor-adriana',
         name: 'Adriana Bidegain',
-        headline: 'Nutricionista · Especialidad en Naturopatía · Instructora de Terapia de Sonido (Soundbath)',
+        headline: 'Facilitadora de Soundbath (terapia de sonido) · Instructora de Pilates Clásico · Nutricionista · Especialidad en Naturopatía',
         bio: 'Facilita la calma profunda con soundbath y meditaciones guiadas.',
         shortBio: 'Facilita la calma profunda con soundbath y meditaciones guiadas, apoyando la regulación del sistema nervioso. Te acompaña a volver a tu centro y nutrir tu ser con presencia, suavidad e intención.',
-        tags: ['Terapia de Sonido', 'Nutrición', 'Naturopatía'],
-        disciplines: ['Terapia de Sonido', 'Nutrición'],
+        tags: ['Soundbath', 'Pilates Clásico', 'Nutrición', 'Naturopatía'],
+        disciplines: ['Terapia de Sonido', 'Pilates', 'Nutrición'],
         isActive: true,
         order: 3,
       },
@@ -158,22 +171,22 @@ async function main() {
       where: { id: 'instructor-kevin' },
       update: {
         name: 'Kevin Cano',
-        headline: 'Lic. en Ciencias Aplicadas al Deporte y Educación Física · Instructor de Pole Fitness, Telas & Aéreo',
+        headline: 'Lic. en Ciencias Aplicadas al Deporte y Educación Física · Maestro de Yoga · Instructor de Pole Fitness, Telas & Aéreo',
         bio: 'Energía, técnica y seguridad en cada clase.',
         shortBio: 'Energía, técnica y seguridad en cada clase. Te acompaña a ganar fuerza, control y confianza, con un enfoque deportivo que respeta tu proceso y celebra tus avances paso a paso.',
-        tags: ['Pole Fitness', 'Telas', 'Aéreo', 'Entrenamiento Funcional'],
-        disciplines: ['Pole Fitness'],
+        tags: ['Yoga', 'Pole Fitness', 'Telas', 'Aéreo', 'Entrenamiento Funcional'],
+        disciplines: ['Yoga', 'Pole Fitness', 'Aro y Telas'],
         isActive: true,
         order: 4,
       },
       create: {
         id: 'instructor-kevin',
         name: 'Kevin Cano',
-        headline: 'Lic. en Ciencias Aplicadas al Deporte y Educación Física · Instructor de Pole Fitness, Telas & Aéreo',
+        headline: 'Lic. en Ciencias Aplicadas al Deporte y Educación Física · Maestro de Yoga · Instructor de Pole Fitness, Telas & Aéreo',
         bio: 'Energía, técnica y seguridad en cada clase.',
         shortBio: 'Energía, técnica y seguridad en cada clase. Te acompaña a ganar fuerza, control y confianza, con un enfoque deportivo que respeta tu proceso y celebra tus avances paso a paso.',
-        tags: ['Pole Fitness', 'Telas', 'Aéreo', 'Entrenamiento Funcional'],
-        disciplines: ['Pole Fitness'],
+        tags: ['Yoga', 'Pole Fitness', 'Telas', 'Aéreo', 'Entrenamiento Funcional'],
+        disciplines: ['Yoga', 'Pole Fitness', 'Aro y Telas'],
         isActive: true,
         order: 4,
       },
@@ -366,12 +379,30 @@ async function main() {
       isFeatured: false,
       order: 7,
     }),
+    upsertPackageBySlug({
+      slug: 'special-balance-5',
+      name: 'Special Balance (5 clases)',
+      subtitle: 'Movimiento + Nutrición',
+      shortDescription: 'Movimiento + Nutrición',
+      fullDescription: 'Un paquete especial diseñado para acompañarte de forma integral. Integra movimiento y nutrición para apoyar tu energía, tu equilibrio y tus objetivos de bienestar desde la raíz.',
+      classCount: 5,
+      price: 65.00,
+      currency: 'USD',
+      validityDays: 30,
+      validityText: null,
+      bulletsTop: ['5 clases', '1 consulta nutricional', '30 días de vigencia'],
+      bulletsBottom: ['Acceso a todas las disciplinas', 'Consulta nutricional enfocada en hábitos reales y sostenibles', 'Ideal para iniciar o retomar tu proceso de bienestar', 'Cancela tu clase 8 horas antes'],
+      isActive: true,
+      isFeatured: true,
+      order: 8,
+    }),
   ])
 
   // Desactivar paquetes viejos/de prueba (los que no tienen nuestros slugs oficiales)
   const officialSlugs = [
     'drop-in-class', 'mini-flow-4', 'balance-pass-8',
-    'energia-total-12', 'vital-plan-16', 'full-access-24', 'wellnest-trimestral-80'
+    'energia-total-12', 'vital-plan-16', 'full-access-24', 'wellnest-trimestral-80',
+    'special-balance-5'
   ]
   await prisma.package.updateMany({
     where: {
