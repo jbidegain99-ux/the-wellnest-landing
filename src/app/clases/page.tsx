@@ -8,11 +8,15 @@ import { getBrandAssets } from '@/lib/assets'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+// Duración estándar para todas las disciplinas (centralizado)
+const DEFAULT_CLASS_DURATION = '45 min'
+
 // Default images as fallback
 const DEFAULT_IMAGES = {
   yoga: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1200&q=80',
   pilates: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80',
   pole: 'https://images.unsplash.com/photo-1600618528240-fb9fc964b853?w=1200&q=80',
+  'aro-telas': 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80',
   'terapia-de-sonido': 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?w=1200&q=80',
   nutricion: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&q=80',
 }
@@ -22,6 +26,7 @@ const ASSET_KEYS = {
   yoga: 'discipline_yoga_image_url',
   pilates: 'discipline_pilates_image_url',
   pole: 'discipline_pole_image_url',
+  'aro-telas': 'discipline_aerials_image_url',
   'terapia-de-sonido': 'discipline_sound_image_url',
   nutricion: 'discipline_nutrition_image_url',
 }
@@ -41,7 +46,7 @@ const baseDisciplines = [
       'Favorece un descanso más profundo',
       'Apoya tu sistema inmunológico y bienestar integral',
     ],
-    duration: '60–75 min',
+    duration: DEFAULT_CLASS_DURATION,
     level: 'Todos los niveles',
     color: 'from-[#959D93]/50 to-[#7A9A6D]/50',
   },
@@ -59,7 +64,7 @@ const baseDisciplines = [
       'Definición muscular estilizada',
       'Tonificación equilibrada',
     ],
-    duration: '55 min',
+    duration: DEFAULT_CLASS_DURATION,
     level: 'Todos los niveles',
     color: 'from-[#111316]/50 to-[#2A2A2A]/50',
   },
@@ -75,9 +80,26 @@ const baseDisciplines = [
       'Desarrolla confianza y conexión con tu cuerpo',
       'Potencia la postura y la estabilidad del core',
     ],
-    duration: '60 min',
+    duration: DEFAULT_CLASS_DURATION,
     level: 'Todos los niveles',
     color: 'from-[#B0B0B0]/50 to-[#8A8A8A]/50',
+  },
+  {
+    id: 'aro-telas',
+    name: 'Aro y Telas',
+    tagline: 'Fluye con confianza',
+    description:
+      'Aro y Telas (aéreos) es una mezcla perfecta de potencia y ligereza: desarrollas fuerza real, control y flexibilidad mientras aprendés a moverte en el aire con técnica y gracia. Te guiamos paso a paso en un ambiente seguro y motivador, para que disfrutes el proceso, construyas confianza y celebres cada logro—sin prisa, sin presión.',
+    benefits: [
+      'Fuerza de agarre y antebrazos',
+      'Estabilidad de hombros y espalda alta',
+      'Técnica de subidas y control de descenso en telas',
+      'Control de giros, balances y transiciones en aro',
+      'Flexibilidad para líneas y aperturas en el aire',
+    ],
+    duration: DEFAULT_CLASS_DURATION,
+    level: 'Todos los niveles',
+    color: 'from-[#9B7BB8]/50 to-[#7A5A9E]/50',
   },
   {
     id: 'terapia-de-sonido',
@@ -92,7 +114,7 @@ const baseDisciplines = [
       'Libera tensión física y mental',
       'Aporta claridad y bienestar emocional',
     ],
-    duration: '40–60 min',
+    duration: DEFAULT_CLASS_DURATION,
     level: 'Todos los niveles',
     color: 'from-[#482F21]/50 to-[#5D4E42]/50',
   },
@@ -109,7 +131,7 @@ const baseDisciplines = [
       'Apoya tus objetivos de peso saludable y bienestar integral',
       'Creas hábitos sostenibles que se mantienen en el tiempo',
     ],
-    duration: '45–60 min',
+    duration: DEFAULT_CLASS_DURATION,
     level: 'Consulta individual',
     color: 'from-[#B8D4A8]/50 to-[#9AC088]/50',
   },

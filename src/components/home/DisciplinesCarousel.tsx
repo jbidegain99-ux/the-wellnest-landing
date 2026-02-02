@@ -13,6 +13,7 @@ const DEFAULT_IMAGES = {
   yoga: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=80',
   pilates: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=80',
   pole: 'https://images.unsplash.com/photo-1600618528240-fb9fc964b853?w=800&q=80',
+  'aro-telas': 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=80',
   sound: 'https://images.unsplash.com/photo-1518241353330-0f7941c2d9b5?w=800&q=80',
   nutrition: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&q=80',
 }
@@ -51,6 +52,17 @@ const baseDisciplines = [
     gradient: 'from-[#B0B0B0]/80 to-[#8A8A8A]/80',
     bgColor: 'bg-[#E5E5E5]',
     imageAlt: 'Clase de Pole Fitness en The Wellnest',
+  },
+  {
+    id: 'aro-telas',
+    assetKey: 'discipline_aerials_image_url',
+    title: 'Aro y Telas',
+    shortDescription: 'Fluye con confianza',
+    description: 'Aro y Telas (aéreos) es una mezcla perfecta de potencia y ligereza: desarrollas fuerza real, control y flexibilidad mientras aprendés a moverte en el aire con técnica y gracia. Te guiamos paso a paso en un ambiente seguro y motivador, para que disfrutes el proceso, construyas confianza y celebres cada logro—sin prisa, sin presión.',
+    href: '/clases#aro-telas',
+    gradient: 'from-[#9B7BB8]/80 to-[#7A5A9E]/80',
+    bgColor: 'bg-[#9B7BB8]/10',
+    imageAlt: 'Clase de Aro y Telas (Aéreos) en The Wellnest',
   },
   {
     id: 'sound',

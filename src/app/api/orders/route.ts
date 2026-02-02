@@ -86,9 +86,18 @@ export async function POST(request: Request) {
 
     const userId = session.user.id
     const body = await request.json()
-    const { discountCode, paymentMethod } = body
+    const { discountCode, paymentMethod, acceptTerms } = body
 
-    console.log('[ORDERS API] Request data:', { userId, discountCode, paymentMethod })
+    console.log('[ORDERS API] Request data:', { userId, discountCode, paymentMethod, acceptTerms })
+
+    // Validar aceptación de términos (OBLIGATORIO)
+    if (!acceptTerms) {
+      console.log('[ORDERS API] Terms not accepted')
+      return NextResponse.json(
+        { error: 'Debes aceptar los Términos y Condiciones para continuar' },
+        { status: 400 }
+      )
+    }
 
     // Get cart items
     const cartSessionId = await getCartSessionId()
@@ -175,6 +184,7 @@ export async function POST(request: Request) {
           total,
           discountCodeId: validatedDiscountId,
           discountCode: validatedDiscountCode,
+          termsAcceptedAt: new Date(), // Guardar fecha de aceptación de términos
         },
       })
 
@@ -287,6 +297,7 @@ export async function GET(request: Request) {
         discount: order.discount,
         total: order.total,
         discountCode: order.discountCode,
+        termsAcceptedAt: order.termsAcceptedAt,
         createdAt: order.createdAt,
         paidAt: order.paidAt,
         items: order.items.map((item) => ({
@@ -312,5 +323,70 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('[ORDERS API] Error getting order:', error)
     return NextResponse.json({ error: 'Error al obtener la orden' }, { status: 500 })
+  }
+}
+
+// PATCH endpoint to update order terms acceptance
+export async function PATCH(request: Request) {
+  console.log('[ORDERS API] PATCH request received')
+
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { orderId, acceptTerms } = body
+
+    if (!orderId) {
+      return NextResponse.json({ error: 'orderId es requerido' }, { status: 400 })
+    }
+
+    // Find order and verify ownership
+    const order = await prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId: session.user.id,
+      },
+    })
+
+    if (!order) {
+      return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 })
+    }
+
+    // Only allow updating PENDING orders
+    if (order.status !== 'PENDING') {
+      return NextResponse.json(
+        { error: 'Solo se pueden actualizar ordenes pendientes' },
+        { status: 400 }
+      )
+    }
+
+    // Update terms acceptance
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        termsAcceptedAt: acceptTerms ? new Date() : null,
+      },
+    })
+
+    console.log('[ORDERS API] Terms updated for order:', {
+      orderId,
+      acceptTerms,
+      termsAcceptedAt: updatedOrder.termsAcceptedAt,
+    })
+
+    return NextResponse.json({
+      success: true,
+      order: {
+        id: updatedOrder.id,
+        termsAcceptedAt: updatedOrder.termsAcceptedAt,
+      },
+    })
+  } catch (error) {
+    console.error('[ORDERS API] Error updating order:', error)
+    return NextResponse.json({ error: 'Error al actualizar la orden' }, { status: 500 })
   }
 }

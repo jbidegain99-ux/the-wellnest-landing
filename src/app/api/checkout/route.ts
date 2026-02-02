@@ -185,9 +185,18 @@ export async function POST(request: Request) {
 
     const userId = session.user.id
     const body = await request.json()
-    const { discountCode } = body
+    const { discountCode, acceptTerms } = body
 
-    console.log('[CHECKOUT API] Request data:', { userId, discountCode })
+    console.log('[CHECKOUT API] Request data:', { userId, discountCode, acceptTerms })
+
+    // Validar aceptación de términos (OBLIGATORIO)
+    if (!acceptTerms) {
+      console.log('[CHECKOUT API] Terms not accepted')
+      return NextResponse.json(
+        { error: 'Debes aceptar los Términos y Condiciones para continuar' },
+        { status: 400 }
+      )
+    }
 
     // Get cart items
     const cartSessionId = await getCartSessionId()

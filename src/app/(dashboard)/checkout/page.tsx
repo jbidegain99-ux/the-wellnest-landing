@@ -3,13 +3,16 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { CreditCard, Lock, Check, ArrowLeft, AlertCircle, Loader2, TestTube2 } from 'lucide-react'
+import { CreditCard, Lock, Check, ArrowLeft, AlertCircle, Loader2, TestTube2, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice } from '@/lib/utils'
+
+// Texto del checkbox de términos (obligatorio)
+const TERMS_CHECKBOX_TEXT = 'He leído y acepto los Términos y Condiciones y confirmo que practico bajo mi propia responsabilidad. La participación en las actividades de Wellnest se realiza bajo responsabilidad personal. El usuario declara que su estado de salud le permite realizar actividad física.'
 
 interface CartItem {
   id: string
@@ -51,6 +54,8 @@ export default function CheckoutPage() {
   const [checkoutData, setCheckoutData] = React.useState<CheckoutSummary | null>(null)
   const [appliedDiscount, setAppliedDiscount] = React.useState<AppliedDiscount | null>(null)
   const [purchases, setPurchases] = React.useState<PurchaseResult[]>([])
+  const [acceptedTerms, setAcceptedTerms] = React.useState(false)
+  const [termsError, setTermsError] = React.useState(false)
 
   // Fetch checkout summary on mount
   React.useEffect(() => {
@@ -120,13 +125,23 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsProcessing(true)
     setError(null)
+    setTermsError(false)
+
+    // Validar checkbox de términos (OBLIGATORIO)
+    if (!acceptedTerms) {
+      setTermsError(true)
+      setError('Debes aceptar los Términos y Condiciones para continuar')
+      return
+    }
+
+    setIsProcessing(true)
 
     console.log('[CHECKOUT] Submitting order:', {
       discountCode: appliedDiscount?.code,
       total,
       isFreeOrder,
+      acceptedTerms,
     })
 
     try {
@@ -137,6 +152,7 @@ export default function CheckoutPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             discountCode: appliedDiscount?.code,
+            acceptTerms: true, // Always true here since we validated above
           }),
         })
 
@@ -160,6 +176,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           discountCode: appliedDiscount?.code,
           paymentMethod: 'payway',
+          acceptTerms: true, // Always true here since we validated above
         }),
       })
 
@@ -384,11 +401,70 @@ export default function CheckoutPage() {
                   </p>
                 </div>
 
+                {/* Checkbox de Términos y Condiciones (OBLIGATORIO) */}
+                <div className={`p-4 rounded-lg border-2 transition-colors ${
+                  termsError
+                    ? 'border-red-500 bg-red-50'
+                    : acceptedTerms
+                    ? 'border-primary/50 bg-primary/5'
+                    : 'border-beige bg-beige/50'
+                }`}>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <div className="relative flex-shrink-0 mt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => {
+                          setAcceptedTerms(e.target.checked)
+                          if (e.target.checked) {
+                            setTermsError(false)
+                            setError(null)
+                          }
+                        }}
+                        className="sr-only peer"
+                        aria-describedby="terms-description"
+                        aria-invalid={termsError}
+                        aria-required="true"
+                      />
+                      <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-colors ${
+                        acceptedTerms
+                          ? 'bg-primary border-primary'
+                          : termsError
+                          ? 'border-red-500 bg-white'
+                          : 'border-gray-400 bg-white'
+                      }`}>
+                        {acceptedTerms && (
+                          <Check className="h-3.5 w-3.5 text-white" />
+                        )}
+                      </div>
+                    </div>
+                    <span id="terms-description" className="text-sm text-gray-700 leading-relaxed">
+                      <FileText className="h-4 w-4 inline-block mr-1 text-primary" />
+                      {TERMS_CHECKBOX_TEXT}{' '}
+                      <Link
+                        href="/terminos"
+                        target="_blank"
+                        className="text-primary hover:underline font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Ver Términos completos
+                      </Link>
+                    </span>
+                  </label>
+                  {termsError && (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      Debes aceptar los Términos y Condiciones
+                    </p>
+                  )}
+                </div>
+
                 <Button
                   type="submit"
                   className="w-full"
                   size="lg"
                   isLoading={isProcessing}
+                  disabled={!acceptedTerms}
                 >
                   {isProcessing
                     ? 'Procesando...'

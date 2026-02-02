@@ -498,6 +498,7 @@ model Order {
   total           Float
   discountCodeId  String?
   discountCode    String?      // Código aplicado (para referencia rápida)
+  termsAcceptedAt DateTime?    // Fecha de aceptación de términos y condiciones
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   paidAt          DateTime?
