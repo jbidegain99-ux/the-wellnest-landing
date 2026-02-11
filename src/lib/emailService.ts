@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
 interface SendEmailOptions {
   to: string
@@ -12,79 +12,41 @@ interface SendEmailResult {
   error?: string
 }
 
-// Reuse transporter across calls to avoid reconnecting each time
-let cachedTransporter: nodemailer.Transporter | null = null
+const FROM_EMAIL = process.env.EMAIL_FROM || 'Wellnest <no-reply@wellneststudio.net>'
 
-function getTransporter(): nodemailer.Transporter {
-  if (cachedTransporter) return cachedTransporter
-
-  cachedTransporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtpout.secureserver.net',
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false, // STARTTLS
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-    pool: true,
-    maxConnections: 3,
-    maxMessages: 50,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-  })
-
-  return cachedTransporter
-}
-
-async function sendWithRetry(
-  transporter: nodemailer.Transporter,
-  mailOptions: nodemailer.SendMailOptions,
-  maxRetries: number = 3
-): Promise<SendEmailResult> {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const info = await transporter.sendMail(mailOptions)
-      console.log(`[EMAIL] Sent successfully (attempt ${attempt}): ${info.messageId}`)
-      return { success: true, messageId: info.messageId }
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
-      console.error(`[EMAIL] Attempt ${attempt}/${maxRetries} failed:`, error.message)
-
-      if (attempt === maxRetries) {
-        return { success: false, error: error.message }
-      }
-
-      // Reset transporter on auth errors to force fresh connection
-      if (error.message.includes('535') || error.message.includes('auth')) {
-        console.log('[EMAIL] Auth error detected, resetting transporter...')
-        cachedTransporter = null
-        transporter = getTransporter()
-      }
-
-      // Exponential backoff: 1s, 2s, 4s
-      const delay = Math.pow(2, attempt - 1) * 1000
-      await new Promise(resolve => setTimeout(resolve, delay))
-    }
+function getResendClient(): Resend {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY is not configured')
   }
-
-  return { success: false, error: 'Max retries exceeded' }
+  return new Resend(apiKey)
 }
 
 export async function sendEmail({ to, subject, html }: SendEmailOptions): Promise<SendEmailResult> {
-  const transporter = getTransporter()
+  try {
+    const resend = getResendClient()
 
-  const mailOptions: nodemailer.SendMailOptions = {
-    from: `"Wellnest" <${process.env.SMTP_USER || 'contact@wellneststudio.net'}>`,
-    to,
-    subject,
-    html,
+    console.log(`[EMAIL] Sending to ${to} via Resend...`)
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject,
+      html,
+    })
+
+    if (error) {
+      console.error(`[EMAIL] Resend error:`, error.message)
+      return { success: false, error: error.message }
+    }
+
+    console.log(`[EMAIL] Sent successfully: ${data?.id}`)
+    return { success: true, messageId: data?.id }
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err))
+    console.error(`[EMAIL] Failed:`, error.message)
+    return { success: false, error: error.message }
   }
-
-  return sendWithRetry(transporter, mailOptions)
 }
 
 export function buildPasswordResetEmail(name: string, resetUrl: string): string {
