@@ -497,7 +497,7 @@ export default function AdminResetPasswordPage() {
 
             <a
               href={`https://wa.me/?text=${encodeURIComponent(
-                `Tu nueva contraseña temporal para The Wellnest es: ${tempPasswordResult}\n\n` +
+                `Tu nueva contraseña temporal para Wellnest es: ${tempPasswordResult}\n\n` +
                 `Importante: Por seguridad, cambia esta contraseña desde tu perfil después de iniciar sesión.\n\n` +
                 `Ir a: Perfil → Seguridad → Cambiar Contraseña`
               )}`}

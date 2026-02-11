@@ -59,3 +59,5 @@ TODO.md
 # TypeScript
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+.vercel
+.env*.local

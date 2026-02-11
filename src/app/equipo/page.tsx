@@ -4,9 +4,9 @@ import { Sprout, Sparkles, Users } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 
 export const metadata = {
-  title: 'Nuestro Equipo | The Wellnest',
+  title: 'Nuestro Equipo | Wellnest',
   description:
-    'Conoce al equipo de instructores y profesionales de The Wellnest. Expertos apasionados por tu bienestar.',
+    'Conoce al equipo de instructores y profesionales de Wellnest. Expertos apasionados por tu bienestar.',
 }
 
 // Force dynamic rendering - always fetch fresh data

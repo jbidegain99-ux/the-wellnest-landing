@@ -235,7 +235,7 @@ export default async function HomePage() {
                 allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Ubicación The Wellnest - Presidente Plaza, San Benito, San Salvador"
+                title="Ubicación Wellnest - Presidente Plaza, San Benito, San Salvador"
               />
             </div>
           </div>

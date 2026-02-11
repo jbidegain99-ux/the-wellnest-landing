@@ -1,8 +1,8 @@
 import { AlertTriangle } from 'lucide-react'
 
 export const metadata = {
-  title: 'Términos y Condiciones | The Wellnest',
-  description: 'Términos y condiciones de uso de The Wellnest.',
+  title: 'Términos y Condiciones | Wellnest',
+  description: 'Términos y condiciones de uso de Wellnest.',
 }
 
 export default function TerminosPage() {
@@ -32,7 +32,7 @@ export default function TerminosPage() {
                   Aviso Importante - Exención de Responsabilidad
                 </h2>
                 <p className="text-gray-700">
-                  The Wellnest y su personal <strong>NO se hacen responsables</strong> de
+                  Wellnest y su personal <strong>NO se hacen responsables</strong> de
                   cualquier daño, lesión o accidente que pueda ocurrir durante la
                   práctica de las actividades ofrecidas en nuestro estudio. Al
                   participar en nuestras clases y actividades, usted asume toda la
@@ -45,7 +45,7 @@ export default function TerminosPage() {
           <div className="prose prose-lg prose-headings:font-serif prose-headings:text-foreground prose-p:text-gray-600 max-w-none">
             <h2>1. Aceptación de los Términos</h2>
             <p>
-              Al acceder y utilizar los servicios de The Wellnest, usted acepta
+              Al acceder y utilizar los servicios de Wellnest, usted acepta
               estar sujeto a estos términos y condiciones. Si no está de acuerdo
               con alguno de estos términos, le recomendamos no utilizar nuestros
               servicios.
@@ -53,7 +53,7 @@ export default function TerminosPage() {
 
             <h2>2. Servicios Ofrecidos</h2>
             <p>
-              The Wellnest ofrece clases de bienestar que incluyen, pero no se
+              Wellnest ofrece clases de bienestar que incluyen, pero no se
               limitan a: Yoga, Pilates Mat, Pole Fitness, Terapia de Sonido y consultas
               de Nutrición. Nos reservamos el derecho de modificar, suspender o
               discontinuar cualquier servicio en cualquier momento.
@@ -129,7 +129,7 @@ export default function TerminosPage() {
                 Las actividades físicas conllevan riesgos inherentes de lesión.
               </li>
               <li>
-                The Wellnest no se hace responsable de lesiones, daños o accidentes
+                Wellnest no se hace responsable de lesiones, daños o accidentes
                 que puedan ocurrir durante las clases o en las instalaciones.
               </li>
               <li>
@@ -145,7 +145,7 @@ export default function TerminosPage() {
             <h2>7. Propiedad Intelectual</h2>
             <p>
               Todo el contenido del sitio web, incluyendo textos, imágenes, logos
-              y material audiovisual, es propiedad de The Wellnest y está
+              y material audiovisual, es propiedad de Wellnest y está
               protegido por derechos de autor.
             </p>
 

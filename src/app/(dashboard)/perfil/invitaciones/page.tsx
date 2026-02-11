@@ -66,8 +66,8 @@ export default function InvitacionesPage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'The Wellnest - Tu santuario de bienestar',
-          text: '¡Únete a The Wellnest con mi código y recibe un descuento!',
+          title: 'Wellnest - Tu santuario de bienestar',
+          text: '¡Únete a Wellnest con mi código y recibe un descuento!',
           url: data.link,
         })
       } catch (err) {

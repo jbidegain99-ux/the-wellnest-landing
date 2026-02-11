@@ -21,7 +21,7 @@ interface Settings {
 }
 
 const defaultSettings: Settings = {
-  siteName: 'The Wellnest',
+  siteName: 'Wellnest',
   siteDescription: 'Tu santuario de bienestar integral en El Salvador.',
   phone: '+503 1234 5678',
   email: 'hola@thewellnest.sv',

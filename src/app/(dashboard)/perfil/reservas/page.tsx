@@ -241,7 +241,7 @@ export default function ReservasPage() {
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin className="h-4 w-4" />
-                            The Wellnest Studio
+                            Wellnest Studio
                           </span>
                         </div>
                       </div>

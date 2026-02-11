@@ -29,7 +29,7 @@ const baseDisciplines = [
     href: '/clases#yoga',
     gradient: 'from-[#959D93]/80 to-[#7A9A6D]/80',
     bgColor: 'bg-[#959D93]/10',
-    imageAlt: 'Clase de Yoga en The Wellnest',
+    imageAlt: 'Clase de Yoga en Wellnest',
   },
   {
     id: 'pilates',
@@ -40,7 +40,7 @@ const baseDisciplines = [
     href: '/clases#pilates',
     gradient: 'from-[#111316]/80 to-[#2A2A2A]/80',
     bgColor: 'bg-[#111316]/10',
-    imageAlt: 'Clase de Pilates Mat en The Wellnest',
+    imageAlt: 'Clase de Pilates Mat en Wellnest',
   },
   {
     id: 'pole',
@@ -51,7 +51,7 @@ const baseDisciplines = [
     href: '/clases#pole',
     gradient: 'from-[#B0B0B0]/80 to-[#8A8A8A]/80',
     bgColor: 'bg-[#E5E5E5]',
-    imageAlt: 'Clase de Pole Fitness en The Wellnest',
+    imageAlt: 'Clase de Pole Fitness en Wellnest',
   },
   {
     id: 'aro-telas',
@@ -62,7 +62,7 @@ const baseDisciplines = [
     href: '/clases#aro-telas',
     gradient: 'from-[#9B7BB8]/80 to-[#7A5A9E]/80',
     bgColor: 'bg-[#9B7BB8]/10',
-    imageAlt: 'Clase de Aro y Telas (Aéreos) en The Wellnest',
+    imageAlt: 'Clase de Aro y Telas (Aéreos) en Wellnest',
   },
   {
     id: 'sound',
@@ -84,7 +84,7 @@ const baseDisciplines = [
     href: '/clases#nutricion',
     gradient: 'from-[#B8D4A8]/80 to-[#9AC088]/80',
     bgColor: 'bg-[#B8D4A8]/10',
-    imageAlt: 'Consulta de Nutrición en The Wellnest',
+    imageAlt: 'Consulta de Nutrición en Wellnest',
   },
 ]
 

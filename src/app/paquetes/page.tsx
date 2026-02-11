@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { PackagesGrid } from './PackagesGrid'
 
 export const metadata = {
-  title: 'Paquetes de Clases | The Wellnest',
+  title: 'Paquetes de Clases | Wellnest',
   description:
     'Descubre nuestros paquetes de clases flexibles. Usa tus clases en cualquier disciplina: Yoga, Mat Pilates, Pole Fitness, Terapia de Sonido.',
 }

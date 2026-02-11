@@ -484,6 +484,19 @@ enum PasswordResetRequestStatus {
   EXPIRED    // Expirada sin procesar
 }
 
+// Token de reseteo de contraseña por email (self-service)
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+}
+
 // ========================================
 // PAYMENT GATEWAY MODELS (PayWay/Wompi)
 // ========================================

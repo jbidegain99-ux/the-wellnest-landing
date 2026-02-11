@@ -179,7 +179,7 @@ export default function ContactoPage() {
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title="Ubicación The Wellnest - Presidente Plaza"
+                    title="Ubicación Wellnest - Presidente Plaza"
                   />
                 </div>
               </div>

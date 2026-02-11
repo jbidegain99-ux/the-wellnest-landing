@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Mail, ArrowLeft, CheckCircle, Phone, MessageCircle } from 'lucide-react'
+import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -32,7 +32,7 @@ export default function RecuperarContrasenaPage() {
       }
 
       setIsSubmitted(true)
-    } catch (err) {
+    } catch {
       setError('Ocurrió un error. Intenta de nuevo.')
     } finally {
       setIsLoading(false)
@@ -46,7 +46,7 @@ export default function RecuperarContrasenaPage() {
           <div className="text-center mb-8">
             <Link href="/" className="inline-block">
               <span className="font-serif text-3xl font-semibold text-foreground">
-                The Wellnest
+                Wellnest
               </span>
             </Link>
           </div>
@@ -56,47 +56,31 @@ export default function RecuperarContrasenaPage() {
               <CheckCircle className="h-8 w-8 text-primary" />
             </div>
             <h1 className="font-serif text-2xl font-semibold text-foreground mb-4">
-              Solicitud recibida
+              Revisa tu correo
             </h1>
             <p className="text-gray-600 mb-6">
-              Hemos registrado tu solicitud para el email <strong>{email}</strong>.
+              Si <strong>{email}</strong> está registrado, recibirás un enlace
+              para restablecer tu contraseña.
             </p>
 
             <div className="bg-beige/50 rounded-xl p-6 mb-6 text-left">
-              <p className="text-sm text-gray-700 mb-4">
-                Para proteger tu cuenta, necesitamos verificar tu identidad.
-                Por favor contáctanos por cualquiera de estos medios:
+              <p className="text-sm text-gray-700 mb-3">
+                El enlace expirará en <strong>1 hora</strong>. Si no encuentras el correo:
               </p>
-
-              <div className="space-y-3">
-                <a
-                  href="https://wa.me/50379449795?text=Hola,%20necesito%20recuperar%20mi%20contraseña%20para%20el%20email:%20"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <MessageCircle className="h-5 w-5 text-green-600" />
-                  <div>
-                    <p className="font-medium text-sm">WhatsApp</p>
-                    <p className="text-xs text-gray-500">+503 7944-9795</p>
-                  </div>
-                </a>
-
-                <a
-                  href="tel:+50379449795"
-                  className="flex items-center gap-3 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <Phone className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-medium text-sm">Llamar</p>
-                    <p className="text-xs text-gray-500">+503 7944-9795</p>
-                  </div>
-                </a>
-              </div>
-
-              <p className="text-xs text-gray-500 mt-4">
-                Te daremos una contraseña temporal que podrás cambiar desde tu perfil.
-              </p>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">&#8226;</span>
+                  Revisa tu carpeta de spam o correo no deseado
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">&#8226;</span>
+                  Verifica que el email ingresado sea correcto
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">&#8226;</span>
+                  Si el problema persiste, contáctanos a contact@wellneststudio.net
+                </li>
+              </ul>
             </div>
 
             <Link href="/login">
@@ -117,14 +101,14 @@ export default function RecuperarContrasenaPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
             <span className="font-serif text-3xl font-semibold text-foreground">
-              The Wellnest
+              Wellnest
             </span>
           </Link>
           <h1 className="font-serif text-2xl font-semibold text-foreground mt-6">
             Recuperar contraseña
           </h1>
           <p className="text-gray-600 mt-2">
-            Ingresa tu email para iniciar el proceso de recuperación
+            Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña
           </p>
         </div>
 
@@ -148,7 +132,7 @@ export default function RecuperarContrasenaPage() {
             />
 
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Solicitar recuperación
+              Enviar enlace de recuperación
             </Button>
           </form>
 

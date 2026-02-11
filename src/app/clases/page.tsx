@@ -138,7 +138,7 @@ const baseDisciplines = [
 ]
 
 export const metadata = {
-  title: 'Clases y Disciplinas | The Wellnest',
+  title: 'Clases y Disciplinas | Wellnest',
   description:
     'Descubre nuestras disciplinas: Yoga, Pilates Mat, Pole Fitness, Terapia de Sonido y Nutrición. Bienestar integral en El Salvador.',
 }
@@ -192,7 +192,7 @@ export default async function ClasesPage() {
               >
                 <Image
                   src={discipline.image}
-                  alt={`Clase de ${discipline.name} en The Wellnest`}
+                  alt={`Clase de ${discipline.name} en Wellnest`}
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"

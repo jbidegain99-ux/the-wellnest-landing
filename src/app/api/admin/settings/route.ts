@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 // Default settings values
 const DEFAULT_SETTINGS: Record<string, string> = {
-  siteName: 'The Wellnest',
+  siteName: 'Wellnest',
   siteDescription: 'Tu santuario de bienestar integral en El Salvador.',
   phone: '+503 1234 5678',
   email: 'hola@thewellnest.sv',

@@ -54,7 +54,7 @@ export default function RegistroPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
             <span className="font-serif text-3xl font-semibold text-foreground">
-              The Wellnest
+              Wellnest
             </span>
           </Link>
           <h1 className="font-serif text-2xl font-semibold text-foreground mt-6">
