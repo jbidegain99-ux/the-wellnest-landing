@@ -12,8 +12,7 @@ interface SendEmailResult {
   error?: string
 }
 
-// TODO: Switch back to 'Wellnest <no-reply@wellneststudio.net>' once DKIM is verified on Resend
-const FROM_EMAIL = process.env.EMAIL_FROM || 'Wellnest <onboarding@resend.dev>'
+const FROM_EMAIL = process.env.EMAIL_FROM || 'Wellnest <contact@wellneststudio.net>'
 
 function getResendClient(): Resend {
   const apiKey = process.env.RESEND_API_KEY
