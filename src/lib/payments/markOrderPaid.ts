@@ -184,10 +184,14 @@ export async function markOrderPaidAndCreatePurchase({
       purchaseCount: result.length,
     })
 
-    // Trigger facturación DTE para purchases con monto > 0 (fire-and-forget)
-    triggerFacturacion(order, result).catch((err) => {
+    // Trigger facturación DTE para purchases con monto > 0
+    // MUST await — Vercel serverless kills the function after response is sent,
+    // so fire-and-forget calls never complete.
+    try {
+      await triggerFacturacion(order, result)
+    } catch (err) {
       console.error('[FACTURADOR] Unhandled error in triggerFacturacion:', err)
-    })
+    }
 
     return {
       success: true,
