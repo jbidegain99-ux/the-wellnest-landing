@@ -14,6 +14,10 @@ model User {
   password      String?
   name          String
   phone         String?
+  // Información fiscal para El Salvador
+  documentId        String?   // DUI o NIT
+  documentType      String?   // "DUI", "NIT", "PASSPORT"
+  fiscalAddress     String?   // Dirección fiscal
   birthDate     DateTime?
   gender        String?
   height        Float?    // en metros
@@ -170,6 +174,16 @@ model Purchase {
   promoRedemptions PromoRedemption[]
   refundRequests   RefundRequest[]
   referrals        Referral[]
+  // Campos de facturación DTE El Salvador
+  invoiceNumber     String?   // Número de factura DTE
+  invoiceSeries     String?   // Serie de la factura
+  invoiceUrl        String?   // URL del PDF de factura
+  invoiceStatus     String?   // "pending", "sent_to_facturador", "completed", "failed", "facturador_error"
+  invoiceError      String?   // Mensaje de error si falla
+  invoiceReference  String?   // Referencia del sistema Facturador SV
+  dteUuid           String?   // UUID del DTE generado
+  invoiceSentAt     DateTime? // Cuándo se envió al facturador
+  invoiceCompletedAt DateTime? // Cuándo se completó la factura
 }
 
 enum PurchaseStatus {
@@ -580,4 +594,18 @@ enum PaymentTransactionStatus {
   DENIED
   ERROR
   PENDING
+}
+
+// Tracking de webhooks entrantes/salientes
+model WebhookLog {
+  id          String   @id @default(cuid())
+  source      String   // 'payway', 'facturador-sv'
+  event       String   // 'payment.completed', 'dte.approved', 'dte.rejected', 'dte.created'
+  purchaseId  String?
+  payload     Json
+  status      String   // 'received', 'processed', 'failed'
+  error       String?
+  createdAt   DateTime @default(now())
+
+  @@map("webhook_logs")
 }

@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma'
 import { addDays } from 'date-fns'
 import type { PaymentProvider } from '@prisma/client'
 import { Prisma } from '@prisma/client'
+import { sendToFacturador } from '@/lib/facturador'
 
 export interface MarkOrderPaidParams {
   orderId: string
@@ -183,6 +184,11 @@ export async function markOrderPaidAndCreatePurchase({
       purchaseCount: result.length,
     })
 
+    // Trigger facturación DTE para purchases con monto > 0 (fire-and-forget)
+    triggerFacturacion(order, result).catch((err) => {
+      console.error('[FACTURADOR] Unhandled error in triggerFacturacion:', err)
+    })
+
     return {
       success: true,
       alreadyPaid: false,
@@ -233,6 +239,119 @@ export async function recordDeniedTransaction({
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+// ========================================
+// Facturación DTE (fire-and-forget)
+// ========================================
+
+interface OrderForFacturacion {
+  id: string
+  userId: string
+  discountCodeRef?: { percentage: number } | null
+  items: Array<{
+    id: string
+    packageId: string
+    package: { id: string; name: string; classCount: number }
+  }>
+}
+
+interface PurchaseForFacturacion {
+  id: string
+  packageId: string
+  packageName: string
+  classesRemaining: number
+  expiresAt: Date
+  finalPrice: number
+}
+
+async function triggerFacturacion(
+  order: OrderForFacturacion,
+  purchases: PurchaseForFacturacion[]
+): Promise<void> {
+  const paidPurchases = purchases.filter((p) => p.finalPrice > 0)
+  if (paidPurchases.length === 0) {
+    console.log('[FACTURADOR] No paid purchases to invoice, skipping')
+    return
+  }
+
+  // Fetch user with fiscal data
+  const user = await prisma.user.findUnique({
+    where: { id: order.userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      documentId: true,
+      documentType: true,
+      fiscalAddress: true,
+    },
+  })
+
+  if (!user) {
+    console.error('[FACTURADOR] User not found:', order.userId)
+    return
+  }
+
+  for (const purchase of paidPurchases) {
+    const orderItem = order.items.find((i) => i.packageId === purchase.packageId)
+    if (!orderItem) continue
+
+    const discountPercentage = order.discountCodeRef?.percentage ?? 0
+    const originalPrice = purchase.finalPrice / (1 - discountPercentage / 100)
+    const discountAmount = originalPrice - purchase.finalPrice
+
+    try {
+      const result = await sendToFacturador({
+        purchaseId: purchase.id,
+        orderId: order.id,
+        user,
+        pkg: orderItem.package,
+        originalPrice: Math.round(originalPrice * 100) / 100,
+        finalPrice: purchase.finalPrice,
+        discountAmount: Math.round(discountAmount * 100) / 100,
+      })
+
+      if (result.success) {
+        await prisma.purchase.update({
+          where: { id: purchase.id },
+          data: {
+            invoiceStatus: 'sent_to_facturador',
+            invoiceSentAt: new Date(),
+          },
+        })
+        console.log('[FACTURADOR] Purchase sent for invoicing:', purchase.id)
+      } else {
+        await prisma.purchase.update({
+          where: { id: purchase.id },
+          data: {
+            invoiceStatus: 'failed',
+            invoiceError: result.error || 'Unknown error',
+          },
+        })
+        console.error('[FACTURADOR] Failed to send purchase:', {
+          purchaseId: purchase.id,
+          error: result.error,
+        })
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      await prisma.purchase.update({
+        where: { id: purchase.id },
+        data: {
+          invoiceStatus: 'failed',
+          invoiceError: message,
+        },
+      }).catch((dbErr) => {
+        console.error('[FACTURADOR] Failed to update purchase status:', dbErr)
+      })
+      console.error('[FACTURADOR] Error invoicing purchase:', {
+        purchaseId: purchase.id,
+        error: message,
+      })
     }
   }
 }

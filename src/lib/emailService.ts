@@ -49,107 +49,235 @@ export async function sendEmail({ to, subject, html }: SendEmailOptions): Promis
   }
 }
 
+export interface InvoiceEmailData {
+  packageName: string
+  invoiceNumber: string
+  amount: number
+  date: string
+  pdfUrl: string
+}
+
+export function buildInvoiceEmail(name: string, invoice: InvoiceEmailData): string {
+  const formattedAmount = new Intl.NumberFormat('es-SV', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(invoice.amount)
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factura Electr&oacute;nica - Wellnest</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F5F0EB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', system-ui, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0EB;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <!-- Modal card -->
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width: 480px; width: 100%; background-color: #FFFFFF; border-radius: 12px;">
+
+          <!-- Header + Body -->
+          <tr>
+            <td style="padding: 32px;">
+
+              <h1 style="color: #1F2937; margin: 0 0 8px; font-size: 20px; font-weight: 600; line-height: 1.2; text-align: center;">Factura Electr&oacute;nica</h1>
+              <p style="color: #6B7280; margin: 0 0 32px; font-size: 16px; line-height: 1.5; text-align: center;">Wellnest</p>
+
+              <!-- Saludo -->
+              <p style="color: #374151; font-size: 16px; font-weight: 500; margin: 0 0 8px; line-height: 1.4;">Hola${name ? ` ${name}` : ''}</p>
+              <p style="color: #6B7280; margin: 0 0 24px; font-size: 14px; line-height: 1.5;">
+                Tu factura electr&oacute;nica ha sido emitida exitosamente. A continuaci&oacute;n encontrar&aacute;s los detalles de tu compra.
+              </p>
+
+              <!-- Detalles de factura -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Paquete:</strong> ${invoice.packageName}
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">No. Factura:</strong> ${invoice.invoiceNumber}
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Monto:</strong> ${formattedAmount}
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Fecha de emisi&oacute;n:</strong> ${invoice.date}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Botón descargar PDF -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color: #86A889; border-radius: 8px;">
+                          <a href="${invoice.pdfUrl}"
+                             target="_blank"
+                             style="display: inline-block; background-color: #86A889; color: #FFFFFF; padding: 12px 32px; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px; line-height: 1.4;">
+                            Descargar Factura PDF
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Link alternativo -->
+              <p style="color: #374151; font-size: 13px; font-weight: 500; margin: 24px 0 8px; line-height: 1.4;">Si el bot&oacute;n no funciona, copia este enlace:</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background-color: #F9FAFB; border-radius: 4px; padding: 8px;">
+                    <p style="margin: 0; font-size: 12px; color: #6B7280; word-break: break-all; font-family: 'Monaco', 'Menlo', monospace;">
+                      ${invoice.pdfUrl}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Nota legal -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px;">
+                    <p style="margin: 0; font-size: 12px; color: #6B7280; line-height: 1.4;">
+                      Este documento es una factura electr&oacute;nica (DTE) v&aacute;lida emitida conforme a la normativa del Ministerio de Hacienda de El Salvador.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Footer interno -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 32px;">
+                <tr>
+                  <td style="border-top: 1px solid #E5E7EB; padding-top: 16px; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #9CA3AF;">
+                      Wellnest &copy; 2026 &bull; contact@wellneststudio.net
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
 export function buildPasswordResetEmail(name: string, resetUrl: string): string {
   return `
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Restablecer contraseña - Wellnest</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #E8E0D5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #E8E0D5; padding: 40px 20px;">
+<body style="margin: 0; padding: 0; background-color: #F5F0EB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', system-ui, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0EB;">
     <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(45, 90, 74, 0.08);">
+      <td align="center" style="padding: 40px 20px;">
+        <!-- Modal card -->
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width: 480px; width: 100%; background-color: #FFFFFF; border-radius: 12px;">
 
-          <!-- Header with gradient -->
+          <!-- Header + Body -->
           <tr>
-            <td style="background: linear-gradient(135deg, #2D5A4A 0%, #4A7A65 100%); padding: 40px 40px 32px; text-align: center;">
-              <h1 style="margin: 0 0 8px; font-size: 32px; font-weight: 700; color: #FFFFFF; letter-spacing: 2px; text-transform: uppercase;">
-                WELLNEST
-              </h1>
-              <p style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.8); letter-spacing: 1px;">
-                Tu santuario de bienestar integral
-              </p>
-            </td>
-          </tr>
+            <td style="padding: 32px;">
 
-          <!-- Body -->
-          <tr>
-            <td style="background-color: #F5F0EB; padding: 40px;">
-              <h2 style="margin: 0 0 8px; font-size: 22px; font-weight: 600; color: #2D5A4A;">
-                Hola${name ? ` ${name}` : ''}
-              </h2>
-              <p style="margin: 0 0 28px; font-size: 15px; line-height: 1.7; color: #5D4E42;">
-                Recibimos una solicitud para restablecer la contraseña de tu cuenta en Wellnest.
-                Haz clic en el botón de abajo para crear una nueva contraseña.
+              <h1 style="color: #1F2937; margin: 0 0 8px; font-size: 20px; font-weight: 600; line-height: 1.2; text-align: center;">Restablecer Contraseña</h1>
+              <p style="color: #6B7280; margin: 0 0 32px; font-size: 16px; line-height: 1.5; text-align: center;">Wellnest</p>
+
+              <!-- Saludo -->
+              <p style="color: #374151; font-size: 16px; font-weight: 500; margin: 0 0 8px; line-height: 1.4;">Hola${name ? ` ${name}` : ''}</p>
+              <p style="color: #6B7280; margin: 0 0 24px; font-size: 14px; line-height: 1.5;">
+                Recibimos una solicitud para restablecer la contraseña de tu cuenta en Wellnest. Haz clic en el botón de abajo para crear una nueva contraseña.
               </p>
 
-              <!-- CTA Button -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <!-- Botón centrado -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 32px 0;">
                 <tr>
-                  <td align="center" style="padding: 4px 0 32px;">
-                    <a href="${resetUrl}"
-                       target="_blank"
-                       style="display: inline-block; background: linear-gradient(135deg, #2D5A4A 0%, #3D6B5A 100%); color: #FFFFFF; text-decoration: none; font-size: 16px; font-weight: 600; padding: 16px 48px; border-radius: 50px; letter-spacing: 0.5px; box-shadow: 0 4px 12px rgba(45, 90, 74, 0.25);">
-                      Restablecer Contraseña
-                    </a>
+                  <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color: #86A889; border-radius: 8px;">
+                          <a href="${resetUrl}"
+                             target="_blank"
+                             style="display: inline-block; background-color: #86A889; color: #FFFFFF; padding: 12px 32px; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px; line-height: 1.4;">
+                            Restablecer Contraseña
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
 
-              <p style="margin: 0 0 20px; font-size: 13px; line-height: 1.6; color: #888888;">
-                Este enlace expirará en <strong style="color: #2D5A4A;">1 hora</strong>. Si no solicitaste este cambio, puedes ignorar este correo de forma segura.
-              </p>
+              <!-- Info de expiración -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px;">
+                    <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                      <strong style="color: #374151;">Tiempo l&iacute;mite:</strong> Este enlace expirar&aacute; en 1 hora por tu seguridad.
+                    </p>
+                  </td>
+                </tr>
+              </table>
 
-              <!-- Fallback link -->
-              <div style="background-color: #FFFFFF; border-radius: 10px; padding: 16px 20px; border: 1px solid #E8E0D5;">
-                <p style="margin: 0 0 8px; font-size: 12px; color: #888888;">
-                  Si el botón no funciona, copia y pega este enlace en tu navegador:
-                </p>
-                <p style="margin: 0; font-size: 12px; color: #2D5A4A; word-break: break-all;">
-                  ${resetUrl}
-                </p>
-              </div>
+              <!-- Link alternativo -->
+              <p style="color: #374151; font-size: 13px; font-weight: 500; margin: 24px 0 8px; line-height: 1.4;">Si el bot&oacute;n no funciona, copia este enlace:</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background-color: #F9FAFB; border-radius: 4px; padding: 8px;">
+                    <p style="margin: 0; font-size: 12px; color: #6B7280; word-break: break-all; font-family: 'Monaco', 'Menlo', monospace;">
+                      ${resetUrl}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Footer interno -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 32px;">
+                <tr>
+                  <td style="border-top: 1px solid #E5E7EB; padding-top: 16px; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #9CA3AF;">
+                      Wellnest &copy; 2026 &bull; contact@wellneststudio.net
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
             </td>
           </tr>
 
-          <!-- Divider -->
-          <tr>
-            <td style="padding: 0 40px;">
-              <div style="height: 1px; background-color: #E8E0D5;"></div>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background: linear-gradient(135deg, #2D5A4A 0%, #3D6B5A 100%); padding: 28px 40px; text-align: center;">
-              <p style="margin: 0 0 6px; font-size: 14px; color: #FFFFFF; font-weight: 600; letter-spacing: 1px;">
-                WELLNEST STUDIO
-              </p>
-              <p style="margin: 0 0 12px; font-size: 12px; color: rgba(255,255,255,0.7);">
-                contact@wellneststudio.net
-              </p>
-              <p style="margin: 0; font-size: 11px; color: rgba(255,255,255,0.5);">
-                &copy; 2026 Wellnest &bull; wellneststudio.net
-              </p>
-            </td>
-          </tr>
-
-        </table>
-
-        <!-- Post-footer note -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px;">
-          <tr>
-            <td style="padding: 20px 40px; text-align: center;">
-              <p style="margin: 0; font-size: 11px; color: #999999; line-height: 1.5;">
-                Este correo fue enviado porque se solicitó restablecer la contraseña de tu cuenta.
-                Si no fuiste tú, puedes ignorar este mensaje.
-              </p>
-            </td>
-          </tr>
         </table>
       </td>
     </tr>
