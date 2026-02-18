@@ -161,7 +161,7 @@ export async function sendToFacturador(
       method: 'POST',
       headers,
       body,
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(30000),
     })
 
     if (!response.ok) {
