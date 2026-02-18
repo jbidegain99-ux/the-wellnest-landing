@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       })
 
       // Construir URL de reseteo
-      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+      const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
       const resetUrl = `${baseUrl}/reset-password?token=${token}`
       const html = buildPasswordResetEmail(user.name, resetUrl)
 

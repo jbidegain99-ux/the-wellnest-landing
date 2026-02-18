@@ -57,7 +57,7 @@ export async function GET() {
 
     return NextResponse.json({
       referralCode,
-      link: `${process.env.NEXTAUTH_URL || 'https://thewellnest.sv'}/registro?ref=${referralCode}`,
+      link: `${process.env.NEXTAUTH_URL || 'https://wellneststudio.net'}/registro?ref=${referralCode}`,
       classesEarned: totalClassesEarned,
       friendsReferred: completedReferrals.length,
       pendingReferrals: pendingReferrals.length,
