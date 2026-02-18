@@ -1,16 +1,14 @@
 /**
  * Cliente API para Facturador Electrónico SV
  *
- * Maneja el envío de datos de compra al Facturador y la verificación
- * de firmas HMAC en webhooks de respuesta.
+ * Sends purchase data to the Facturador's inbound webhook endpoint
+ * which creates a DTE (electronic invoice) automatically.
+ *
+ * The inbound endpoint is @Public (no JWT) — secured via HMAC signature.
  */
 
 import crypto from 'crypto'
-import type {
-  FacturadorConfig,
-  FacturadorOutboundPayload,
-  FacturadorClienteData,
-} from '@/types/facturador'
+import type { FacturadorConfig } from '@/types/facturador'
 
 // ========================================
 // Configuración
@@ -18,36 +16,20 @@ import type {
 
 export function getFacturadorConfig(): FacturadorConfig | null {
   const apiUrl = process.env.FACTURADOR_SV_API_URL
-  const jwtToken = process.env.FACTURADOR_SV_JWT_TOKEN
   const tenantId = process.env.FACTURADOR_SV_TENANT_ID
   const webhookSecret = process.env.FACTURADOR_SV_WEBHOOK_SECRET
 
-  if (!apiUrl || !jwtToken || !tenantId) {
-    console.warn('[FACTURADOR] Missing configuration - facturación deshabilitada')
+  if (!apiUrl || !tenantId) {
+    console.warn('[FACTURADOR] Missing configuration (FACTURADOR_SV_API_URL or FACTURADOR_SV_TENANT_ID) - facturación deshabilitada')
     return null
   }
 
-  return { apiUrl, jwtToken, tenantId, webhookSecret: webhookSecret || '' }
-}
-
-// ========================================
-// Mapeo de tipo de documento
-// ========================================
-
-/** Código MH para tipo de documento fiscal */
-function mapDocumentType(documentType: string | null): string | null {
-  if (!documentType) return null
-  switch (documentType.toUpperCase()) {
-    case 'DUI': return '13'
-    case 'NIT': return '36'
-    case 'PASSPORT': return '37'
-    default: return null
+  return {
+    apiUrl,
+    jwtToken: '', // Not used — inbound endpoint is @Public, secured via HMAC
+    tenantId,
+    webhookSecret: webhookSecret || '',
   }
-}
-
-/** Determina el tipo DTE: 03 (CCF) si tiene NIT, 01 (Consumidor Final) si no */
-function determineTipoDte(documentType: string | null): '01' | '03' {
-  return documentType?.toUpperCase() === 'NIT' ? '03' : '01'
 }
 
 // ========================================
@@ -78,7 +60,44 @@ interface SendToFacturadorParams {
 
 export interface SendToFacturadorResult {
   success: boolean
+  dteId?: string
+  codigoGeneracion?: string
   error?: string
+}
+
+/**
+ * WellnestPurchasePayload — matches the Facturador's inbound controller interface.
+ * This is the exact format expected by POST /api/v1/webhooks/inbound/wellnest/:tenantId
+ */
+interface WellnestPurchasePayload {
+  userId: string
+  packageId: string
+  purchaseId: string
+  amount: number
+  currency: string
+  purchaseDate: string
+  expirationDate: string
+  creditsTotal: number
+  paymentMethod: string
+  discountApplied: number
+  customerData: {
+    name: string
+    email: string
+    phone?: string
+    tipoDocumento?: string
+    numDocumento?: string
+  }
+}
+
+/** Map Wellnest document types to MH codes */
+function mapDocumentType(documentType: string | null): string | undefined {
+  if (!documentType) return undefined
+  switch (documentType.toUpperCase()) {
+    case 'DUI': return '13'
+    case 'NIT': return '36'
+    case 'PASSPORT': return '37'
+    default: return undefined
+  }
 }
 
 export async function sendToFacturador(
@@ -91,82 +110,84 @@ export async function sendToFacturador(
 
   const { purchaseId, orderId, user, pkg, originalPrice, finalPrice, discountAmount } = params
 
-  const cliente: FacturadorClienteData = {
-    nombre: user.name,
-    email: user.email,
-    telefono: user.phone,
-    tipoDocumento: mapDocumentType(user.documentType),
-    numeroDocumento: user.documentId,
-    direccion: user.fiscalAddress,
-  }
-
-  const payload: FacturadorOutboundPayload = {
-    event: 'purchase.completed',
-    timestamp: new Date().toISOString(),
-    tenant_id: config.tenantId,
-    correlation_id: purchaseId,
-    data: {
-      tipoDocumento: determineTipoDte(user.documentType),
-      montoTotal: originalPrice,
-      montoTotalOperacion: finalPrice,
-      descuentoAplicado: discountAmount,
-      moneda: 'USD',
-      cliente,
-      items: [
-        {
-          numeroItem: 1,
-          descripcion: `${pkg.name} - Wellnest Studio`,
-          cantidad: 1,
-          precioUnitario: originalPrice,
-          montoDescu: discountAmount,
-          ventaGravada: finalPrice,
-        },
-      ],
-      external_reference: purchaseId,
-      wellnest_user_id: user.id,
-      wellnest_package_id: pkg.id,
-      wellnest_credits: pkg.classCount,
-      metadata: {
-        orderId,
-        environment: process.env.NODE_ENV || 'development',
-        tenantName: 'Wellnest',
-      },
+  // Build payload matching WellnestPurchasePayload (Facturador inbound controller)
+  const payload: WellnestPurchasePayload = {
+    userId: user.id,
+    packageId: pkg.id,
+    purchaseId: orderId ? `${orderId}_${purchaseId}` : purchaseId,
+    amount: Math.round(originalPrice * 100) / 100,
+    currency: 'USD',
+    purchaseDate: new Date().toISOString(),
+    expirationDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days default
+    creditsTotal: pkg.classCount,
+    paymentMethod: 'payway',
+    discountApplied: Math.round(discountAmount * 100) / 100,
+    customerData: {
+      name: user.name,
+      email: user.email,
+      ...(user.phone ? { phone: user.phone } : {}),
+      ...(mapDocumentType(user.documentType) ? { tipoDocumento: mapDocumentType(user.documentType) } : {}),
+      ...(user.documentId ? { numDocumento: user.documentId } : {}),
     },
   }
 
-  const url = `${config.apiUrl}/api/webhooks/inbound/wellnest/${config.tenantId}`
+  // URL with /api/v1/ prefix (global prefix in NestJS)
+  const url = `${config.apiUrl}/api/v1/webhooks/inbound/wellnest/${config.tenantId}`
+  const body = JSON.stringify(payload)
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Webhook-Timestamp': Math.floor(Date.now() / 1000).toString(),
+  }
+
+  // Add HMAC signature if secret is configured
+  if (config.webhookSecret) {
+    headers['X-Webhook-Signature-256'] = 'sha256=' + crypto
+      .createHmac('sha256', config.webhookSecret)
+      .update(body)
+      .digest('hex')
+  }
 
   console.log('[FACTURADOR] Sending to Facturador SV:', {
     url,
-    purchaseId,
+    purchaseId: payload.purchaseId,
     userId: user.id,
-    amount: finalPrice,
-    tipoDte: payload.data.tipoDocumento,
+    amount: payload.amount,
+    discount: payload.discountApplied,
   })
 
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.jwtToken}`,
-        'X-Tenant-ID': config.tenantId,
-      },
-      body: JSON.stringify(payload),
+      headers,
+      body,
       signal: AbortSignal.timeout(15000),
     })
 
     if (!response.ok) {
-      const body = await response.text().catch(() => 'No body')
+      const responseBody = await response.text().catch(() => 'No body')
       console.error('[FACTURADOR] API error:', {
         status: response.status,
-        body: body.substring(0, 500),
+        body: responseBody.substring(0, 500),
       })
-      return { success: false, error: `HTTP ${response.status}: ${body.substring(0, 200)}` }
+      return { success: false, error: `HTTP ${response.status}: ${responseBody.substring(0, 200)}` }
     }
 
-    console.log('[FACTURADOR] Successfully sent to Facturador SV:', { purchaseId })
-    return { success: true }
+    const result = await response.json().catch(() => ({})) as {
+      data?: { dteId?: string; codigoGeneracion?: string; message?: string }
+    }
+
+    console.log('[FACTURADOR] DTE created:', {
+      purchaseId: payload.purchaseId,
+      dteId: result.data?.dteId,
+      codigoGeneracion: result.data?.codigoGeneracion,
+    })
+
+    return {
+      success: true,
+      dteId: result.data?.dteId,
+      codigoGeneracion: result.data?.codigoGeneracion,
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('[FACTURADOR] Failed to send:', { purchaseId, error: message })

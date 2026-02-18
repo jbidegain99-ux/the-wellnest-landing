@@ -10,7 +10,7 @@
 
 export interface FacturadorConfig {
   apiUrl: string
-  jwtToken: string
+  jwtToken: string // Legacy — inbound endpoint is @Public, auth via HMAC
   tenantId: string
   webhookSecret: string
 }
