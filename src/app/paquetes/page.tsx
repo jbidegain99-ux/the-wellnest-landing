@@ -39,6 +39,8 @@ async function getPackages() {
       validityText: true,
       bulletsTop: true,
       bulletsBottom: true,
+      originalPrice: true,
+      discountPercent: true,
       isFeatured: true,
     },
   })

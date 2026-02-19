@@ -16,6 +16,8 @@ interface Package {
   fullDescription: string
   classCount: number
   price: number
+  originalPrice: number | null
+  discountPercent: number | null
   currency: string
   validityDays: number
   validityText: string | null
@@ -97,6 +99,7 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
           {packages.map((pkg, index) => {
             const isExpanded = expandedId === pkg.id
             const color = colors[index % colors.length]
+            const hasDiscount = pkg.originalPrice && pkg.discountPercent
 
             // Build main features from bulletsTop or defaults
             const mainFeatures = pkg.bulletsTop.length > 0
@@ -126,9 +129,13 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
                   </div>
                 )}
 
-                {/* Header with gradient */}
+                {/* Header - sage green solid for apertura, gradient for regular */}
                 <div
-                  className={`h-20 sm:h-24 bg-gradient-to-r ${color} flex items-end p-4 sm:p-5`}
+                  className={`h-20 sm:h-24 flex items-end p-4 sm:p-5 ${
+                    hasDiscount
+                      ? 'bg-[#6B7F5E]'
+                      : `bg-gradient-to-r ${color}`
+                  }`}
                 >
                   <h3 className="text-lg sm:text-xl font-medium text-white drop-shadow-sm leading-tight">
                     {pkg.name}
@@ -142,11 +149,23 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
                     <p className="text-gray-500 text-sm mb-3 italic">{pkg.subtitle}</p>
                   )}
 
-                  {/* Price */}
+                  {/* Price section */}
                   <div className="mb-3">
-                    <span className="text-3xl sm:text-4xl font-medium text-foreground">
-                      {formatPrice(pkg.price, pkg.currency)}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-3xl sm:text-4xl font-medium text-foreground">
+                        {formatPrice(pkg.price, pkg.currency)}
+                      </span>
+                      {hasDiscount && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#C4943D] text-white">
+                          {pkg.discountPercent}% OFF
+                        </span>
+                      )}
+                    </div>
+                    {hasDiscount && pkg.originalPrice && (
+                      <p className="text-sm text-gray-400 line-through mt-1">
+                        {formatPrice(pkg.originalPrice, pkg.currency)}
+                      </p>
+                    )}
                   </div>
 
                   {/* Main features */}

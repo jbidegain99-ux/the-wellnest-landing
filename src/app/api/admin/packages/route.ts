@@ -18,6 +18,8 @@ const packageSchema = z.object({
   validityText: z.string().nullable().optional(),
   bulletsTop: z.array(z.string()).optional().default([]),
   bulletsBottom: z.array(z.string()).optional().default([]),
+  originalPrice: z.number().nullable().optional(),
+  discountPercent: z.number().nullable().optional(),
   isActive: z.boolean().optional().default(true),
   isFeatured: z.boolean().optional().default(false),
 })
@@ -31,6 +33,11 @@ const OFFICIAL_PACKAGE_SLUGS = [
   'vital-plan-16',
   'full-access-24',
   'wellnest-trimestral-80',
+  'apertura-mini-flow-4',
+  'apertura-balance-pass-8',
+  'apertura-energia-total-12',
+  'apertura-vital-plan-16',
+  'apertura-full-access-24',
 ]
 
 // GET packages (admin view)

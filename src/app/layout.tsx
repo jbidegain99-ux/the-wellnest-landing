@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   description: 'Tu santuario de bienestar en El Salvador. Yoga, Pilates Mat, Pole Fitness, Terapia de Sonido y Nutrición en un solo lugar. Usa tus clases en cualquier disciplina.',
   keywords: ['yoga', 'pilates', 'pole fitness', 'terapia de sonido', 'nutrición', 'bienestar', 'wellness', 'El Salvador'],
   authors: [{ name: 'Wellnest' }],
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-icon',
+  },
   openGraph: {
     title: 'Wellnest | Estudio de Bienestar Integral',
     description: 'Tu santuario de bienestar en El Salvador. Múltiples disciplinas, un solo lugar.',

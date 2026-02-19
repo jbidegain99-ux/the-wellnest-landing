@@ -132,6 +132,8 @@ model Package {
   bulletsTop       String[] // Lista ✓ inicial (ej: ["1 clase", "5 días de vigencia"])
   bulletsBottom    String[] // Lista ✓ final (beneficios/condiciones)
   image            String?
+  originalPrice    Float?   // Precio original antes de descuento
+  discountPercent  Int?     // Porcentaje de descuento (ej: 15, 20, 30)
   isActive         Boolean  @default(true)
   isFeatured       Boolean  @default(false)
   order            Int      @default(0)
