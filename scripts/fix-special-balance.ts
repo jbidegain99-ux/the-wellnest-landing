@@ -82,6 +82,25 @@ async function main() {
     console.log('Package updated successfully!')
   }
 
+  // Delete any duplicate packages with similar slugs
+  const duplicates = await prisma.package.findMany({
+    where: {
+      slug: { startsWith: 'special-balance-5' },
+      NOT: { slug },
+    },
+  })
+
+  for (const dup of duplicates) {
+    const purchases = await prisma.purchase.count({ where: { packageId: dup.id } })
+    if (purchases === 0) {
+      await prisma.package.delete({ where: { id: dup.id } })
+      console.log(`Deleted duplicate: ${dup.slug} (id: ${dup.id})`)
+    } else {
+      await prisma.package.update({ where: { id: dup.id }, data: { isActive: false } })
+      console.log(`Deactivated duplicate (has purchases): ${dup.slug} (id: ${dup.id})`)
+    }
+  }
+
   // Verify
   const updated = await prisma.package.findFirst({ where: { slug } })
   console.log('\nVerification:')
