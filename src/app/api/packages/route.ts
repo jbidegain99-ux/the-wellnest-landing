@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 
-// Only return the 7 official packages
+// Only return the 8 official packages
 const OFFICIAL_PACKAGE_SLUGS = [
   'drop-in-class',
   'mini-flow-4',
@@ -12,6 +12,7 @@ const OFFICIAL_PACKAGE_SLUGS = [
   'vital-plan-16',
   'full-access-24',
   'wellnest-trimestral-80',
+  'special-balance-5',
 ]
 
 export async function GET() {
