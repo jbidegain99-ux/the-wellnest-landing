@@ -46,11 +46,22 @@ interface Package {
   isActive: boolean
 }
 
+interface PaginationData {
+  current: number
+  limit: number
+  total: number
+  pages: number
+}
+
 export default function AdminUsuariosPage() {
   const [users, setUsers] = React.useState<User[]>([])
   const [packages, setPackages] = React.useState<Package[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState('')
+  const [currentPage, setCurrentPage] = React.useState(1)
+  const [pagination, setPagination] = React.useState<PaginationData>({
+    current: 1, limit: 10, total: 0, pages: 0,
+  })
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null)
   const [showAssignModal, setShowAssignModal] = React.useState(false)
   const [userToAssign, setUserToAssign] = React.useState<User | null>(null)
@@ -59,13 +70,24 @@ export default function AdminUsuariosPage() {
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
-  // Fetch users from database
-  const fetchUsers = React.useCallback(async () => {
+  // Debounced search
+  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+
+  // Fetch users from database with pagination
+  const fetchUsers = React.useCallback(async (page = 1, search = '') => {
+    setIsLoading(true)
     try {
-      const response = await fetch('/api/admin/users')
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10',
+      })
+      if (search) params.append('search', search)
+
+      const response = await fetch(`/api/admin/users?${params}`)
       if (response.ok) {
         const data = await response.json()
-        setUsers(data)
+        setUsers(data.users)
+        setPagination(data.pagination)
       } else {
         showError('Error al cargar los usuarios')
       }
@@ -91,9 +113,9 @@ export default function AdminUsuariosPage() {
   }, [])
 
   React.useEffect(() => {
-    fetchUsers()
+    fetchUsers(currentPage, searchQuery)
     fetchPackages()
-  }, [fetchUsers, fetchPackages])
+  }, [currentPage, fetchUsers, fetchPackages]) // searchQuery handled via debounce
 
   const showSuccess = (message: string) => {
     setSuccessMessage(message)
@@ -107,11 +129,18 @@ export default function AdminUsuariosPage() {
     setTimeout(() => setErrorMessage(null), 5000)
   }
 
-  const filteredUsers = users.filter(
-    (user) =>
-      (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const handleSearch = (value: string) => {
+    setSearchQuery(value)
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    searchTimeoutRef.current = setTimeout(() => {
+      setCurrentPage(1)
+      fetchUsers(1, value)
+    }, 300)
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
 
   const openAssignModal = (user: User) => {
     setUserToAssign(user)
@@ -142,7 +171,7 @@ export default function AdminUsuariosPage() {
       showSuccess(result.message || 'Paquete asignado correctamente')
       setShowAssignModal(false)
       setUserToAssign(null)
-      await fetchUsers()
+      await fetchUsers(currentPage, searchQuery)
     } catch (error) {
       console.error('Error assigning package:', error)
       showError('Error de conexión')
@@ -192,7 +221,7 @@ export default function AdminUsuariosPage() {
           <Input
             placeholder="Buscar por nombre o email..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             icon={<Search className="h-5 w-5" />}
           />
         </div>
@@ -226,7 +255,7 @@ export default function AdminUsuariosPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-beige">
-                {filteredUsers.map((user) => (
+                {users.map((user) => (
                   <tr key={user.id}>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
@@ -304,9 +333,64 @@ export default function AdminUsuariosPage() {
         </CardContent>
       </Card>
 
-      {filteredUsers.length === 0 && !isLoading && (
+      {users.length === 0 && !isLoading && (
         <div className="text-center py-12 text-gray-500">
           No se encontraron usuarios
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pagination.pages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+          <p className="text-sm text-gray-600">
+            Mostrando página <strong>{pagination.current}</strong> de{' '}
+            <strong>{pagination.pages}</strong> ({pagination.total} usuarios)
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.current === 1}
+              onClick={() => handlePageChange(pagination.current - 1)}
+            >
+              Anterior
+            </Button>
+            {Array.from({ length: pagination.pages }, (_, i) => i + 1)
+              .filter(p =>
+                p === 1 ||
+                p === pagination.pages ||
+                Math.abs(p - pagination.current) <= 1
+              )
+              .reduce<(number | string)[]>((acc, p, i, arr) => {
+                if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('...')
+                acc.push(p)
+                return acc
+              }, [])
+              .map((p, i) =>
+                typeof p === 'string' ? (
+                  <span key={`ellipsis-${i}`} className="px-2 py-1 text-gray-400">
+                    {p}
+                  </span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === pagination.current ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handlePageChange(p)}
+                  >
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.current === pagination.pages}
+              onClick={() => handlePageChange(pagination.current + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
       )}
 

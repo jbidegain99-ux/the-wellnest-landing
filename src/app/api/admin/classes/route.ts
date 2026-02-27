@@ -16,6 +16,7 @@ const classSchema = z.object({
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Formato de hora inválido'),
   duration: z.number().min(15, 'La duración mínima es 15 minutos'),
   maxCapacity: z.number().min(1, 'La capacidad mínima es 1'),
+  classType: z.string().nullable().optional(),
   isRecurring: z.boolean().default(true),
   weeksAhead: z.number().min(1).max(12).default(4), // How many weeks to create classes for
 })
@@ -109,6 +110,7 @@ export async function GET(request: Request) {
       duration: cls.duration,
       maxCapacity: cls.maxCapacity,
       currentCount: cls.currentCount,
+      classType: cls.classType,
       reservationsCount: cls._count.reservations,
       isRecurring: cls.isRecurring,
       isCancelled: cls.isCancelled,
@@ -220,6 +222,7 @@ export async function POST(request: Request) {
       dateTime: Date
       duration: number
       maxCapacity: number
+      classType: string | null
       isRecurring: boolean
     }> = []
 
@@ -249,6 +252,7 @@ export async function POST(request: Request) {
               dateTime: classDateTime,
               duration: data.duration,
               maxCapacity: data.maxCapacity,
+              classType: data.classType || null,
               isRecurring: data.isRecurring,
             })
           }

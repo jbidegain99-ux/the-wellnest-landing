@@ -11,6 +11,7 @@ const updateClassSchema = z.object({
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Formato de hora inválido').optional(),
   duration: z.number().min(15).optional(),
   maxCapacity: z.number().min(1).optional(),
+  classType: z.string().nullable().optional(),
   isCancelled: z.boolean().optional(),
 })
 
@@ -144,6 +145,7 @@ export async function PUT(
 
     if (data.duration !== undefined) updateData.duration = data.duration
     if (data.maxCapacity !== undefined) updateData.maxCapacity = data.maxCapacity
+    if (data.classType !== undefined) updateData.classType = data.classType
     if (data.isCancelled !== undefined) updateData.isCancelled = data.isCancelled
 
     const cls = await prisma.class.update({

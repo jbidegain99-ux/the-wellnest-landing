@@ -46,6 +46,7 @@ interface ClassData {
   duration: number
   maxCapacity: number
   currentCount: number
+  classType: string | null
   discipline: Discipline
   instructor: Instructor
   _count?: {
@@ -97,6 +98,13 @@ function MobileClassCard({
           >
             {cls.discipline.name}
           </span>
+
+          {/* Class type subtitle */}
+          {cls.classType && (
+            <p className="text-xs text-gray-500 italic">
+              {cls.classType}
+            </p>
+          )}
 
           {/* Time - prominent */}
           <div className="flex items-center gap-2 text-foreground">
@@ -522,6 +530,12 @@ export default function HorariosPage() {
                                 )}
                               >
                                 <p className="font-medium truncate">{cls.discipline.name}</p>
+                                {cls.classType && (
+                                  <>
+                                    <div className="border-t border-white/30 my-1" />
+                                    <p className="opacity-80 italic truncate">{cls.classType}</p>
+                                  </>
+                                )}
                                 <p className="flex items-center gap-1 opacity-90">
                                   <Clock className="h-3 w-3 flex-shrink-0" />
                                   {formatClassTime(cls.dateTime)}

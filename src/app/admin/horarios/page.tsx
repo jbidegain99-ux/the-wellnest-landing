@@ -47,6 +47,7 @@ interface ClassItem {
   dayOfWeek: number
   isRecurring: boolean
   isCancelled?: boolean
+  classType?: string | null
   reservationsCount?: number
 }
 
@@ -307,6 +308,7 @@ export default function AdminHorariosPage() {
             time: formData.get('time') as string,
             duration: parseInt(formData.get('duration') as string),
             maxCapacity: parseInt(formData.get('maxCapacity') as string),
+            classType: (formData.get('classType') as string) || null,
           }),
         })
 
@@ -330,6 +332,7 @@ export default function AdminHorariosPage() {
             time: formData.get('time') as string,
             duration: parseInt(formData.get('duration') as string),
             maxCapacity: parseInt(formData.get('maxCapacity') as string),
+            classType: (formData.get('classType') as string) || null,
             isRecurring: formData.get('isRecurring') === 'on',
             weeksAhead: formData.get('isRecurring') === 'on' ? 8 : 1,
           }),
@@ -479,6 +482,9 @@ export default function AdminHorariosPage() {
                     onClick={() => handleEdit(cls)}
                   >
                     <p className="font-medium">{cls.discipline}</p>
+                    {cls.classType && (
+                      <p className="opacity-75 italic text-[10px] truncate">{cls.classType}</p>
+                    )}
                     <p className="opacity-90">{cls.time}</p>
                     <p className="opacity-90">{cls.instructor.split(' ')[0]}</p>
                     <p className="opacity-90">
@@ -606,6 +612,22 @@ export default function AdminHorariosPage() {
                 defaultValue={editingClass?.maxCapacity || 15}
                 required
               />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Tipo de Clase (opcional)
+                </label>
+                <input
+                  type="text"
+                  name="classType"
+                  placeholder="ej: clase de prueba, Pilates - Core, Yoga - Vinyasa"
+                  className="w-full px-3 py-2 border border-beige rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                  defaultValue={editingClass?.classType || ''}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Subtítulo categórico que aparece en las cards de horarios
+                </p>
+              </div>
 
               {!editingClass && (
                 <label className="flex items-center gap-2 cursor-pointer">
