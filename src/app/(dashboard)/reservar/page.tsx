@@ -181,6 +181,18 @@ export default function ReservarPage() {
     fetchUserReservations()
   }, [fetchActivePurchase, fetchUserReservations])
 
+  // Re-fetch purchase data when tab becomes visible (sync across tabs)
+  React.useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchActivePurchase()
+        fetchUserReservations()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [fetchActivePurchase, fetchUserReservations])
+
   // Fetch specific purchase if packageId is in URL
   React.useEffect(() => {
     const fetchSelectedPurchase = async () => {

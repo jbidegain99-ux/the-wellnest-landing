@@ -245,24 +245,32 @@ export async function POST(request: Request) {
           }, { status: 400 })
         }
 
-        // Transfer: return class to old package, take from new package
-        const [updatedReservation, oldPurchaseUpdated, newPurchaseUpdated] = await prisma.$transaction([
-          prisma.reservation.update({
+        // Transfer: return class to old package, take from new package (atomic)
+        const { updatedReservation, oldPurchaseUpdated, newPurchaseUpdated } = await prisma.$transaction(async (tx) => {
+          // Decrement new purchase first — guard against race
+          const newPurchaseUpd = await tx.purchase.update({
+            where: { id: newPurchase.id },
+            data: { classesRemaining: { decrement: 1 } },
+          })
+          if (newPurchaseUpd.classesRemaining < 0) {
+            throw new Error('INSUFFICIENT_CREDITS')
+          }
+
+          const oldPurchaseUpd = await tx.purchase.update({
+            where: { id: existingReservation.purchaseId },
+            data: { classesRemaining: { increment: 1 } },
+          })
+
+          const updRes = await tx.reservation.update({
             where: { id: existingReservation.id },
             data: { purchaseId: newPurchase.id },
             include: {
               class: { include: { discipline: true, instructor: true } },
             },
-          }),
-          prisma.purchase.update({
-            where: { id: existingReservation.purchaseId },
-            data: { classesRemaining: { increment: 1 } },
-          }),
-          prisma.purchase.update({
-            where: { id: newPurchase.id },
-            data: { classesRemaining: { decrement: 1 } },
-          }),
-        ])
+          })
+
+          return { updatedReservation: updRes, oldPurchaseUpdated: oldPurchaseUpd, newPurchaseUpdated: newPurchaseUpd }
+        })
 
         // Update statuses if needed
         if (oldPurchaseUpdated.classesRemaining > 0 && oldPurchaseUpdated.status === 'DEPLETED') {
@@ -350,10 +358,17 @@ export async function POST(request: Request) {
           remaining: purchase.classesRemaining,
         })
 
-        // Reactivate the reservation
-        // Note: We don't update class.currentCount because we use _count.reservations instead
-        const [reactivatedReservation, updatedPurchase] = await prisma.$transaction([
-          prisma.reservation.update({
+        // Reactivate the reservation with atomic credit check
+        const { reactivatedReservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
+          const updPurchase = await tx.purchase.update({
+            where: { id: purchase.id },
+            data: { classesRemaining: { decrement: 1 } },
+          })
+          if (updPurchase.classesRemaining < 0) {
+            throw new Error('INSUFFICIENT_CREDITS')
+          }
+
+          const reactivated = await tx.reservation.update({
             where: { id: existingReservation.id },
             data: {
               status: 'CONFIRMED',
@@ -368,12 +383,10 @@ export async function POST(request: Request) {
                 },
               },
             },
-          }),
-          prisma.purchase.update({
-            where: { id: purchase.id },
-            data: { classesRemaining: { decrement: 1 } },
-          }),
-        ])
+          })
+
+          return { reactivatedReservation: reactivated, updatedPurchase: updPurchase }
+        })
 
         console.log('[RESERVATIONS API] Reservation reactivated successfully:', {
           reservationId: reactivatedReservation.id,
@@ -622,16 +635,24 @@ export async function POST(request: Request) {
       const guestToken = crypto.randomBytes(32).toString('hex')
 
       console.log('[RESERVATIONS API] Creating reservation with guest (1 class)...')
-      const [reservation, updatedPurchase] = await prisma.$transaction([
-        // Single reservation with guest info
-        prisma.reservation.create({
+      const { reservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
+        // Atomic decrement — guard against race conditions
+        const updPurchase = await tx.purchase.update({
+          where: { id: purchase.id },
+          data: { classesRemaining: { decrement: 1 } },
+        })
+        if (updPurchase.classesRemaining < 0) {
+          throw new Error('INSUFFICIENT_CREDITS')
+        }
+
+        const res = await tx.reservation.create({
           data: {
             userId,
             classId,
             purchaseId: purchase.id,
             status: 'CONFIRMED',
-            guestEmail: guestData.email.trim(),
-            guestName: guestData.name?.trim() || null,
+            guestEmail: guestData!.email!.trim(),
+            guestName: guestData!.name?.trim() || null,
             guestStatus: 'PENDING',
             guestToken,
           },
@@ -643,13 +664,10 @@ export async function POST(request: Request) {
               include: { package: true },
             },
           },
-        }),
-        // Decrement by 1 (guest is free companion)
-        prisma.purchase.update({
-          where: { id: purchase.id },
-          data: { classesRemaining: { decrement: 1 } },
-        }),
-      ])
+        })
+
+        return { reservation: res, updatedPurchase: updPurchase }
+      })
 
       console.log('[RESERVATIONS API] Reservation with guest created:', {
         reservationId: reservation.id,
@@ -725,8 +743,18 @@ export async function POST(request: Request) {
       classTime: classDateTime.toISOString(),
     })
 
-    const [reservation, updatedPurchase] = await prisma.$transaction([
-      prisma.reservation.create({
+    const { reservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
+      // Atomic decrement — if another request already took the last class,
+      // classesRemaining goes negative and we rollback
+      const updPurchase = await tx.purchase.update({
+        where: { id: purchase.id },
+        data: { classesRemaining: { decrement: 1 } },
+      })
+      if (updPurchase.classesRemaining < 0) {
+        throw new Error('INSUFFICIENT_CREDITS')
+      }
+
+      const res = await tx.reservation.create({
         data: {
           userId,
           classId,
@@ -746,12 +774,10 @@ export async function POST(request: Request) {
             },
           },
         },
-      }),
-      prisma.purchase.update({
-        where: { id: purchase.id },
-        data: { classesRemaining: { decrement: 1 } },
-      }),
-    ])
+      })
+
+      return { reservation: res, updatedPurchase: updPurchase }
+    })
 
     console.log('[RESERVATIONS API] Reservation created successfully:', {
       reservationId: reservation.id,
@@ -792,6 +818,15 @@ export async function POST(request: Request) {
     console.error('[RESERVATIONS API] Error code:', error?.code)
     console.error('[RESERVATIONS API] Error message:', error?.message)
     console.error('[RESERVATIONS API] Full error:', error)
+
+    // Handle insufficient credits (race condition guard)
+    if (error?.message === 'INSUFFICIENT_CREDITS') {
+      console.log('[RESERVATIONS API] Race condition prevented — no credits left')
+      return NextResponse.json({
+        error: 'No tienes clases disponibles. Es posible que se hayan usado desde otra sesión. Recarga la página.',
+        code: ERROR_CODES.NO_PACKAGE
+      }, { status: 400 })
+    }
 
     // Handle specific Prisma errors
     if (error?.code === 'P2002') {
