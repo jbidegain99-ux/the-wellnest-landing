@@ -172,6 +172,14 @@ export async function POST(request: Request) {
       total,
     })
 
+    console.log('[ORDERS API] Items to order:', itemsWithPackages.map(item => ({
+      packageId: item.packageId,
+      packageName: item.package.name,
+      price: item.package.price,
+      quantity: item.quantity,
+      isActive: item.package.isActive,
+    })))
+
     // Create order with items in a transaction
     const order = await prisma.$transaction(async (tx) => {
       // Create the order
@@ -219,23 +227,28 @@ export async function POST(request: Request) {
       })
     })
 
+    if (!order) {
+      console.error('[ORDERS API] Order was null after transaction')
+      return NextResponse.json({ error: 'Error interno: orden no creada' }, { status: 500 })
+    }
+
     console.log('[ORDERS API] Order created:', {
-      orderId: order?.id,
-      status: order?.status,
-      total: order?.total,
-      itemCount: order?.items.length,
+      orderId: order.id,
+      status: order.status,
+      total: order.total,
+      itemCount: order.items.length,
     })
 
     return NextResponse.json({
       success: true,
       order: {
-        id: order?.id,
-        status: order?.status,
-        subtotal: order?.subtotal,
-        discount: order?.discount,
-        total: order?.total,
-        discountCode: order?.discountCode,
-        items: order?.items.map((item) => ({
+        id: order.id,
+        status: order.status,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        total: order.total,
+        discountCode: order.discountCode,
+        items: order.items.map((item) => ({
           id: item.id,
           packageId: item.packageId,
           packageName: item.package.name,
@@ -246,11 +259,18 @@ export async function POST(request: Request) {
         })),
       },
       // Include redirect URL for the selected payment method
-      redirectUrl: paymentMethod === 'payway' ? `/checkout/payway/${order?.id}` : null,
+      redirectUrl: paymentMethod === 'payway' ? `/checkout/payway/${order.id}` : null,
     })
-  } catch (error) {
-    console.error('[ORDERS API] Error creating order:', error)
-    return NextResponse.json({ error: 'Error al crear la orden' }, { status: 500 })
+  } catch (error: unknown) {
+    const err = error as { message?: string; code?: string; meta?: Record<string, unknown> }
+    console.error('[ORDERS API] Error creating order:', JSON.stringify(err, null, 2))
+    console.error('[ORDERS API] Error message:', err.message)
+    console.error('[ORDERS API] Error code:', err.code)
+    return NextResponse.json({
+      error: 'Error al crear la orden',
+      details: err.message,
+      code: err.code,
+    }, { status: 500 })
   }
 }
 
