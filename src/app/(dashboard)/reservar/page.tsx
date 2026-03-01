@@ -770,7 +770,7 @@ export default function ReservarPage() {
                           />
                         </div>
                         <p className="text-xs text-gray-500">
-                          Se descontarán 2 clases de tu paquete (1 tuya + 1 invitado).
+                          Se descontará 1 clase de tu paquete. Tu invitado asiste gratis como acompañante.
                         </p>
                       </div>
                     )}
@@ -779,7 +779,7 @@ export default function ReservarPage() {
 
                 {/* Classes deduction info */}
                 {(() => {
-                  const classesToDeduct = bringGuest ? 2 : 1
+                  const classesToDeduct = 1 // Always 1 — guest is free companion
                   const remaining = selectedPurchase
                     ? selectedPurchase.classesRemaining
                     : (activePurchase?.classesRemaining || 0)
@@ -828,7 +828,7 @@ export default function ReservarPage() {
                   isLoading={isBooking}
                   disabled={bringGuest && !guestEmail.trim()}
                 >
-                  {bringGuest ? 'Reservar (2 clases)' : 'Confirmar Reserva'}
+                  {bringGuest ? 'Reservar con Invitado' : 'Confirmar Reserva'}
                 </Button>
               </ModalFooter>
             </>

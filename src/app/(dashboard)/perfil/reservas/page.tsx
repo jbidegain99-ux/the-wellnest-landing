@@ -23,6 +23,7 @@ interface Reservation {
   isGuestReservation: boolean
   guestEmail: string | null
   guestName: string | null
+  guestStatus: string | null
   class: {
     id: string
     dateTime: string
@@ -207,18 +208,10 @@ export default function ReservasPage() {
       ) : (
         <div className="space-y-4">
           {reservations
-            .filter((r) => !r.isGuestReservation) // Only show buyer's reservations as cards
+            .filter((r) => !r.isGuestReservation) // Only show buyer's own reservations
             .map((reservation) => {
             const classDate = new Date(reservation.class.dateTime)
             const canCancelReservation = canCancel(reservation)
-
-            // Find linked guest reservation for the same class
-            const guestReservation = reservations.find(
-              (r) =>
-                r.isGuestReservation &&
-                r.class.id === reservation.class.id &&
-                r.status === 'CONFIRMED'
-            )
 
             return (
               <Card key={reservation.id} className="overflow-hidden">
@@ -259,13 +252,24 @@ export default function ReservasPage() {
                         </div>
 
                         {/* Guest info */}
-                        {guestReservation && (
+                        {reservation.guestEmail && (
                           <div className="flex items-center gap-2 text-sm text-[#2D5A4A] bg-[#2D5A4A]/5 rounded-lg px-3 py-2">
                             <UserPlus className="h-4 w-4" />
                             <span>
-                              Con invitado: {guestReservation.guestName || guestReservation.guestEmail}
-                              {guestReservation.guestName && guestReservation.guestEmail && (
-                                <span className="text-gray-500 ml-1">({guestReservation.guestEmail})</span>
+                              Con invitado: {reservation.guestName || reservation.guestEmail}
+                              {reservation.guestName && (
+                                <span className="text-gray-500 ml-1">({reservation.guestEmail})</span>
+                              )}
+                              {reservation.guestStatus && (
+                                <span className={`ml-2 text-xs font-medium ${
+                                  reservation.guestStatus === 'ACCEPTED' ? 'text-green-600' :
+                                  reservation.guestStatus === 'DECLINED' ? 'text-red-500' :
+                                  'text-yellow-600'
+                                }`}>
+                                  {reservation.guestStatus === 'ACCEPTED' ? '• Aceptada' :
+                                   reservation.guestStatus === 'DECLINED' ? '• Declinada' :
+                                   '• Pendiente'}
+                                </span>
                               )}
                             </span>
                           </div>
@@ -351,17 +355,10 @@ export default function ReservasPage() {
                   </div>
 
                   <p className="text-gray-600">
-                    {(() => {
-                      const hasGuest = selectedReservation && reservations.find(
-                        (r) =>
-                          r.isGuestReservation &&
-                          r.class.id === selectedReservation.class.id &&
-                          r.status === 'CONFIRMED'
-                      )
-                      return hasGuest
-                        ? 'Se cancelará tu reserva y la de tu invitado. Se devolverán 2 clases a tu paquete. Esta acción no se puede deshacer.'
-                        : 'Al cancelar esta reserva, se devolverá 1 clase a tu paquete. Esta acción no se puede deshacer.'
-                    })()}
+                    {selectedReservation?.guestEmail
+                      ? 'Se cancelará tu reserva y la invitación de tu acompañante. Se devolverá 1 clase a tu paquete. Esta acción no se puede deshacer.'
+                      : 'Al cancelar esta reserva, se devolverá 1 clase a tu paquete. Esta acción no se puede deshacer.'
+                    }
                   </p>
 
                   {cancelError && (

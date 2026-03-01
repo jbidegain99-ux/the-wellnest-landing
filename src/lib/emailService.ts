@@ -200,6 +200,7 @@ export interface GuestInvitationData {
   instructorName: string
   dateTime: string
   duration: number
+  acceptUrl: string
 }
 
 export function buildGuestInvitationEmail(data: GuestInvitationData): string {
@@ -278,12 +279,43 @@ export function buildGuestInvitationEmail(data: GuestInvitationData): string {
                 </tr>
               </table>
 
+              <!-- Botón aceptar -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color: #86A889; border-radius: 8px;">
+                          <a href="${data.acceptUrl}"
+                             target="_blank"
+                             style="display: inline-block; background-color: #86A889; color: #FFFFFF; padding: 12px 32px; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px; line-height: 1.4;">
+                            Aceptar Invitaci&oacute;n
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
               <!-- Nota -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
                 <tr>
                   <td style="background-color: #F0F5F1; border: 1px solid #D4E5D7; border-radius: 8px; padding: 16px;">
                     <p style="margin: 0; font-size: 13px; color: #374151; line-height: 1.5;">
-                      No necesitas cuenta para asistir. Solo presenta este email al llegar al estudio.
+                      No necesitas cuenta para asistir. Haz clic en el bot&oacute;n de arriba para confirmar tu asistencia, o simplemente presenta este email al llegar al estudio.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Link alternativo -->
+              <p style="color: #374151; font-size: 13px; font-weight: 500; margin: 24px 0 8px; line-height: 1.4;">Si el bot&oacute;n no funciona, copia este enlace:</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background-color: #F9FAFB; border-radius: 4px; padding: 8px;">
+                    <p style="margin: 0; font-size: 12px; color: #6B7280; word-break: break-all; font-family: 'Monaco', 'Menlo', monospace;">
+                      ${data.acceptUrl}
                     </p>
                   </td>
                 </tr>

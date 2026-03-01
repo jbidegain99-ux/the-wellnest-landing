@@ -233,7 +233,9 @@ model Reservation {
   checkedInAt        DateTime?
   guestEmail         String?           // email of invited guest
   guestName          String?           // name of invited guest
-  isGuestReservation Boolean           @default(false) // true if this spot is for a guest
+  guestStatus        String?           // PENDING, ACCEPTED, DECLINED
+  guestToken         String?  @unique  // token for guest to accept/decline without login
+  isGuestReservation Boolean           @default(false) // legacy — kept for backward compat
 
   @@unique([userId, classId, isGuestReservation])
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { sendEmail, buildGuestInvitationEmail } from '@/lib/emailService'
@@ -47,6 +48,7 @@ export async function GET() {
         isGuestReservation: true,
         guestEmail: true,
         guestName: true,
+        guestStatus: true,
         class: {
           include: {
             discipline: true,
@@ -595,6 +597,8 @@ export async function POST(request: Request) {
     })
 
     // === GUEST RESERVATION HANDLING ===
+    // New model: 1 single reservation with guestEmail, decrement 1 class only.
+    // Guest goes as companion — no separate reservation or class deduction for them.
     if (guestData?.email) {
       // Validate the package supports sharing
       if (!purchase.package.isShareable || purchase.package.maxShares < 1) {
@@ -605,33 +609,31 @@ export async function POST(request: Request) {
         }, { status: 400 })
       }
 
-      // Need at least 2 classes (1 for buyer + 1 for guest)
-      if (purchase.classesRemaining < 2) {
-        console.log('[RESERVATIONS API] ERROR: Not enough classes for guest reservation')
+      // Need at least 1 class for the buyer
+      if (purchase.classesRemaining < 1) {
+        console.log('[RESERVATIONS API] ERROR: Not enough classes')
         return NextResponse.json({
-          error: 'Necesitas al menos 2 clases disponibles para llevar un invitado (1 tuya + 1 invitado).',
+          error: 'No tienes clases disponibles.',
           code: ERROR_CODES.NO_PACKAGE
         }, { status: 400 })
       }
 
-      // Check capacity for 2 spots
-      if (classData._count.reservations + 2 > classData.maxCapacity) {
-        console.log('[RESERVATIONS API] ERROR: Not enough spots for buyer + guest')
-        return NextResponse.json({
-          error: 'No hay suficientes cupos para ti y tu invitado. Solo queda 1 cupo disponible.',
-          code: ERROR_CODES.CLASS_FULL
-        }, { status: 400 })
-      }
+      // Generate a unique token for guest acceptance
+      const guestToken = crypto.randomBytes(32).toString('hex')
 
-      console.log('[RESERVATIONS API] Creating reservation with guest...')
-      const [reservation, _guestReservation, updatedPurchase] = await prisma.$transaction([
-        // Buyer's reservation
+      console.log('[RESERVATIONS API] Creating reservation with guest (1 class)...')
+      const [reservation, updatedPurchase] = await prisma.$transaction([
+        // Single reservation with guest info
         prisma.reservation.create({
           data: {
             userId,
             classId,
             purchaseId: purchase.id,
             status: 'CONFIRMED',
+            guestEmail: guestData.email.trim(),
+            guestName: guestData.name?.trim() || null,
+            guestStatus: 'PENDING',
+            guestToken,
           },
           include: {
             class: {
@@ -642,33 +644,22 @@ export async function POST(request: Request) {
             },
           },
         }),
-        // Guest's reservation
-        prisma.reservation.create({
-          data: {
-            userId,
-            classId,
-            purchaseId: purchase.id,
-            status: 'CONFIRMED',
-            isGuestReservation: true,
-            guestEmail: guestData.email.trim(),
-            guestName: guestData.name?.trim() || null,
-          },
-        }),
-        // Decrement by 2
+        // Decrement by 1 (guest is free companion)
         prisma.purchase.update({
           where: { id: purchase.id },
-          data: { classesRemaining: { decrement: 2 } },
+          data: { classesRemaining: { decrement: 1 } },
         }),
       ])
 
       console.log('[RESERVATIONS API] Reservation with guest created:', {
         reservationId: reservation.id,
         guestEmail: guestData.email,
+        guestToken,
         previousRemaining: purchase.classesRemaining,
         newRemaining: updatedPurchase.classesRemaining,
       })
 
-      // Fire-and-forget: send guest invitation email
+      // Fire-and-forget: send guest invitation email with acceptance link
       const classDateTime = new Date(reservation.class.dateTime)
       const formattedDateTime = classDateTime.toLocaleDateString('es-SV', {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -676,6 +667,8 @@ export async function POST(request: Request) {
         hour: '2-digit', minute: '2-digit', hour12: true,
       })
       const hostName = session.user.name || session.user.email || 'Un usuario'
+      const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
+      const acceptUrl = `${baseUrl}/invitacion/${guestToken}`
 
       sendEmail({
         to: guestData.email.trim(),
@@ -687,6 +680,7 @@ export async function POST(request: Request) {
           instructorName: reservation.class.instructor.name,
           dateTime: formattedDateTime,
           duration: reservation.class.duration,
+          acceptUrl,
         }),
       }).then(result => {
         if (result.success) {
@@ -709,10 +703,6 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         ...reservation,
-        guestReservation: {
-          guestEmail: guestData.email,
-          guestName: guestData.name || null,
-        },
         updatedPurchase: {
           id: updatedPurchase.id,
           packageName: purchase.package.name,
