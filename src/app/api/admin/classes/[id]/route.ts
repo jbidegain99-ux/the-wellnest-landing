@@ -7,6 +7,7 @@ import { setHours, setMinutes } from 'date-fns'
 
 const updateClassSchema = z.object({
   disciplineId: z.string().optional(),
+  complementaryDisciplineId: z.string().nullable().optional(),
   instructorId: z.string().optional(),
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Formato de hora inválido').optional(),
   duration: z.number().min(15).optional(),
@@ -33,6 +34,7 @@ export async function GET(
       where: { id },
       include: {
         discipline: true,
+        complementaryDiscipline: true,
         instructor: true,
         _count: {
           select: { reservations: true },
@@ -51,6 +53,8 @@ export async function GET(
       id: cls.id,
       disciplineId: cls.disciplineId,
       discipline: cls.discipline.name,
+      complementaryDisciplineId: cls.complementaryDisciplineId,
+      complementaryDiscipline: cls.complementaryDiscipline?.name || null,
       instructorId: cls.instructorId,
       instructor: cls.instructor.name,
       dateTime: cls.dateTime,
@@ -123,6 +127,30 @@ export async function PUT(
       updateData.disciplineId = data.disciplineId
     }
 
+    if (data.complementaryDisciplineId !== undefined) {
+      if (data.complementaryDisciplineId === null) {
+        updateData.complementaryDisciplineId = null
+      } else {
+        const compDiscipline = await prisma.discipline.findUnique({
+          where: { id: data.complementaryDisciplineId },
+        })
+        if (!compDiscipline) {
+          return NextResponse.json(
+            { error: 'La disciplina complementaria no existe' },
+            { status: 400 }
+          )
+        }
+        const primaryId = data.disciplineId || existingClass.disciplineId
+        if (data.complementaryDisciplineId === primaryId) {
+          return NextResponse.json(
+            { error: 'La disciplina complementaria debe ser diferente a la principal' },
+            { status: 400 }
+          )
+        }
+        updateData.complementaryDisciplineId = data.complementaryDisciplineId
+      }
+    }
+
     if (data.instructorId !== undefined) {
       const instructor = await prisma.instructor.findUnique({
         where: { id: data.instructorId },
@@ -153,6 +181,7 @@ export async function PUT(
       data: updateData,
       include: {
         discipline: true,
+        complementaryDiscipline: true,
         instructor: true,
       },
     })
@@ -163,6 +192,8 @@ export async function PUT(
         id: cls.id,
         disciplineId: cls.disciplineId,
         discipline: cls.discipline.name,
+        complementaryDisciplineId: cls.complementaryDisciplineId,
+        complementaryDiscipline: cls.complementaryDiscipline?.name || null,
         instructorId: cls.instructorId,
         instructor: cls.instructor.name,
         dateTime: cls.dateTime,

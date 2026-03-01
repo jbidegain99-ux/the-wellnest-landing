@@ -38,6 +38,8 @@ interface ClassItem {
   id: string
   disciplineId: string
   discipline: string
+  complementaryDisciplineId?: string | null
+  complementaryDiscipline?: string | null
   instructorId: string
   instructor: string
   dateTime: string
@@ -67,6 +69,8 @@ export default function AdminHorariosPage() {
 
   // Controlled state for form selects (Radix Select + FormData is unreliable)
   const [selectedDisciplineId, setSelectedDisciplineId] = React.useState<string>('')
+  const [hasComplementary, setHasComplementary] = React.useState(false)
+  const [selectedComplementaryId, setSelectedComplementaryId] = React.useState<string>('')
   const [selectedInstructorId, setSelectedInstructorId] = React.useState<string>('')
   const [selectedDayOfWeek, setSelectedDayOfWeek] = React.useState<string>('')
   const [isLoading, setIsLoading] = React.useState(false)
@@ -252,6 +256,8 @@ export default function AdminHorariosPage() {
     setSelectedDay(dayOfWeek ?? null)
     // Reset controlled state for new class
     setSelectedDisciplineId('')
+    setHasComplementary(false)
+    setSelectedComplementaryId('')
     setSelectedInstructorId('')
     setSelectedDayOfWeek(dayOfWeek !== undefined ? dayOfWeek.toString() : '')
     setIsModalOpen(true)
@@ -262,6 +268,8 @@ export default function AdminHorariosPage() {
     setSelectedDay(null)
     // Set controlled state from existing class
     setSelectedDisciplineId(cls.disciplineId)
+    setHasComplementary(!!cls.complementaryDisciplineId)
+    setSelectedComplementaryId(cls.complementaryDisciplineId || '')
     setSelectedInstructorId(cls.instructorId)
     setSelectedDayOfWeek(cls.dayOfWeek.toString())
     setIsModalOpen(true)
@@ -297,6 +305,10 @@ export default function AdminHorariosPage() {
     }
 
     try {
+      const complementaryDisciplineId = hasComplementary && selectedComplementaryId
+        ? selectedComplementaryId
+        : null
+
       if (editingClass) {
         // Update existing class
         const response = await fetch(`/api/admin/classes/${editingClass.id}`, {
@@ -304,6 +316,7 @@ export default function AdminHorariosPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             disciplineId,
+            complementaryDisciplineId,
             instructorId,
             time: formData.get('time') as string,
             duration: parseInt(formData.get('duration') as string),
@@ -327,6 +340,7 @@ export default function AdminHorariosPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             disciplineId,
+            complementaryDisciplineId,
             instructorId,
             dayOfWeek: parseInt(dayOfWeek),
             time: formData.get('time') as string,
@@ -481,7 +495,10 @@ export default function AdminHorariosPage() {
                     )}
                     onClick={() => handleEdit(cls)}
                   >
-                    <p className="font-medium">{cls.discipline}</p>
+                    <p className="font-medium">
+                      {cls.discipline}
+                      {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
+                    </p>
                     {cls.classType && (
                       <p className="opacity-75 italic text-[10px] truncate">{cls.classType}</p>
                     )}
@@ -538,6 +555,42 @@ export default function AdminHorariosPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasComplementary}
+                    onChange={(e) => {
+                      setHasComplementary(e.target.checked)
+                      if (!e.target.checked) setSelectedComplementaryId('')
+                    }}
+                    className="rounded border-beige-dark text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm font-medium text-gray-700">¿Tiene disciplina complementaria?</span>
+                </label>
+                {hasComplementary && (
+                  <div className="mt-2">
+                    <Select
+                      value={selectedComplementaryId}
+                      onValueChange={setSelectedComplementaryId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar disciplina complementaria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {disciplines
+                          .filter((d) => d.id !== selectedDisciplineId)
+                          .map((d) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               <div>

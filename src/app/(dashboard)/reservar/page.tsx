@@ -43,6 +43,7 @@ interface ClassData {
   maxCapacity: number
   currentCount: number
   discipline: Discipline
+  complementaryDiscipline?: Discipline | null
   instructor: Instructor
   _count?: {
     reservations: number
@@ -591,7 +592,10 @@ export default function ReservarPage() {
                               : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
                           )}
                         >
-                          <p className="font-medium">{cls.discipline.name}</p>
+                          <p className="font-medium">
+                            {cls.discipline.name}
+                            {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline.name}`}
+                          </p>
                           <p className="flex items-center gap-1 opacity-90">
                             <Clock className="h-3 w-3" />
                             {formatClassTime(cls.dateTime)}
@@ -708,6 +712,7 @@ export default function ReservarPage() {
                 >
                   <p className="font-serif text-xl font-semibold">
                     {selectedClass.discipline.name}
+                    {selectedClass.complementaryDiscipline && ` + ${selectedClass.complementaryDiscipline.name}`}
                   </p>
                 </div>
 

@@ -31,7 +31,11 @@ export async function GET(request: Request) {
     }
 
     if (disciplineId) {
-      where.disciplineId = disciplineId
+      // Search in both primary and complementary discipline
+      where.OR = [
+        { disciplineId },
+        { complementaryDisciplineId: disciplineId },
+      ]
     }
 
     if (startDate && endDate) {
@@ -77,6 +81,7 @@ export async function GET(request: Request) {
       where,
       include: {
         discipline: true,
+        complementaryDiscipline: true,
         instructor: true,
         // Only count CONFIRMED reservations (not cancelled)
         _count: {

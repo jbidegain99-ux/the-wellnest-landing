@@ -94,7 +94,8 @@ model Discipline {
   order       Int     @default(0)
   isActive    Boolean @default(true)
 
-  classes  Class[]
+  classes                Class[]  @relation("PrimaryDiscipline")
+  complementaryClasses   Class[]  @relation("ComplementaryDiscipline")
   packages PackageDiscipline[]
 }
 
@@ -198,20 +199,22 @@ enum PurchaseStatus {
 
 // Clase programada
 model Class {
-  id               String      @id @default(cuid())
-  discipline       Discipline  @relation(fields: [disciplineId], references: [id])
-  disciplineId     String
-  instructor       Instructor  @relation(fields: [instructorId], references: [id])
-  instructorId     String
-  dateTime         DateTime
-  duration         Int         // minutos
-  maxCapacity      Int
-  currentCount     Int         @default(0)
-  isRecurring      Boolean     @default(false)
-  recurringPattern String?     // weekly, biweekly, etc.
-  isCancelled      Boolean     @default(false)
-  classType        String?     // Subtítulo categórico (ej: "clase de prueba", "Pilates - Core")
-  notes            String?
+  id                        String      @id @default(cuid())
+  discipline                Discipline  @relation("PrimaryDiscipline", fields: [disciplineId], references: [id])
+  disciplineId              String
+  complementaryDiscipline   Discipline? @relation("ComplementaryDiscipline", fields: [complementaryDisciplineId], references: [id])
+  complementaryDisciplineId String?
+  instructor                Instructor  @relation(fields: [instructorId], references: [id])
+  instructorId              String
+  dateTime                  DateTime
+  duration                  Int         // minutos
+  maxCapacity               Int
+  currentCount              Int         @default(0)
+  isRecurring               Boolean     @default(false)
+  recurringPattern          String?     // weekly, biweekly, etc.
+  isCancelled               Boolean     @default(false)
+  classType                 String?     // Subtítulo categórico (ej: "clase de prueba", "Pilates - Core")
+  notes                     String?
 
   reservations Reservation[]
   waitlist     Waitlist[]

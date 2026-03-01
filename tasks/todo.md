@@ -1,41 +1,49 @@
-# Wellnest: Limpiar Dashboard/Admin + Cargar Horarios (3 hojas)
+# Wellnest: Limpiar Dashboard + Disciplinas Complementarias
 
-## TAREA 1: Limpiar Dashboard
-- [x] Archivo: `src/app/admin/page.tsx`
-- [x] Removida sección "Herramientas de Administración" (Card con SeedDatabaseButton)
-- [x] Removidos imports: Settings, SeedDatabaseButton
+## TAREA 1: Limpiar Dashboard (Mock Data → DB Queries)
+- [x] `src/app/admin/page.tsx` reescrito como async server component
+- [x] Stats reales: ventas del mes (Orders PAID), usuarios totales, nuevos este mes, reservas hoy/semana, paquetes activos
+- [x] Clases populares: groupBy reservas por disciplina este mes
+- [x] Ventas recientes: últimas 5 orders PAID con usuario y paquete
+- [x] Clases de hoy: clases del día con enrolled/capacity desde DB
+- [x] Empty states cuando no hay datos
+- [x] Removidos imports no usados: TrendingUp, Badge (trend badges)
 - [x] Build OK
 
-## TAREA 2: Limpiar Admin Configuración
-- [x] Archivo: `src/app/admin/configuracion/page.tsx`
-- [x] Removida sección "Administración de Base de Datos" completa
-- [x] Removidos botones "Poblar Base de Datos" y "Limpiar Datos de Prueba"
-- [x] Removidos handlers, state vars e imports no usados
-- [x] Build OK
+## TAREA 2: Disciplinas Complementarias
 
-## TAREA 3: Cargar Horarios desde Excel (3 hojas)
+### Schema
+- [x] `complementaryDisciplineId String?` agregado a Class model
+- [x] Relación FK: `complementaryDiscipline Discipline? @relation("ComplementaryDiscipline")`
+- [x] Discipline model: dos relaciones separadas (`PrimaryDiscipline`, `ComplementaryDiscipline`)
+- [x] `prisma db push` OK
 
-### Script A: load-test-schedules.ts
-- [x] 12 clases de prueba (4-7 marzo 2026) → classType="test"
-- [x] Ejecutado OK
+### Admin API
+- [x] `src/app/api/admin/classes/route.ts` (POST/GET): complementaryDisciplineId en schema zod, include, response
+- [x] `src/app/api/admin/classes/[id]/route.ts` (GET/PUT): complementaryDisciplineId en schema, validación (no mismo que primary), include, response
+- [x] Validación: complementary ≠ primary, disciplina debe existir
 
-### Script B: load-fixed-schedule-week9-14.ts
-- [x] 37 clases regulares (9-14 marzo 2026) → classType="regular"
-- [x] Ejecutado OK (Excel tiene 37 filas, no 38)
+### Public API
+- [x] `src/app/api/classes/route.ts`: filtro OR (disciplineId || complementaryDisciplineId), include complementaryDiscipline
+- [x] `src/app/api/classes/[id]/route.ts`: include complementaryDiscipline
 
-### Script C: load-fixed-schedule-week16-21.ts
-- [x] 37 clases regulares (16-21 marzo 2026) → classType="regular"
-- [x] Ejecutado OK
+### Admin UI
+- [x] `src/app/admin/horarios/page.tsx`: checkbox "¿Tiene disciplina complementaria?" + Select dropdown
+- [x] State: hasComplementary, selectedComplementaryId
+- [x] handleCreate/handleEdit resetean/setean complementary state
+- [x] handleSave envía complementaryDisciplineId en POST/PUT
+- [x] Calendar cards muestran "Disciplina + Complementaria"
 
-### Totales
-- [x] 86 nuevas clases cargadas (12 + 37 + 37)
-- [x] 96 clases totales en BD (10 pre-existentes + 86 nuevas)
+### Public UI
+- [x] `src/app/horarios/page.tsx`: mobile card muestra doble badge, desktop card muestra "Disc + Comp"
+- [x] `src/app/(dashboard)/reservar/page.tsx`: interface actualizada, display actualizado
+
+### Scripts
+- [x] 3 scripts actualizados: `mapDisciplineSlug` → `mapDisciplineSlugs` retorna { primary, complementary }
+- [x] "Yoga + Soundbath" → primary: yoga, complementary: soundbath
+- [x] Clases creadas con complementaryDisciplineId
 
 ## VERIFICACIÓN FINAL
-- [x] Build sin errores (`npx next build` OK)
-- [x] Datos verificados por fecha y tipo
+- [x] Build sin errores
+- [x] Schema migrado
 - [x] tasks/lessons.md actualizado
-
-## DATOS AUXILIARES CREADOS
-- Instructores nuevos: Dani, Jaime, Vicky, Jessica
-- Disciplina "Aro y Telas" corregida (tenía ID vacío)

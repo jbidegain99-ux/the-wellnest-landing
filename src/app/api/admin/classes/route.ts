@@ -11,6 +11,7 @@ const EL_SALVADOR_UTC_OFFSET = 6
 
 const classSchema = z.object({
   disciplineId: z.string().min(1, 'Debe seleccionar una disciplina'),
+  complementaryDisciplineId: z.string().nullable().optional(),
   instructorId: z.string().min(1, 'Debe seleccionar un instructor'),
   dayOfWeek: z.number().min(0).max(6),
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Formato de hora inválido'),
@@ -79,6 +80,7 @@ export async function GET(request: Request) {
       where,
       include: {
         discipline: true,
+        complementaryDiscipline: true,
         instructor: true,
         _count: {
           select: { reservations: true },
@@ -102,6 +104,8 @@ export async function GET(request: Request) {
       id: cls.id,
       disciplineId: cls.disciplineId,
       discipline: cls.discipline.name,
+      complementaryDisciplineId: cls.complementaryDisciplineId,
+      complementaryDiscipline: cls.complementaryDiscipline?.name || null,
       instructorId: cls.instructorId,
       instructor: cls.instructor.name,
       dateTime: cls.dateTime.toISOString(),
@@ -215,9 +219,29 @@ export async function POST(request: Request) {
     // Parse time
     const [hours, minutes] = data.time.split(':').map(Number)
 
+    // Verify complementary discipline exists if provided
+    if (data.complementaryDisciplineId) {
+      const compDiscipline = await prisma.discipline.findUnique({
+        where: { id: data.complementaryDisciplineId },
+      })
+      if (!compDiscipline) {
+        return NextResponse.json(
+          { error: 'La disciplina complementaria no existe' },
+          { status: 400 }
+        )
+      }
+      if (data.complementaryDisciplineId === data.disciplineId) {
+        return NextResponse.json(
+          { error: 'La disciplina complementaria debe ser diferente a la principal' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Create classes for the specified number of weeks
     const classesToCreate: Array<{
       disciplineId: string
+      complementaryDisciplineId: string | null
       instructorId: string
       dateTime: Date
       duration: number
@@ -248,6 +272,7 @@ export async function POST(request: Request) {
           if (classDateTime > new Date()) {
             classesToCreate.push({
               disciplineId: data.disciplineId,
+              complementaryDisciplineId: data.complementaryDisciplineId || null,
               instructorId: data.instructorId,
               dateTime: classDateTime,
               duration: data.duration,

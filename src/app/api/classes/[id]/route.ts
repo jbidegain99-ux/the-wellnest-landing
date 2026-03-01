@@ -12,6 +12,7 @@ export async function GET(
       where: { id },
       include: {
         discipline: true,
+        complementaryDiscipline: true,
         instructor: true,
         _count: {
           select: {

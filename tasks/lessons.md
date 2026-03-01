@@ -42,3 +42,22 @@
 - "Nicolle y Adri" combo instructor → mapped to instructor-nicolle (single FK constraint)
 - "Pole Flow" discipline mapped to "pole" (Pole Fitness) since no separate discipline exists
 - Use `Date.UTC()` for dateTime to avoid timezone issues
+
+## Dashboard: Mock Data → Real DB Queries (Mar 2026)
+- Admin dashboard was entirely hardcoded mock data — replaced with real Prisma queries
+- Made it an `async` server component (no 'use client') — Prisma queries run directly in component
+- El Salvador timezone (UTC-6) must be accounted for in date ranges (today, week, month)
+- Used `Promise.all()` for 9 parallel DB queries for performance
+- Popular classes: `prisma.reservation.groupBy` by classId, then aggregate by discipline name
+- Empty states for all sections when no data exists
+
+## Complementary Disciplines Feature (Mar 2026)
+- Added `complementaryDisciplineId String?` to Class model as optional FK to Discipline
+- Discipline model needs named relations: `@relation("PrimaryDiscipline")` and `@relation("ComplementaryDiscipline")` to disambiguate two FK refs to same table
+- `prisma db push` sufficient for additive nullable field
+- Public API filter uses `OR: [{ disciplineId }, { complementaryDisciplineId }]` to search both fields
+- Validation: complementary must differ from primary, both must exist in DB
+- Scripts updated: `mapDisciplineSlug()` → `mapDisciplineSlugs()` returns `{ primary, complementary }` tuple
+- "Yoga + Soundbath" → primary: yoga, complementary: soundbath
+- UI: admin form has checkbox toggle + filtered secondary dropdown (excludes primary from options)
+- Display: cards show "Discipline + Complementary" when complementary exists, mobile uses dual badges

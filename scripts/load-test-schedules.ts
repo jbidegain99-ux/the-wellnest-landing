@@ -80,16 +80,16 @@ async function ensureAroTelasDiscipline() {
   }
 }
 
-// Map discipline name from Excel → discipline slug
-function mapDisciplineSlug(name: string): string {
+// Map discipline name from Excel → { primary slug, complementary slug | null }
+function mapDisciplineSlugs(name: string): { primary: string; complementary: string | null } {
   const n = name.trim().toLowerCase()
-  if (n.includes('yoga') && n.includes('soundbath')) return 'yoga' // Yoga + Soundbath → Yoga
-  if (n.includes('yoga')) return 'yoga'
-  if (n.includes('pole')) return 'pole'
-  if (n.includes('pilates')) return 'pilates'
-  if (n.includes('soundbath') || n.includes('meditacion')) return 'soundbath'
-  if (n.includes('tela') || n.includes('aro')) return 'aro-telas'
-  return 'yoga' // fallback
+  if (n.includes('yoga') && n.includes('soundbath')) return { primary: 'yoga', complementary: 'soundbath' }
+  if (n.includes('yoga')) return { primary: 'yoga', complementary: null }
+  if (n.includes('pole')) return { primary: 'pole', complementary: null }
+  if (n.includes('pilates')) return { primary: 'pilates', complementary: null }
+  if (n.includes('soundbath') || n.includes('meditacion')) return { primary: 'soundbath', complementary: null }
+  if (n.includes('tela') || n.includes('aro')) return { primary: 'aro-telas', complementary: null }
+  return { primary: 'yoga', complementary: null } // fallback
 }
 
 // Map instructor name from Excel → instructor ID
@@ -141,12 +141,14 @@ async function main() {
 
   let count = 0
   for (const c of classes) {
-    const discSlug = mapDisciplineSlug(c.discipline)
-    const disciplineId = discMap.get(discSlug)
+    const { primary, complementary } = mapDisciplineSlugs(c.discipline)
+    const disciplineId = discMap.get(primary)
     if (!disciplineId) {
-      console.error(`  SKIP: No discipline found for "${c.discipline}" (slug: ${discSlug})`)
+      console.error(`  SKIP: No discipline found for "${c.discipline}" (slug: ${primary})`)
       continue
     }
+
+    const complementaryDisciplineId = complementary ? discMap.get(complementary) || null : null
 
     const instructorId = mapInstructorId(c.instructor)
     const duration = durationMinutes(c.startTime, c.endTime)
@@ -157,6 +159,7 @@ async function main() {
     await prisma.class.create({
       data: {
         disciplineId,
+        complementaryDisciplineId,
         instructorId,
         dateTime,
         duration,

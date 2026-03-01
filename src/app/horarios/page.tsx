@@ -48,6 +48,7 @@ interface ClassData {
   currentCount: number
   classType: string | null
   discipline: Discipline
+  complementaryDiscipline?: Discipline | null
   instructor: Instructor
   _count?: {
     reservations: number
@@ -90,14 +91,29 @@ function MobileClassCard({
         {/* Left: Main info */}
         <div className="flex-1 min-w-0 space-y-2">
           {/* Discipline badge */}
-          <span
-            className={cn(
-              'inline-block px-2 py-0.5 rounded text-xs font-medium',
-              disciplineBadgeColors[cls.discipline.slug] || 'bg-primary text-white'
+          <div className="flex flex-wrap gap-1">
+            <span
+              className={cn(
+                'inline-block px-2 py-0.5 rounded text-xs font-medium',
+                disciplineBadgeColors[cls.discipline.slug] || 'bg-primary text-white'
+              )}
+            >
+              {cls.discipline.name}
+            </span>
+            {cls.complementaryDiscipline && (
+              <>
+                <span className="text-xs text-gray-400">+</span>
+                <span
+                  className={cn(
+                    'inline-block px-2 py-0.5 rounded text-xs font-medium',
+                    disciplineBadgeColors[cls.complementaryDiscipline.slug] || 'bg-primary text-white'
+                  )}
+                >
+                  {cls.complementaryDiscipline.name}
+                </span>
+              </>
             )}
-          >
-            {cls.discipline.name}
-          </span>
+          </div>
 
           {/* Class type subtitle */}
           {cls.classType && (
@@ -529,7 +545,10 @@ export default function HorariosPage() {
                                     : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
                                 )}
                               >
-                                <p className="font-medium truncate">{cls.discipline.name}</p>
+                                <p className="font-medium truncate">
+                                  {cls.discipline.name}
+                                  {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline.name}`}
+                                </p>
                                 {cls.classType && (
                                   <>
                                     <div className="border-t border-white/30 my-1" />
