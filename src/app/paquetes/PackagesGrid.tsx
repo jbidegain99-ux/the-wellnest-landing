@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Check, ShoppingCart } from 'lucide-react'
+import { Check, ShoppingCart, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 
@@ -18,6 +18,8 @@ interface Package {
   price: number
   originalPrice: number | null
   discountPercent: number | null
+  isShareable: boolean
+  maxShares: number
   currency: string
   validityDays: number
   validityText: string | null
@@ -166,7 +168,20 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
                         {formatPrice(pkg.originalPrice, pkg.currency)}
                       </p>
                     )}
+                    {pkg.isShareable && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        {formatPrice(pkg.price / 2, pkg.currency)} por persona
+                      </p>
+                    )}
                   </div>
+
+                  {/* Shareable badge */}
+                  {pkg.isShareable && (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#2D5A4A]/10 text-[#2D5A4A] text-xs font-medium mb-3">
+                      <Users className="h-3.5 w-3.5" />
+                      Compartible — lleva un invitado
+                    </div>
+                  )}
 
                   {/* Main features */}
                   <div className="space-y-1.5 mb-4">

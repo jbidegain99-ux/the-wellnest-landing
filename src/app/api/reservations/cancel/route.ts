@@ -129,16 +129,44 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check if this reservation has a linked guest reservation
+    const linkedGuestReservation = !reservation.isGuestReservation
+      ? await prisma.reservation.findFirst({
+          where: {
+            userId: reservation.userId,
+            classId: reservation.classId,
+            isGuestReservation: true,
+            status: 'CONFIRMED',
+          },
+        })
+      : null
+
+    const classesRefunded = linkedGuestReservation ? 2 : 1
+
     // Perform cancellation in a transaction
     console.log('[CANCEL API] Executing cancellation transaction...')
     console.log('[CANCEL API] Will update:', {
       reservationId: reservationId,
+      hasLinkedGuest: !!linkedGuestReservation,
+      classesRefunded,
       purchaseId: reservation.purchaseId,
       packageName: reservation.purchase.package.name,
       currentClassesRemaining: reservation.purchase.classesRemaining,
-      afterRefund: reservation.purchase.classesRemaining + 1,
+      afterRefund: reservation.purchase.classesRemaining + classesRefunded,
       classId: reservation.classId,
     })
+
+    // Cancel the guest reservation first if it exists
+    if (linkedGuestReservation) {
+      await prisma.reservation.update({
+        where: { id: linkedGuestReservation.id },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+        },
+      })
+      console.log('[CANCEL API] Guest reservation cancelled:', linkedGuestReservation.id)
+    }
 
     // Note: We don't update class.currentCount because we use _count.reservations instead
     // The actual reservation count is calculated from confirmed reservations
@@ -160,11 +188,11 @@ export async function POST(request: Request) {
         },
       }),
 
-      // 2. Return the class to the SPECIFIC package that was used
+      // 2. Return classes to the SPECIFIC package that was used
       prisma.purchase.update({
         where: { id: reservation.purchaseId },
         data: {
-          classesRemaining: { increment: 1 },
+          classesRemaining: { increment: classesRefunded },
         },
       }),
     ])
@@ -173,6 +201,7 @@ export async function POST(request: Request) {
       reservationId: updatedReservation.id,
       newStatus: updatedReservation.status,
       cancelledAt: updatedReservation.cancelledAt,
+      guestCancelled: !!linkedGuestReservation,
       purchaseId: updatedPurchase.id,
       previousClassesRemaining: reservation.purchase.classesRemaining,
       newClassesRemaining: updatedPurchase.classesRemaining,
@@ -271,7 +300,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Reserva cancelada correctamente. Se ha devuelto 1 clase a tu paquete "${reservation.purchase.package.name}".`,
+      message: linkedGuestReservation
+        ? `Reserva cancelada correctamente (incluyendo invitado). Se han devuelto ${classesRefunded} clases a tu paquete "${reservation.purchase.package.name}".`
+        : `Reserva cancelada correctamente. Se ha devuelto 1 clase a tu paquete "${reservation.purchase.package.name}".`,
       updatedReservation: {
         id: updatedReservation.id,
         status: updatedReservation.status,

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Calendar, Clock, User, MapPin, X, Plus, Loader2, AlertCircle, Check } from 'lucide-react'
+import { Calendar, Clock, User, UserPlus, MapPin, X, Plus, Loader2, AlertCircle, Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -20,6 +20,9 @@ interface Reservation {
   status: string
   createdAt: string
   purchaseId: string
+  isGuestReservation: boolean
+  guestEmail: string | null
+  guestName: string | null
   class: {
     id: string
     dateTime: string
@@ -203,9 +206,19 @@ export default function ReservasPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {reservations.map((reservation) => {
+          {reservations
+            .filter((r) => !r.isGuestReservation) // Only show buyer's reservations as cards
+            .map((reservation) => {
             const classDate = new Date(reservation.class.dateTime)
             const canCancelReservation = canCancel(reservation)
+
+            // Find linked guest reservation for the same class
+            const guestReservation = reservations.find(
+              (r) =>
+                r.isGuestReservation &&
+                r.class.id === reservation.class.id &&
+                r.status === 'CONFIRMED'
+            )
 
             return (
               <Card key={reservation.id} className="overflow-hidden">
@@ -244,6 +257,19 @@ export default function ReservasPage() {
                             Wellnest Studio
                           </span>
                         </div>
+
+                        {/* Guest info */}
+                        {guestReservation && (
+                          <div className="flex items-center gap-2 text-sm text-[#2D5A4A] bg-[#2D5A4A]/5 rounded-lg px-3 py-2">
+                            <UserPlus className="h-4 w-4" />
+                            <span>
+                              Con invitado: {guestReservation.guestName || guestReservation.guestEmail}
+                              {guestReservation.guestName && guestReservation.guestEmail && (
+                                <span className="text-gray-500 ml-1">({guestReservation.guestEmail})</span>
+                              )}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Actions */}
@@ -325,8 +351,17 @@ export default function ReservasPage() {
                   </div>
 
                   <p className="text-gray-600">
-                    Al cancelar esta reserva, se devolverá 1 clase a tu paquete.
-                    Esta acción no se puede deshacer.
+                    {(() => {
+                      const hasGuest = selectedReservation && reservations.find(
+                        (r) =>
+                          r.isGuestReservation &&
+                          r.class.id === selectedReservation.class.id &&
+                          r.status === 'CONFIRMED'
+                      )
+                      return hasGuest
+                        ? 'Se cancelará tu reserva y la de tu invitado. Se devolverán 2 clases a tu paquete. Esta acción no se puede deshacer.'
+                        : 'Al cancelar esta reserva, se devolverá 1 clase a tu paquete. Esta acción no se puede deshacer.'
+                    })()}
                   </p>
 
                   {cancelError && (

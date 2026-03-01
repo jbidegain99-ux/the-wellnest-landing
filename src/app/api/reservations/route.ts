@@ -38,7 +38,14 @@ export async function GET() {
           dateTime: { gte: new Date() },
         },
       },
-      include: {
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        purchaseId: true,
+        isGuestReservation: true,
+        guestEmail: true,
+        guestName: true,
         class: {
           include: {
             discipline: true,
@@ -87,7 +94,10 @@ export async function POST(request: Request) {
 
     const userId = session.user.id
     const body = await request.json()
-    const { classId, purchaseId: requestedPurchaseId } = body
+    const { classId, purchaseId: requestedPurchaseId, guest } = body
+
+    // Validate guest data shape if provided
+    const guestData = guest as { email?: string; name?: string } | undefined
 
     console.log('[RESERVATIONS API] Request details:', {
       userId,
@@ -582,6 +592,105 @@ export async function POST(request: Request) {
       afterReservation: purchase.classesRemaining - 1,
     })
 
+    // === GUEST RESERVATION HANDLING ===
+    if (guestData?.email) {
+      // Validate the package supports sharing
+      if (!purchase.package.isShareable || purchase.package.maxShares < 1) {
+        console.log('[RESERVATIONS API] ERROR: Package does not support sharing')
+        return NextResponse.json({
+          error: 'Este paquete no permite llevar invitados.',
+          code: ERROR_CODES.UNKNOWN_ERROR
+        }, { status: 400 })
+      }
+
+      // Need at least 2 classes (1 for buyer + 1 for guest)
+      if (purchase.classesRemaining < 2) {
+        console.log('[RESERVATIONS API] ERROR: Not enough classes for guest reservation')
+        return NextResponse.json({
+          error: 'Necesitas al menos 2 clases disponibles para llevar un invitado (1 tuya + 1 invitado).',
+          code: ERROR_CODES.NO_PACKAGE
+        }, { status: 400 })
+      }
+
+      // Check capacity for 2 spots
+      if (classData._count.reservations + 2 > classData.maxCapacity) {
+        console.log('[RESERVATIONS API] ERROR: Not enough spots for buyer + guest')
+        return NextResponse.json({
+          error: 'No hay suficientes cupos para ti y tu invitado. Solo queda 1 cupo disponible.',
+          code: ERROR_CODES.CLASS_FULL
+        }, { status: 400 })
+      }
+
+      console.log('[RESERVATIONS API] Creating reservation with guest...')
+      const [reservation, _guestReservation, updatedPurchase] = await prisma.$transaction([
+        // Buyer's reservation
+        prisma.reservation.create({
+          data: {
+            userId,
+            classId,
+            purchaseId: purchase.id,
+            status: 'CONFIRMED',
+          },
+          include: {
+            class: {
+              include: { discipline: true, instructor: true },
+            },
+            purchase: {
+              include: { package: true },
+            },
+          },
+        }),
+        // Guest's reservation
+        prisma.reservation.create({
+          data: {
+            userId,
+            classId,
+            purchaseId: purchase.id,
+            status: 'CONFIRMED',
+            isGuestReservation: true,
+            guestEmail: guestData.email.trim(),
+            guestName: guestData.name?.trim() || null,
+          },
+        }),
+        // Decrement by 2
+        prisma.purchase.update({
+          where: { id: purchase.id },
+          data: { classesRemaining: { decrement: 2 } },
+        }),
+      ])
+
+      console.log('[RESERVATIONS API] Reservation with guest created:', {
+        reservationId: reservation.id,
+        guestEmail: guestData.email,
+        previousRemaining: purchase.classesRemaining,
+        newRemaining: updatedPurchase.classesRemaining,
+      })
+
+      let finalPurchaseStatus = updatedPurchase.status
+      if (updatedPurchase.classesRemaining === 0) {
+        const depletedPurchase = await prisma.purchase.update({
+          where: { id: purchase.id },
+          data: { status: 'DEPLETED' },
+        })
+        finalPurchaseStatus = depletedPurchase.status
+      }
+
+      return NextResponse.json({
+        ...reservation,
+        guestReservation: {
+          guestEmail: guestData.email,
+          guestName: guestData.name || null,
+        },
+        updatedPurchase: {
+          id: updatedPurchase.id,
+          packageName: purchase.package.name,
+          classesRemaining: updatedPurchase.classesRemaining,
+          status: finalPurchaseStatus,
+        }
+      }, { status: 201 })
+    }
+
+    // === STANDARD (NON-GUEST) RESERVATION ===
     // Create reservation and decrement purchase classes in a transaction
     // Note: We don't update class.currentCount because we use _count.reservations instead
     // The actual reservation count is calculated from confirmed reservations, not this field

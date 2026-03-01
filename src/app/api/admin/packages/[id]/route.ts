@@ -14,6 +14,8 @@ const updatePackageSchema = z.object({
   validityDays: z.number().min(1, 'La vigencia debe ser al menos 1 día').optional(),
   isActive: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
+  isShareable: z.boolean().optional(),
+  maxShares: z.number().min(0).optional(),
 })
 
 // GET single package
@@ -99,6 +101,8 @@ export async function PUT(
         ...(data.validityDays !== undefined && { validityDays: data.validityDays }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.isFeatured !== undefined && { isFeatured: data.isFeatured }),
+        ...(data.isShareable !== undefined && { isShareable: data.isShareable }),
+        ...(data.maxShares !== undefined && { maxShares: data.maxShares }),
       },
     })
 

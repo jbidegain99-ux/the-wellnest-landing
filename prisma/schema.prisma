@@ -134,6 +134,8 @@ model Package {
   image            String?
   originalPrice    Float?   // Precio original antes de descuento
   discountPercent  Int?     // Porcentaje de descuento (ej: 15, 20, 30)
+  isShareable      Boolean  @default(false)  // true = buyer can bring guests
+  maxShares        Int      @default(0)      // max guests per class (e.g. 1)
   isActive         Boolean  @default(true)
   isFeatured       Boolean  @default(false)
   order            Int      @default(0)
@@ -224,13 +226,16 @@ model Reservation {
   classId     String
   purchase    Purchase          @relation(fields: [purchaseId], references: [id])
   purchaseId  String
-  status      ReservationStatus @default(CONFIRMED)
-  createdAt   DateTime          @default(now())
-  cancelledAt DateTime?
-  checkedIn   Boolean           @default(false)
-  checkedInAt DateTime?
+  status             ReservationStatus @default(CONFIRMED)
+  createdAt          DateTime          @default(now())
+  cancelledAt        DateTime?
+  checkedIn          Boolean           @default(false)
+  checkedInAt        DateTime?
+  guestEmail         String?           // email of invited guest
+  guestName          String?           // name of invited guest
+  isGuestReservation Boolean           @default(false) // true if this spot is for a guest
 
-  @@unique([userId, classId])
+  @@unique([userId, classId, isGuestReservation])
 }
 
 enum ReservationStatus {

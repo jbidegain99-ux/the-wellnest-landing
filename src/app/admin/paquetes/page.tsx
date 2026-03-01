@@ -26,6 +26,8 @@ interface Package {
   validityDays: number
   isActive: boolean
   isFeatured: boolean
+  isShareable: boolean
+  maxShares: number
 }
 
 export default function AdminPaquetesPage() {
@@ -97,6 +99,8 @@ export default function AdminPaquetesPage() {
       validityDays: parseInt(formData.get('validityDays') as string),
       isActive: formData.get('isActive') === 'on',
       isFeatured: formData.get('isFeatured') === 'on',
+      isShareable: formData.get('isShareable') === 'on',
+      maxShares: parseInt(formData.get('maxShares') as string) || 0,
     }
 
     try {
@@ -403,7 +407,24 @@ export default function AdminPaquetesPage() {
                   />
                   <span className="text-sm">Destacado</span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="isShareable"
+                    defaultChecked={editingPackage?.isShareable}
+                    className="rounded border-beige-dark text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm">Compartible</span>
+                </label>
               </div>
+              <Input
+                label="Máx. invitados por clase"
+                name="maxShares"
+                type="number"
+                min="0"
+                max="5"
+                defaultValue={editingPackage?.maxShares ?? 0}
+              />
             </div>
 
             <ModalFooter>

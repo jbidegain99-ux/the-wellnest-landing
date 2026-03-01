@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Clock, User, Users, Check, Loader2, AlertCircle, Package } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, User, Users, UserPlus, Check, Loader2, AlertCircle, Package } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -56,6 +56,8 @@ interface ActivePurchase {
   purchaseId?: string
   package?: {
     name: string
+    isShareable: boolean
+    maxShares: number
   }
 }
 
@@ -103,6 +105,11 @@ export default function ReservarPage() {
   const [selectedClass, setSelectedClass] = React.useState<ClassData | null>(null)
   const [isBooking, setIsBooking] = React.useState(false)
   const [bookingError, setBookingError] = React.useState<string | null>(null)
+
+  // Guest invitation state
+  const [bringGuest, setBringGuest] = React.useState(false)
+  const [guestEmail, setGuestEmail] = React.useState('')
+  const [guestName, setGuestName] = React.useState('')
 
   const weekDays = getWeekDays()
 
@@ -308,13 +315,22 @@ export default function ReservarPage() {
       // Use selected purchase if available (from URL), otherwise API will use best available
       const purchaseIdToUse = selectedPurchase?.id || activePurchase?.purchaseId
 
+      const body: Record<string, unknown> = {
+        classId: selectedClass.id,
+        purchaseId: purchaseIdToUse,
+      }
+
+      if (bringGuest && guestEmail) {
+        body.guest = {
+          email: guestEmail.trim(),
+          name: guestName.trim() || undefined,
+        }
+      }
+
       const response = await fetch('/api/reservations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          classId: selectedClass.id,
-          purchaseId: purchaseIdToUse,
-        }),
+        body: JSON.stringify(body),
       })
 
       const data = await response.json()
@@ -369,6 +385,9 @@ export default function ReservarPage() {
     setTimeout(() => {
       setSelectedClass(null)
       setBookingError(null)
+      setBringGuest(false)
+      setGuestEmail('')
+      setGuestName('')
     }, 150)
   }, [])
 
@@ -669,41 +688,111 @@ export default function ReservarPage() {
                   </div>
                 </div>
 
-                <div className="p-3 bg-beige rounded-lg text-sm">
-                  <p className="text-gray-600">
-                    {selectedPurchase ? (
-                      <>
-                        Se descontará 1 clase de tu paquete <span className="font-semibold">{selectedPurchase.packageName}</span>.
-                        <span className="block mt-1">
-                          Clases restantes después de reservar:{' '}
-                          <span className="font-semibold">
-                            {Math.max(0, selectedPurchase.classesRemaining - 1)}
-                          </span>
+                {/* Guest invitation toggle — only for shareable packages */}
+                {activePurchase?.package?.isShareable && (
+                  <div className="border border-beige rounded-lg p-4 space-y-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={bringGuest}
+                        onChange={(e) => setBringGuest(e.target.checked)}
+                        className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                      />
+                      <div className="flex items-center gap-2">
+                        <UserPlus className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium text-foreground">
+                          Llevar un invitado a esta clase
                         </span>
-                      </>
-                    ) : (
-                      <>
-                        Se descontará 1 clase de tu paquete activo.
-                        {activePurchase && (
-                          <span className="block mt-1">
-                            Clases restantes después de reservar:{' '}
-                            <span className="font-semibold">
-                              {Math.max(0, (activePurchase.classesRemaining || 0) - 1)}
-                            </span>
-                          </span>
-                        )}
-                      </>
+                      </div>
+                    </label>
+
+                    {bringGuest && (
+                      <div className="space-y-3 pl-7">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">
+                            Email del invitado *
+                          </label>
+                          <input
+                            type="email"
+                            value={guestEmail}
+                            onChange={(e) => setGuestEmail(e.target.value)}
+                            placeholder="invitado@email.com"
+                            required
+                            className="w-full px-3 py-2 border border-beige rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">
+                            Nombre del invitado (opcional)
+                          </label>
+                          <input
+                            type="text"
+                            value={guestName}
+                            onChange={(e) => setGuestName(e.target.value)}
+                            placeholder="Nombre"
+                            className="w-full px-3 py-2 border border-beige rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Se descontarán 2 clases de tu paquete (1 tuya + 1 invitado).
+                        </p>
+                      </div>
                     )}
-                  </p>
-                </div>
+                  </div>
+                )}
+
+                {/* Classes deduction info */}
+                {(() => {
+                  const classesToDeduct = bringGuest ? 2 : 1
+                  const remaining = selectedPurchase
+                    ? selectedPurchase.classesRemaining
+                    : (activePurchase?.classesRemaining || 0)
+                  const packageName = selectedPurchase
+                    ? selectedPurchase.packageName
+                    : 'tu paquete activo'
+
+                  return (
+                    <div className="p-3 bg-beige rounded-lg text-sm">
+                      <p className="text-gray-600">
+                        {selectedPurchase ? (
+                          <>
+                            Se {classesToDeduct === 1 ? 'descontará 1 clase' : 'descontarán 2 clases'} de tu paquete <span className="font-semibold">{packageName}</span>.
+                            <span className="block mt-1">
+                              Clases restantes después de reservar:{' '}
+                              <span className="font-semibold">
+                                {Math.max(0, remaining - classesToDeduct)}
+                              </span>
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            Se {classesToDeduct === 1 ? 'descontará 1 clase' : 'descontarán 2 clases'} de {packageName}.
+                            {activePurchase && (
+                              <span className="block mt-1">
+                                Clases restantes después de reservar:{' '}
+                                <span className="font-semibold">
+                                  {Math.max(0, remaining - classesToDeduct)}
+                                </span>
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  )
+                })()}
               </div>
 
               <ModalFooter>
                 <Button variant="ghost" onClick={closeModal} disabled={isBooking}>
                   Cancelar
                 </Button>
-                <Button onClick={handleConfirmBooking} isLoading={isBooking}>
-                  Confirmar Reserva
+                <Button
+                  onClick={handleConfirmBooking}
+                  isLoading={isBooking}
+                  disabled={bringGuest && !guestEmail.trim()}
+                >
+                  {bringGuest ? 'Reservar (2 clases)' : 'Confirmar Reserva'}
                 </Button>
               </ModalFooter>
             </>

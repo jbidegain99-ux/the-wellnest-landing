@@ -248,6 +248,10 @@ async function main() {
     validityText: string | null
     bulletsTop: string[]
     bulletsBottom: string[]
+    originalPrice?: number | null
+    discountPercent?: number | null
+    isShareable?: boolean
+    maxShares?: number
     isActive: boolean
     isFeatured: boolean
     order: number
@@ -318,11 +322,13 @@ async function main() {
       shortDescription: 'Movimiento constante, energía en expansión',
       fullDescription: 'Un impulso energético para quienes buscan mayor presencia, fuerza y conexión interior a través del movimiento regular.',
       classCount: 12,
-      price: 95.00,
+      price: 80.75,
+      originalPrice: 95.00,
+      discountPercent: 15,
       currency: 'USD',
       validityDays: 30,
       validityText: null,
-      bulletsTop: ['12 clases', '30 días de vigencia'],
+      bulletsTop: ['12 clases', '30 días de vigencia', '15% de descuento'],
       bulletsBottom: ['Ideal para crear hábito', 'Todas las disciplinas incluidas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
       isActive: true,
       isFeatured: false,
@@ -352,11 +358,13 @@ async function main() {
       shortDescription: 'Compromiso profundo con tu bienestar',
       fullDescription: 'Nuestro plan más completo para quienes desean integrar el movimiento como un estilo de vida consciente y presente en día a día.',
       classCount: 24,
-      price: 145.00,
+      price: 130.50,
+      originalPrice: 145.00,
+      discountPercent: 10,
       currency: 'USD',
       validityDays: 35,
       validityText: null,
-      bulletsTop: ['24 clases', '35 días de vigencia'],
+      bulletsTop: ['24 clases', '35 días de vigencia', '10% de descuento'],
       bulletsBottom: ['Máxima flexibilidad', 'Acceso total a disciplinas', 'Ideal para rutinas activas', 'Cancela tu clase 8 horas antes'],
       isActive: true,
       isFeatured: false,
@@ -370,11 +378,13 @@ async function main() {
       fullDescription: 'Diseñado para quienes desean una transformación profunda, sostenida y consciente durante todo el trimestre.',
       classCount: 80,
       price: 355.00,
+      isShareable: true,
+      maxShares: 1,
       currency: 'USD',
       validityDays: 90,
       validityText: 'Vigencia trimestral',
-      bulletsTop: ['80 clases', 'Vigencia trimestral'],
-      bulletsBottom: ['Acceso ilimitado a disciplinas', 'Ideal para práctica constante', 'La mejor inversión en tu bienestar', 'Cancela tu clase 8 horas antes'],
+      bulletsTop: ['80 clases', 'Vigencia trimestral', 'Lleva un invitado a cada clase'],
+      bulletsBottom: ['Acceso ilimitado a disciplinas', 'Compartible — invita a alguien diferente cada vez', 'Ideal para práctica constante', 'Cancela tu clase 8 horas antes'],
       isActive: true,
       isFeatured: false,
       order: 7,

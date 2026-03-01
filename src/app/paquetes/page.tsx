@@ -41,6 +41,8 @@ async function getPackages() {
       bulletsBottom: true,
       originalPrice: true,
       discountPercent: true,
+      isShareable: true,
+      maxShares: true,
       isFeatured: true,
     },
   })

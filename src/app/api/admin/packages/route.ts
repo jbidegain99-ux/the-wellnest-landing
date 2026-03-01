@@ -20,6 +20,8 @@ const packageSchema = z.object({
   bulletsBottom: z.array(z.string()).optional().default([]),
   originalPrice: z.number().nullable().optional(),
   discountPercent: z.number().nullable().optional(),
+  isShareable: z.boolean().optional().default(false),
+  maxShares: z.number().min(0).optional().default(0),
   isActive: z.boolean().optional().default(true),
   isFeatured: z.boolean().optional().default(false),
 })
@@ -103,6 +105,8 @@ export async function POST(request: Request) {
         validityText: data.validityText || null,
         bulletsTop: data.bulletsTop || [],
         bulletsBottom: data.bulletsBottom || [],
+        isShareable: data.isShareable,
+        maxShares: data.maxShares,
         isActive: data.isActive,
         isFeatured: data.isFeatured,
         order: newOrder,
