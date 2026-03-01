@@ -19,6 +19,7 @@ import {
   Image,
   RefreshCcw,
   ScanLine,
+  Shapes,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Paquetes', href: '/admin/paquetes', icon: Package },
   { name: 'Horarios', href: '/admin/horarios', icon: Calendar },
+  { name: 'Disciplinas', href: '/admin/disciplinas', icon: Shapes },
   { name: 'Asistencias', href: '/admin/asistencias', icon: ScanLine },
   { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   { name: 'Instructores', href: '/admin/instructores', icon: UserCheck },
