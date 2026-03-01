@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
+import { sendEmail, buildGuestInvitationEmail } from '@/lib/emailService'
 
 // Error codes for specific error types
 const ERROR_CODES = {
@@ -664,6 +665,36 @@ export async function POST(request: Request) {
         guestEmail: guestData.email,
         previousRemaining: purchase.classesRemaining,
         newRemaining: updatedPurchase.classesRemaining,
+      })
+
+      // Fire-and-forget: send guest invitation email
+      const classDateTime = new Date(reservation.class.dateTime)
+      const formattedDateTime = classDateTime.toLocaleDateString('es-SV', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      }) + ' a las ' + classDateTime.toLocaleTimeString('es-SV', {
+        hour: '2-digit', minute: '2-digit', hour12: true,
+      })
+      const hostName = session.user.name || session.user.email || 'Un usuario'
+
+      sendEmail({
+        to: guestData.email.trim(),
+        subject: `${hostName} te invitó a una clase en Wellnest`,
+        html: buildGuestInvitationEmail({
+          guestName: guestData.name?.trim() || null,
+          hostName,
+          disciplineName: reservation.class.discipline.name,
+          instructorName: reservation.class.instructor.name,
+          dateTime: formattedDateTime,
+          duration: reservation.class.duration,
+        }),
+      }).then(result => {
+        if (result.success) {
+          console.log('[RESERVATIONS API] Guest invitation email sent:', result.messageId)
+        } else {
+          console.error('[RESERVATIONS API] Guest invitation email failed:', result.error)
+        }
+      }).catch(err => {
+        console.error('[RESERVATIONS API] Guest invitation email error:', err)
       })
 
       let finalPurchaseStatus = updatedPurchase.status
