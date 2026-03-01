@@ -61,3 +61,16 @@
 - "Yoga + Soundbath" → primary: yoga, complementary: soundbath
 - UI: admin form has checkbox toggle + filtered secondary dropdown (excludes primary from options)
 - Display: cards show "Discipline + Complementary" when complementary exists, mobile uses dual badges
+
+## Timezone Bug Fix: Scripts + PUT endpoint (Mar 2026)
+- **Root cause**: Scripts used `Date.UTC(y, m, d, hh, mm)` storing El Salvador local time AS UTC → 6 hours too early
+- **Fix**: Add `hh + 6` (EL_SALVADOR_UTC_OFFSET) in scripts' `Date.UTC()` call
+- **PUT endpoint had same bug**: Used `date-fns` `setHours/setMinutes` which operates in server-local timezone, not UTC+offset
+- **PUT fix**: Extract El Salvador date from existing class, reconstruct with `Date.UTC(..., hours + 6, minutes)`
+- **Result**: 17:00 El Salvador → stored as 23:00 UTC → `getElSalvadorTime()` subtracts 6h → displays 17:00 correctly
+- **Key insight**: Admin POST endpoint was already correct (`hours + EL_SALVADOR_UTC_OFFSET`), only PUT and scripts were wrong
+
+## formatClassType Helper (Mar 2026)
+- Created `formatClassType()` in `src/lib/utils.ts` — maps "test" → "Clase de Prueba", "regular" → "Clase Regular"
+- Applied in 5 files: admin horarios, public horarios (mobile + desktop), admin asistencias list + detail
+- Only visual change — DB still stores "test"/"regular" as-is

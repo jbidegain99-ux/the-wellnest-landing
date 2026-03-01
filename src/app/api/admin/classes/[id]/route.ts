@@ -3,7 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { setHours, setMinutes } from 'date-fns'
+
+// El Salvador is UTC-6. To store times that display correctly for El Salvador users,
+// we need to add 6 hours to the desired local time to get UTC.
+const EL_SALVADOR_UTC_OFFSET = 6
 
 const updateClassSchema = z.object({
   disciplineId: z.string().optional(),
@@ -166,8 +169,16 @@ export async function PUT(
 
     if (data.time !== undefined) {
       const [hours, minutes] = data.time.split(':').map(Number)
-      // Keep the same date but update the time
-      const newDateTime = setMinutes(setHours(existingClass.dateTime, hours), minutes)
+      // Convert existing dateTime to El Salvador local date to preserve the correct date
+      const esSvDate = new Date(existingClass.dateTime.getTime() - EL_SALVADOR_UTC_OFFSET * 60 * 60 * 1000)
+      // Create new datetime: same El Salvador date, new El Salvador time → stored as UTC
+      const newDateTime = new Date(Date.UTC(
+        esSvDate.getUTCFullYear(),
+        esSvDate.getUTCMonth(),
+        esSvDate.getUTCDate(),
+        hours + EL_SALVADOR_UTC_OFFSET,
+        minutes
+      ))
       updateData.dateTime = newDateTime
     }
 

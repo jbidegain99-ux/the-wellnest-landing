@@ -154,7 +154,8 @@ async function main() {
     const duration = durationMinutes(c.startTime, c.endTime)
     const [y, m, d] = c.date.split('-').map(Number)
     const [hh, mm] = c.startTime.split(':').map(Number)
-    const dateTime = new Date(Date.UTC(y, m - 1, d, hh, mm, 0))
+    // El Salvador is UTC-6: add 6 hours to store correct UTC time
+    const dateTime = new Date(Date.UTC(y, m - 1, d, hh + 6, mm, 0))
 
     await prisma.class.create({
       data: {

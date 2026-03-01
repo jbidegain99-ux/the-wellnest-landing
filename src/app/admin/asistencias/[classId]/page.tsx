@@ -13,7 +13,7 @@ import {
   Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter,
 } from '@/components/ui/Modal'
 import { QRScanner } from '@/components/QRScanner'
-import { cn } from '@/lib/utils'
+import { cn, formatClassType } from '@/lib/utils'
 
 interface ReservationData {
   id: string
@@ -183,7 +183,7 @@ export default function ClassAttendancePage() {
               {classData.discipline.name}
             </h1>
             {classData.classType && (
-              <span className="text-sm text-gray-500">({classData.classType})</span>
+              <span className="text-sm text-gray-500">({formatClassType(classData.classType)})</span>
             )}
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">

@@ -1,49 +1,26 @@
-# Wellnest: Limpiar Dashboard + Disciplinas Complementarias
+# Wellnest: Correcciones — Card refresh + classType display + Horarios BD
 
-## TAREA 1: Limpiar Dashboard (Mock Data → DB Queries)
-- [x] `src/app/admin/page.tsx` reescrito como async server component
-- [x] Stats reales: ventas del mes (Orders PAID), usuarios totales, nuevos este mes, reservas hoy/semana, paquetes activos
-- [x] Clases populares: groupBy reservas por disciplina este mes
-- [x] Ventas recientes: últimas 5 orders PAID con usuario y paquete
-- [x] Clases de hoy: clases del día con enrolled/capacity desde DB
-- [x] Empty states cuando no hay datos
-- [x] Removidos imports no usados: TrendingUp, Badge (trend badges)
-- [x] Build OK
+## PROBLEMA 1: Card no se actualiza después de editar hora
+- [x] Causa raíz: bug de timezone en PUT endpoint (`setHours`/`setMinutes` de date-fns usa timezone local del servidor)
+- [x] Fix: `src/app/api/admin/classes/[id]/route.ts` — reconstruir dateTime con `Date.UTC()` + `EL_SALVADOR_UTC_OFFSET`
+- [x] Removido import de `setHours`/`setMinutes` de date-fns
+- [x] Ahora PUT usa mismo patrón que POST: `hours + EL_SALVADOR_UTC_OFFSET`
 
-## TAREA 2: Disciplinas Complementarias
+## PROBLEMA 2: "test" → "Clase de Prueba" en UI
+- [x] Helper `formatClassType()` creado en `src/lib/utils.ts`
+- [x] Aplicado en `src/app/admin/horarios/page.tsx` (calendar cards)
+- [x] Aplicado en `src/app/horarios/page.tsx` (mobile + desktop cards)
+- [x] Aplicado en `src/app/admin/asistencias/page.tsx` (lista de clases)
+- [x] Aplicado en `src/app/admin/asistencias/[classId]/page.tsx` (detalle)
 
-### Schema
-- [x] `complementaryDisciplineId String?` agregado a Class model
-- [x] Relación FK: `complementaryDiscipline Discipline? @relation("ComplementaryDiscipline")`
-- [x] Discipline model: dos relaciones separadas (`PrimaryDiscipline`, `ComplementaryDiscipline`)
-- [x] `prisma db push` OK
+## PROBLEMA 3: Horarios incorrectos en BD
+- [x] Causa raíz: scripts usaban `Date.UTC(y,m,d,hh,mm)` sin offset → 6 horas tarde
+- [x] Fix: `hh + 6` en los 3 scripts (load-test, week9-14, week16-21)
+- [x] Recargadas 86 clases con timezone correcto
+- [x] 12 test classes verificadas contra Excel ✓
+- [x] Total: 94 clases en BD (8 pre-existentes + 86 scripts)
 
-### Admin API
-- [x] `src/app/api/admin/classes/route.ts` (POST/GET): complementaryDisciplineId en schema zod, include, response
-- [x] `src/app/api/admin/classes/[id]/route.ts` (GET/PUT): complementaryDisciplineId en schema, validación (no mismo que primary), include, response
-- [x] Validación: complementary ≠ primary, disciplina debe existir
-
-### Public API
-- [x] `src/app/api/classes/route.ts`: filtro OR (disciplineId || complementaryDisciplineId), include complementaryDiscipline
-- [x] `src/app/api/classes/[id]/route.ts`: include complementaryDiscipline
-
-### Admin UI
-- [x] `src/app/admin/horarios/page.tsx`: checkbox "¿Tiene disciplina complementaria?" + Select dropdown
-- [x] State: hasComplementary, selectedComplementaryId
-- [x] handleCreate/handleEdit resetean/setean complementary state
-- [x] handleSave envía complementaryDisciplineId en POST/PUT
-- [x] Calendar cards muestran "Disciplina + Complementaria"
-
-### Public UI
-- [x] `src/app/horarios/page.tsx`: mobile card muestra doble badge, desktop card muestra "Disc + Comp"
-- [x] `src/app/(dashboard)/reservar/page.tsx`: interface actualizada, display actualizado
-
-### Scripts
-- [x] 3 scripts actualizados: `mapDisciplineSlug` → `mapDisciplineSlugs` retorna { primary, complementary }
-- [x] "Yoga + Soundbath" → primary: yoga, complementary: soundbath
-- [x] Clases creadas con complementaryDisciplineId
-
-## VERIFICACIÓN FINAL
+## VERIFICACIÓN
 - [x] Build sin errores
-- [x] Schema migrado
+- [x] 12 test classes coinciden con Excel (horas SV correctas)
 - [x] tasks/lessons.md actualizado

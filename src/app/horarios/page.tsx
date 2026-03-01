@@ -20,7 +20,7 @@ import {
   ModalTitle,
   ModalFooter,
 } from '@/components/ui/Modal'
-import { cn, getWeekDays, getMonthName } from '@/lib/utils'
+import { cn, getWeekDays, getMonthName, formatClassType } from '@/lib/utils'
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
@@ -118,7 +118,7 @@ function MobileClassCard({
           {/* Class type subtitle */}
           {cls.classType && (
             <p className="text-xs text-gray-500 italic">
-              {cls.classType}
+              {formatClassType(cls.classType)}
             </p>
           )}
 
@@ -552,7 +552,7 @@ export default function HorariosPage() {
                                 {cls.classType && (
                                   <>
                                     <div className="border-t border-white/30 my-1" />
-                                    <p className="opacity-80 italic truncate">{cls.classType}</p>
+                                    <p className="opacity-80 italic truncate">{formatClassType(cls.classType)}</p>
                                   </>
                                 )}
                                 <p className="flex items-center gap-1 opacity-90">

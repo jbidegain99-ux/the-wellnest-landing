@@ -6,7 +6,7 @@ import { Calendar, Users, UserCheck, Clock, ChevronLeft, ChevronRight, Loader2 }
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { cn } from '@/lib/utils'
+import { cn, formatClassType } from '@/lib/utils'
 
 interface AttendanceClass {
   id: string
@@ -197,7 +197,7 @@ export default function AsistenciasPage() {
                               {cls.discipline.name}
                             </h3>
                             {cls.classType && (
-                              <span className="text-xs text-gray-500">({cls.classType})</span>
+                              <span className="text-xs text-gray-500">({formatClassType(cls.classType)})</span>
                             )}
                             <Badge
                               variant={status === 'active' ? 'success' : status === 'ended' ? 'secondary' : 'default'}

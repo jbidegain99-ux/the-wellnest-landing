@@ -64,6 +64,13 @@ export function getWeekDays(): string[] {
   return ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 }
 
+export function formatClassType(classType: string | null | undefined): string {
+  if (!classType) return ''
+  if (classType === 'test') return 'Clase de Prueba'
+  if (classType === 'regular') return 'Clase Regular'
+  return classType
+}
+
 export function getMonthName(month: number): string {
   const months = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',

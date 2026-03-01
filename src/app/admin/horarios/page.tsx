@@ -19,7 +19,7 @@ import {
   ModalTitle,
   ModalFooter,
 } from '@/components/ui/Modal'
-import { cn, getWeekDays, getMonthName } from '@/lib/utils'
+import { cn, getWeekDays, getMonthName, formatClassType } from '@/lib/utils'
 import { disciplineColors, getDisciplineColor } from '@/config/disciplineColors'
 
 interface Discipline {
@@ -500,7 +500,7 @@ export default function AdminHorariosPage() {
                       {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
                     </p>
                     {cls.classType && (
-                      <p className="opacity-75 italic text-[10px] truncate">{cls.classType}</p>
+                      <p className="opacity-75 italic text-[10px] truncate">{formatClassType(cls.classType)}</p>
                     )}
                     <p className="opacity-90">{cls.time}</p>
                     <p className="opacity-90">{cls.instructor.split(' ')[0]}</p>
