@@ -25,3 +25,20 @@
 ## Admin API
 - Updated `OFFICIAL_PACKAGE_SLUGS` to include apertura slugs
 - Added `originalPrice` and `discountPercent` to zod validation schema
+
+## Dashboard/Admin Cleanup (Mar 2026)
+- `src/app/admin/page.tsx`: Removed "Herramientas de Administración" Card + SeedDatabaseButton import
+- `src/app/admin/configuracion/page.tsx`: Removed entire "Administración de Base de Datos" Card (Poblar/Limpiar buttons + handlers + state)
+- Unused imports cleaned: Database, AlertTriangle, Trash2, Settings
+
+## Schedule Loading Scripts (Mar 2026)
+- Scripts at `scripts/load-test-schedules.ts`, `load-fixed-schedule-week9-14.ts`, `load-fixed-schedule-week16-21.ts`
+- Excel source: `tasks/prompts/Horarios de Prueba y Clases Semanal (1).xlsx` (3 sheets)
+- **Excel time gotcha**: Some times stored as fractional numbers (e.g., 0.354 = 08:30), not strings
+- Class model: `disciplineId` + `instructorId` as FK refs, `dateTime` (UTC), `duration` (minutes), `maxCapacity`, `classType`, `notes`
+- Data loaded: 12 test (4-7 Mar) + 37 regular week 9-14 + 37 regular week 16-21 = 86 new classes
+- **"Aro y Telas" discipline had empty string ID** — fixed by delete + recreate
+- Missing instructors created: Dani, Jaime, Vicky, Jessica (upsert pattern)
+- "Nicolle y Adri" combo instructor → mapped to instructor-nicolle (single FK constraint)
+- "Pole Flow" discipline mapped to "pole" (Pole Fitness) since no separate discipline exists
+- Use `Date.UTC()` for dateTime to avoid timezone issues

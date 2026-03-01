@@ -1,43 +1,41 @@
-# Wellnest: Favicon + Paquetes de Apertura
+# Wellnest: Limpiar Dashboard/Admin + Cargar Horarios (3 hojas)
 
-## PARTE 1: Favicon
+## TAREA 1: Limpiar Dashboard
+- [x] Archivo: `src/app/admin/page.tsx`
+- [x] Removida sección "Herramientas de Administración" (Card con SeedDatabaseButton)
+- [x] Removidos imports: Settings, SeedDatabaseButton
+- [x] Build OK
 
-- [x] 1.1 Crear SVG del favicon ("W" estilizada, sage green #9CAF88, fondo transparente)
-- [x] 1.2 Apple touch icon via Next.js `apple-icon.tsx` (ImageResponse, 180x180)
-- [x] 1.3 Colocar `icon.svg` en `/src/app/` y `/public/` (Next.js App Router convention)
-- [x] 1.4 Configurar metadata en `layout.tsx` con icons
+## TAREA 2: Limpiar Admin Configuración
+- [x] Archivo: `src/app/admin/configuracion/page.tsx`
+- [x] Removida sección "Administración de Base de Datos" completa
+- [x] Removidos botones "Poblar Base de Datos" y "Limpiar Datos de Prueba"
+- [x] Removidos handlers, state vars e imports no usados
+- [x] Build OK
 
-## PARTE 2: Schema y Migración
+## TAREA 3: Cargar Horarios desde Excel (3 hojas)
 
-- [x] 2.1 Agregar campos `originalPrice` (Float?) y `discountPercent` (Int?) al modelo Package en Prisma
-- [x] 2.2 Ejecutar `npx prisma db push` para aplicar cambios al schema
+### Script A: load-test-schedules.ts
+- [x] 12 clases de prueba (4-7 marzo 2026) → classType="test"
+- [x] Ejecutado OK
 
-## PARTE 3: Datos de Paquetes de Apertura
+### Script B: load-fixed-schedule-week9-14.ts
+- [x] 37 clases regulares (9-14 marzo 2026) → classType="regular"
+- [x] Ejecutado OK (Excel tiene 37 filas, no 38)
 
-- [x] 3.1 Crear script `scripts/seed-apertura-packages.ts`
-  - Desactivó 7 paquetes (isActive: false), Trimestral mantenido activo
-  - Creó 5 paquetes de apertura con precios, originalPrice y discountPercent
-  - Copió mismo copy de los paquetes originales
-- [x] 3.2 Ejecutar el seed script — exitoso
+### Script C: load-fixed-schedule-week16-21.ts
+- [x] 37 clases regulares (16-21 marzo 2026) → classType="regular"
+- [x] Ejecutado OK
 
-## PARTE 4: UI de los Cards
+### Totales
+- [x] 86 nuevas clases cargadas (12 + 37 + 37)
+- [x] 96 clases totales en BD (10 pre-existentes + 86 nuevas)
 
-- [x] 4.1 Actualizar interfaz `Package` en `PackagesGrid.tsx` con `originalPrice` y `discountPercent`
-- [x] 4.2 Actualizar select en `page.tsx` para incluir los nuevos campos
-- [x] 4.3 Modificar card en `PackagesGrid.tsx`:
-  - Badge pill dorado (#C4943D) con `{discountPercent}% OFF` a la derecha del precio
-  - Precio original tachado debajo (gris claro, pequeño, line-through)
-  - Header sage green sólido (#6B7F5E) para paquetes con descuento
-- [x] 4.4 Build exitoso — verificar responsive en producción
-- [x] 4.5 Actualizar admin API route con slugs de apertura y campos nuevos en zod schema
+## VERIFICACIÓN FINAL
+- [x] Build sin errores (`npx next build` OK)
+- [x] Datos verificados por fecha y tipo
+- [x] tasks/lessons.md actualizado
 
-## Verificación Final
-
-- [x] Favicon visible en browser tab (icon.svg + apple-icon)
-- [x] Todos los paquetes de apertura renderizan correctamente (build OK)
-- [x] Precios y descuentos correctos (seed verified)
-- [x] Badge de descuento visible y bien posicionado
-- [x] Precio tachado visible
-- [x] Paquetes originales ocultos pero no eliminados (isActive: false)
-- [x] Trimestral visible sin descuento
-- [x] Mobile responsive (grid responsive classes maintained)
+## DATOS AUXILIARES CREADOS
+- Instructores nuevos: Dani, Jaime, Vicky, Jessica
+- Disciplina "Aro y Telas" corregida (tenía ID vacío)
