@@ -179,13 +179,14 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // Check if user already has ANY reservation for THIS class (including cancelled)
-    // This is important because of the unique constraint on [userId, classId]
+    // Check if user already has a PERSONAL reservation for THIS class (including cancelled)
+    // Filter by isGuestReservation: false to avoid matching guest reservations
     console.log('[RESERVATIONS API] Checking for existing reservations...')
     const existingReservation = await prisma.reservation.findFirst({
       where: {
         userId,
         classId,
+        isGuestReservation: false,
       },
       include: {
         purchase: {
