@@ -56,6 +56,23 @@ coverage/
 notes.md
 TODO.md
 
+# Prisma backups
+prisma/*.backup.*
+prisma/*.prisma.backup
+
+# Windows Zone.Identifier files
+*:Zone.Identifier
+
+# Task prompts (local workflow docs)
+tasks/prompts/
+
+# Temporary/debug scripts
+scripts/diagnose-*.ts
+scripts/test-*.ts
+
+# Webhook payload docs
+WEBHOOK_PAYLOAD_*.md
+
 # TypeScript
 tsconfig.tsbuildinfo
 *.tsbuildinfo
