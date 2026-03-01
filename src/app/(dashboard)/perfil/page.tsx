@@ -2,8 +2,9 @@
 
 import * as React from 'react'
 import { useSession } from 'next-auth/react'
-import { Camera, QrCode, Edit2, Save, X, Check, AlertCircle, Lock, CreditCard, Loader2 } from 'lucide-react'
+import { Camera, Edit2, Save, X, Check, AlertCircle, Lock, CreditCard, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { UserQRCode } from '@/components/UserQRCode'
 import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
@@ -295,13 +296,8 @@ export default function PerfilPage() {
             </div>
             {showQR ? (
               <div className="space-y-4">
-                <div className="aspect-square bg-beige rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <QrCode className="h-32 w-32 mx-auto text-gray-400" />
-                    <p className="mt-2 text-sm text-gray-500">
-                      Código QR del usuario
-                    </p>
-                  </div>
+                <div className="bg-white rounded-lg flex items-center justify-center p-4">
+                  <UserQRCode value={userData?.qrCode || ''} size={200} />
                 </div>
                 <p className="text-center font-mono text-sm text-gray-600">
                   {userData?.qrCode || 'WN-XXXXXX'}

@@ -343,6 +343,134 @@ export function buildGuestInvitationEmail(data: GuestInvitationData): string {
 </html>`
 }
 
+export interface ReservationConfirmationData {
+  userName: string | null
+  disciplineName: string
+  instructorName: string
+  dateTime: string
+  duration: number
+  profileUrl: string
+}
+
+export function buildReservationConfirmationEmail(data: ReservationConfirmationData): string {
+  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reserva Confirmada - Wellnest</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F5F0EB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', system-ui, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0EB;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width: 480px; width: 100%; background-color: #FFFFFF; border-radius: 12px;">
+          <tr>
+            <td style="padding: 32px;">
+
+              <h1 style="color: #1F2937; margin: 0 0 8px; font-size: 20px; font-weight: 600; line-height: 1.2; text-align: center;">&iexcl;Reserva Confirmada!</h1>
+              <p style="color: #6B7280; margin: 0 0 32px; font-size: 16px; line-height: 1.5; text-align: center;">Wellnest</p>
+
+              <p style="color: #374151; font-size: 16px; font-weight: 500; margin: 0 0 8px; line-height: 1.4;">${greeting}</p>
+              <p style="color: #6B7280; margin: 0 0 24px; font-size: 14px; line-height: 1.5;">
+                Tu reserva ha sido confirmada. Recuerda llegar unos minutos antes y presentar tu c&oacute;digo QR al llegar al estudio.
+              </p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Clase:</strong> ${data.disciplineName}
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Instructor:</strong> ${data.instructorName}
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Fecha y hora:</strong> ${data.dateTime}
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Duraci&oacute;n:</strong> ${data.duration} minutos
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Ubicaci&oacute;n:</strong> Wellnest Studio
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color: #86A889; border-radius: 8px;">
+                          <a href="${data.profileUrl}"
+                             target="_blank"
+                             style="display: inline-block; background-color: #86A889; color: #FFFFFF; padding: 12px 32px; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px; line-height: 1.4;">
+                            Ver mi C&oacute;digo QR
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F0F5F1; border: 1px solid #D4E5D7; border-radius: 8px; padding: 16px;">
+                    <p style="margin: 0; font-size: 13px; color: #374151; line-height: 1.5;">
+                      Presenta tu c&oacute;digo QR al llegar al estudio para registrar tu asistencia. Puedes encontrarlo en tu perfil.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 32px;">
+                <tr>
+                  <td style="border-top: 1px solid #E5E7EB; padding-top: 16px; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #9CA3AF;">
+                      Wellnest &copy; 2026 &bull; contact@wellneststudio.net
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
 export function buildPasswordResetEmail(name: string, resetUrl: string): string {
   return `
 <!DOCTYPE html>

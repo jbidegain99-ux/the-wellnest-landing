@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
-import { sendEmail, buildGuestInvitationEmail } from '@/lib/emailService'
+import { sendEmail, buildGuestInvitationEmail, buildReservationConfirmationEmail } from '@/lib/emailService'
 
 // Error codes for specific error types
 const ERROR_CODES = {
@@ -802,6 +802,38 @@ export async function POST(request: Request) {
     }
 
     console.log('[RESERVATIONS API] ========== POST REQUEST SUCCESS ==========')
+
+    // Fire-and-forget: send reservation confirmation email with QR link
+    if (session.user.email) {
+      const resClassDate = new Date(reservation.class.dateTime)
+      const formattedResDateTime = resClassDate.toLocaleDateString('es-SV', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      }) + ' a las ' + resClassDate.toLocaleTimeString('es-SV', {
+        hour: '2-digit', minute: '2-digit', hour12: true,
+      })
+      const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
+
+      sendEmail({
+        to: session.user.email,
+        subject: `Reserva confirmada: ${reservation.class.discipline.name}`,
+        html: buildReservationConfirmationEmail({
+          userName: session.user.name || null,
+          disciplineName: reservation.class.discipline.name,
+          instructorName: reservation.class.instructor.name,
+          dateTime: formattedResDateTime,
+          duration: reservation.class.duration,
+          profileUrl: `${baseUrl}/perfil`,
+        }),
+      }).then(result => {
+        if (result.success) {
+          console.log('[RESERVATIONS API] Confirmation email sent:', result.messageId)
+        } else {
+          console.error('[RESERVATIONS API] Confirmation email failed:', result.error)
+        }
+      }).catch(err => {
+        console.error('[RESERVATIONS API] Confirmation email error:', err)
+      })
+    }
 
     return NextResponse.json({
       ...reservation,

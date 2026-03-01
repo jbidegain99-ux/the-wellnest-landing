@@ -231,6 +231,7 @@ model Reservation {
   cancelledAt        DateTime?
   checkedIn          Boolean           @default(false)
   checkedInAt        DateTime?
+  checkedInBy        String?           // Admin user ID who performed check-in
   guestEmail         String?           // email of invited guest
   guestName          String?           // name of invited guest
   guestStatus        String?           // PENDING, ACCEPTED, DECLINED
