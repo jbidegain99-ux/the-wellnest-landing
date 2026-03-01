@@ -93,6 +93,7 @@ export default function ReservarPage() {
   const [activePurchase, setActivePurchase] = React.useState<ActivePurchase | null>(null)
   const [selectedPurchase, setSelectedPurchase] = React.useState<SelectedPurchase | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [reservedClassIds, setReservedClassIds] = React.useState<Set<string>>(new Set())
 
   // Filter and navigation
   const [selectedDiscipline, setSelectedDiscipline] = React.useState('all')
@@ -142,6 +143,26 @@ export default function ReservarPage() {
     }
   }, [])
 
+  // Fetch user's existing reservations to mark already-booked classes
+  const fetchUserReservations = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/reservations')
+      if (response.ok) {
+        const data = await response.json()
+        const ids = new Set<string>(
+          data
+            .filter((r: { status: string; isGuestReservation: boolean }) =>
+              r.status === 'CONFIRMED' && !r.isGuestReservation
+            )
+            .map((r: { class: { id: string } }) => r.class.id)
+        )
+        setReservedClassIds(ids)
+      }
+    } catch (error) {
+      console.error('Error fetching reservations:', error)
+    }
+  }, [])
+
   // Fetch disciplines on mount
   React.useEffect(() => {
     const fetchDisciplines = async () => {
@@ -157,7 +178,8 @@ export default function ReservarPage() {
     }
     fetchDisciplines()
     fetchActivePurchase()
-  }, [fetchActivePurchase])
+    fetchUserReservations()
+  }, [fetchActivePurchase, fetchUserReservations])
 
   // Fetch specific purchase if packageId is in URL
   React.useEffect(() => {
@@ -354,6 +376,9 @@ export default function ReservarPage() {
           }
         }
 
+        // Mark this class as reserved immediately
+        setReservedClassIds(prev => new Set(prev).add(selectedClass.id))
+
         // Refresh classes to update spot counts (add cache bust param)
         const startDate = format(currentWeekStart, 'yyyy-MM-dd')
         const endDate = format(weekEnd, 'yyyy-MM-dd')
@@ -538,16 +563,18 @@ export default function ReservarPage() {
                       const reservationCount = cls._count?.reservations ?? cls.currentCount
                       const isFull = reservationCount >= cls.maxCapacity
                       const spotsLeft = cls.maxCapacity - reservationCount
+                      const alreadyReserved = reservedClassIds.has(cls.id)
+                      const isDisabled = isFull || alreadyReserved
 
                       return (
                         <button
                           key={cls.id}
                           onClick={() => handleSelectClass(cls)}
-                          disabled={isFull}
+                          disabled={isDisabled}
                           className={cn(
                             'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
                             disciplineColors[cls.discipline.slug] || 'bg-primary',
-                            isFull
+                            isDisabled
                               ? 'opacity-50 cursor-not-allowed'
                               : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
                           )}
@@ -562,8 +589,17 @@ export default function ReservarPage() {
                             {cls.instructor.name.split(' ')[0]}
                           </p>
                           <p className="flex items-center gap-1 mt-1">
-                            <Users className="h-3 w-3" />
-                            {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                            {alreadyReserved ? (
+                              <>
+                                <Check className="h-3 w-3" />
+                                Ya reservado
+                              </>
+                            ) : (
+                              <>
+                                <Users className="h-3 w-3" />
+                                {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                              </>
+                            )}
                           </p>
                         </button>
                       )
