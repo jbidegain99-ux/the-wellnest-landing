@@ -22,6 +22,7 @@ const ASSET_LABELS: Record<string, string> = {
   discipline_pole_image_url: 'Imagen de Pole Fitness',
   discipline_sound_image_url: 'Imagen de Terapia de Sonido',
   discipline_nutrition_image_url: 'Imagen de Nutrición',
+  discipline_aerials_image_url: 'Imagen de Aro y Telas',
 }
 
 export default function AdminAssetsPage() {

@@ -37,6 +37,11 @@ export const DEFAULT_ASSETS: Record<string, { type: string; url: string; label: 
     url: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&q=80',
     label: 'Imagen de Nutrición',
   },
+  discipline_aerials_image_url: {
+    type: 'image',
+    url: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200&q=80',
+    label: 'Imagen de Aro y Telas',
+  },
 }
 
 export type BrandAssets = Record<string, { type: string; url: string }>

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Pencil, Trash2, Search, Loader2, Check, AlertCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, Loader2, Check, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -269,6 +269,40 @@ export default function AdminInstructoresPage() {
     }))
   }
 
+  // Reorder instructor (swap with adjacent)
+  const [isReordering, setIsReordering] = React.useState<string | null>(null)
+
+  const handleReorder = async (instructor: Instructor, direction: 'up' | 'down') => {
+    const sorted = [...instructors].sort((a, b) => a.order - b.order)
+    const currentIndex = sorted.findIndex((i) => i.id === instructor.id)
+    const swapIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+
+    if (swapIndex < 0 || swapIndex >= sorted.length) return
+
+    const other = sorted[swapIndex]
+    setIsReordering(instructor.id)
+
+    try {
+      await Promise.all([
+        fetch(`/api/admin/instructors/${instructor.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: other.order }),
+        }),
+        fetch(`/api/admin/instructors/${other.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: instructor.order }),
+        }),
+      ])
+      await fetchInstructors()
+    } catch (error) {
+      showError('Error al reordenar')
+    } finally {
+      setIsReordering(null)
+    }
+  }
+
   const toggleTag = (tag: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -338,6 +372,9 @@ export default function AdminInstructoresPage() {
             <table className="w-full">
               <thead className="bg-beige">
                 <tr>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 w-16">
+                    Orden
+                  </th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">
                     Instructor
                   </th>
@@ -353,8 +390,31 @@ export default function AdminInstructoresPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-beige">
-                {filteredInstructors.map((instructor) => (
+                {filteredInstructors.map((instructor, idx) => (
                   <tr key={instructor.id}>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-gray-500 w-5 text-center">{instructor.order}</span>
+                        <div className="flex flex-col">
+                          <button
+                            onClick={() => handleReorder(instructor, 'up')}
+                            disabled={idx === 0 || isReordering !== null}
+                            className="p-0.5 text-gray-400 hover:text-primary disabled:opacity-30"
+                            title="Subir"
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleReorder(instructor, 'down')}
+                            disabled={idx === filteredInstructors.length - 1 || isReordering !== null}
+                            className="p-0.5 text-gray-400 hover:text-primary disabled:opacity-30"
+                            title="Bajar"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <Avatar
