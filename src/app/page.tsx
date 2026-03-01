@@ -39,26 +39,37 @@ const benefits = [
 export default async function HomePage() {
   // Load brand assets from database
   const assets = await getBrandAssets()
-  const heroVideoUrl = assets.hero_video_url?.url || 'https://videos.pexels.com/video-files/5123881/5123881-hd_1280_720_25fps.mp4'
+  const heroMediaUrl = assets.hero_video_url?.url || 'https://videos.pexels.com/video-files/5123881/5123881-hd_1280_720_25fps.mp4'
+  const isHeroImage = /\.(jpg|jpeg|png|webp|avif|gif)(\?|$)/i.test(heroMediaUrl)
 
   return (
     <>
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Background Video - Loaded from Brand Assets */}
+        {/* Background Media - Loaded from Brand Assets (supports both image and video) */}
         <div className="absolute inset-0">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            className="absolute w-full h-full object-cover"
-          >
-            {/* Hero video from Brand Assets (configurable in admin) */}
-            <source src={heroVideoUrl} type="video/mp4" />
-          </video>
-          {/* Fallback gradient for when video doesn't load */}
+          {isHeroImage ? (
+            <Image
+              src={heroMediaUrl}
+              alt="Wellnest Studio"
+              fill
+              className="object-cover"
+              priority
+              sizes="100vw"
+            />
+          ) : (
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              className="absolute w-full h-full object-cover"
+            >
+              <source src={heroMediaUrl} type="video/mp4" />
+            </video>
+          )}
+          {/* Fallback gradient for when media doesn't load */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D] -z-10" />
           {/* Dark overlay for text readability */}
           <div className="absolute inset-0 bg-black/40" />

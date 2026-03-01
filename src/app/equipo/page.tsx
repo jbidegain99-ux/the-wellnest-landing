@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Sprout, Sparkles, Users } from 'lucide-react'
@@ -54,51 +55,90 @@ export default async function EquipoPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {teamMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow duration-300"
-                >
-                  <div className="flex flex-col items-center text-center">
-                    {/* Avatar */}
-                    <Avatar
+                member.image ? (
+                  /* Card with background image */
+                  <div
+                    key={member.id}
+                    className="relative rounded-2xl overflow-hidden h-[420px] sm:h-[480px] group shadow-sm hover:shadow-lg transition-shadow duration-300"
+                  >
+                    <Image
                       src={member.image}
                       alt={member.name}
-                      fallback={member.name}
-                      size="xl"
-                      className="mb-4"
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
+                    {/* Gradient overlay for text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-                    {/* Name */}
-                    <h3 className="text-xl sm:text-2xl font-medium text-foreground mb-2">
-                      {member.name}
-                    </h3>
-
-                    {/* Headline (role) */}
-                    {member.headline && (
-                      <p className="text-primary font-medium text-sm sm:text-base mb-3 leading-relaxed">
-                        {member.headline}
-                      </p>
-                    )}
-
-                    {/* Tags */}
-                    {member.tags && member.tags.length > 0 && (
-                      <div className="flex flex-wrap justify-center gap-2 mb-4">
-                        {member.tags.map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Short Bio */}
-                    {member.shortBio && (
-                      <p className="text-gray-600 text-sm leading-relaxed">
-                        {member.shortBio}
-                      </p>
-                    )}
+                    {/* Content at bottom */}
+                    <div className="absolute inset-x-0 bottom-0 p-6">
+                      <h3 className="text-2xl font-medium text-white mb-1">
+                        {member.name}
+                      </h3>
+                      {member.headline && (
+                        <p className="text-sm font-medium text-white/80 mb-3 leading-relaxed line-clamp-2">
+                          {member.headline}
+                        </p>
+                      )}
+                      {member.tags && member.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {member.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/20 text-white backdrop-blur-sm"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {member.shortBio && (
+                        <p className="text-sm text-white/80 leading-relaxed line-clamp-3">
+                          {member.shortBio}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Fallback card without image (avatar + initials) */
+                  <div
+                    key={member.id}
+                    className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow duration-300"
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <Avatar
+                        src={null}
+                        alt={member.name}
+                        fallback={member.name}
+                        size="xl"
+                        className="mb-4"
+                      />
+                      <h3 className="text-xl sm:text-2xl font-medium text-foreground mb-2">
+                        {member.name}
+                      </h3>
+                      {member.headline && (
+                        <p className="text-primary font-medium text-sm sm:text-base mb-3 leading-relaxed">
+                          {member.headline}
+                        </p>
+                      )}
+                      {member.tags && member.tags.length > 0 && (
+                        <div className="flex flex-wrap justify-center gap-2 mb-4">
+                          {member.tags.map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {member.shortBio && (
+                        <p className="text-gray-600 text-sm leading-relaxed">
+                          {member.shortBio}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
               ))}
             </div>
           )}
