@@ -59,7 +59,7 @@ export default async function EquipoPage() {
                   /* Card with background image */
                   <div
                     key={member.id}
-                    className="relative rounded-2xl overflow-hidden h-[420px] sm:h-[480px] group shadow-sm hover:shadow-lg transition-shadow duration-300"
+                    className="relative rounded-2xl overflow-hidden h-[480px] sm:h-[540px] group shadow-sm hover:shadow-lg transition-shadow duration-300"
                   >
                     <Image
                       src={member.image}
@@ -73,11 +73,11 @@ export default async function EquipoPage() {
 
                     {/* Content at bottom */}
                     <div className="absolute inset-x-0 bottom-0 p-6">
-                      <h3 className="text-2xl font-medium text-white mb-1">
+                      <h3 className="text-xl font-medium text-white mb-1">
                         {member.name}
                       </h3>
                       {member.headline && (
-                        <p className="text-sm font-medium text-white/80 mb-3 leading-relaxed line-clamp-2">
+                        <p className="text-xs font-medium text-white/80 mb-2 leading-relaxed line-clamp-2">
                           {member.headline}
                         </p>
                       )}
@@ -94,7 +94,7 @@ export default async function EquipoPage() {
                         </div>
                       )}
                       {member.shortBio && (
-                        <p className="text-sm text-white/80 leading-relaxed line-clamp-3">
+                        <p className="text-xs text-white/80 leading-relaxed line-clamp-5">
                           {member.shortBio}
                         </p>
                       )}

@@ -249,18 +249,13 @@ export function DisciplinesCarousel({ assets }: DisciplinesCarouselProps) {
                       e.currentTarget.style.display = 'none'
                     }}
                   />
-                  {/* Gradient Overlay */}
-                  <div
-                    className={cn(
-                      'absolute inset-0 bg-gradient-to-br opacity-80',
-                      discipline.gradient
-                    )}
-                  />
+                  {/* Subtle bottom gradient for text readability only */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
                   {/* Content Wrapper */}
                   <div className="relative h-full flex flex-col p-6 text-white">
                     {/* Title - Always visible */}
-                    <div className="min-h-[200px] flex flex-col justify-end">
+                    <div className="min-h-[200px] flex flex-col justify-end" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
                       <h3 className="font-serif text-3xl font-semibold mb-3">
                         {discipline.title}
                       </h3>
