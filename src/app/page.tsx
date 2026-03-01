@@ -45,7 +45,7 @@ export default async function HomePage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[80vh] md:min-h-[85vh] flex items-center justify-center overflow-hidden">
         {/* Background Media - Loaded from Brand Assets (supports both image and video) */}
         <div className="absolute inset-0">
           {isHeroImage ? (
@@ -53,7 +53,7 @@ export default async function HomePage() {
               src={heroMediaUrl}
               alt="Wellnest Studio"
               fill
-              className="object-cover"
+              className="object-cover object-top"
               priority
               sizes="100vw"
             />
