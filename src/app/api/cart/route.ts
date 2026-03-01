@@ -77,6 +77,28 @@ export async function POST(request: Request) {
       )
     }
 
+    // Block adding $0 (trial) packages if user already purchased one
+    if (pkg.price === 0) {
+      const session = await getServerSession(authOptions)
+      if (session?.user?.id) {
+        const existingPurchase = await prisma.purchase.findFirst({
+          where: {
+            userId: session.user.id,
+            packageId: pkg.id,
+          },
+        })
+        if (existingPurchase) {
+          return NextResponse.json(
+            {
+              error: `Ya compraste "${pkg.name}". Solo se puede adquirir una vez.`,
+              code: 'TRIAL_PACKAGE_LIMIT_EXCEEDED',
+            },
+            { status: 409 }
+          )
+        }
+      }
+    }
+
     // Upsert cart item
     const cartItem = await prisma.cartItem.upsert({
       where: {

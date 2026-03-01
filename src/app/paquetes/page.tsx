@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { PackagesGrid } from './PackagesGrid'
 
 export const metadata = {
@@ -52,6 +54,23 @@ async function getPackages() {
 export default async function PaquetesPage() {
   const packages = await getPackages()
 
+  // Check which $0 (trial) packages the logged-in user has already purchased
+  let purchasedTrialPackageIds: string[] = []
+  const session = await getServerSession(authOptions)
+  if (session?.user?.id) {
+    const freePackageIds = packages.filter(p => p.price === 0).map(p => p.id)
+    if (freePackageIds.length > 0) {
+      const existingPurchases = await prisma.purchase.findMany({
+        where: {
+          userId: session.user.id,
+          packageId: { in: freePackageIds },
+        },
+        select: { packageId: true },
+      })
+      purchasedTrialPackageIds = existingPurchases.map(p => p.packageId)
+    }
+  }
+
   return (
     <>
       {/* Hero */}
@@ -68,7 +87,7 @@ export default async function PaquetesPage() {
       </section>
 
       {/* Packages Grid - Client Component for interactivity */}
-      <PackagesGrid packages={packages} colors={packageColors} />
+      <PackagesGrid packages={packages} colors={packageColors} purchasedTrialPackageIds={purchasedTrialPackageIds} />
 
       {/* Info note */}
       <section className="pb-12 sm:pb-16 bg-cream">

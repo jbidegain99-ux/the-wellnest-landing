@@ -31,9 +31,10 @@ interface Package {
 interface PackagesGridProps {
   packages: Package[]
   colors: string[]
+  purchasedTrialPackageIds?: string[]
 }
 
-export function PackagesGrid({ packages, colors }: PackagesGridProps) {
+export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }: PackagesGridProps) {
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
   const [isAddingToCart, setIsAddingToCart] = React.useState<string | null>(null)
   const { data: session } = useSession()
@@ -55,6 +56,8 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
     return `${days} días de vigencia`
   }
 
+  const [cartError, setCartError] = React.useState<string | null>(null)
+
   const handleAddToCart = async (pkg: Package) => {
     if (!session) {
       router.push('/login?redirect=/paquetes')
@@ -62,6 +65,7 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
     }
 
     setIsAddingToCart(pkg.id)
+    setCartError(null)
 
     try {
       const response = await fetch('/api/cart', {
@@ -74,6 +78,11 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
 
       if (response.ok) {
         router.push('/carrito')
+      } else {
+        const data = await response.json()
+        if (data.code === 'TRIAL_PACKAGE_LIMIT_EXCEEDED') {
+          setCartError(data.error)
+        }
       }
     } catch (error) {
       console.error('Error adding to cart:', error)
@@ -81,6 +90,14 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
       setIsAddingToCart(null)
     }
   }
+
+  // Auto-clear cart error after 5s
+  React.useEffect(() => {
+    if (cartError) {
+      const timer = setTimeout(() => setCartError(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [cartError])
 
   if (packages.length === 0) {
     return (
@@ -97,11 +114,17 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
   return (
     <section className="py-12 sm:py-16 bg-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {cartError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center">
+            {cartError}
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {packages.map((pkg, index) => {
             const isExpanded = expandedId === pkg.id
             const color = colors[index % colors.length]
             const hasDiscount = pkg.originalPrice && pkg.discountPercent
+            const isTrialPurchased = purchasedTrialPackageIds.includes(pkg.id)
 
             // Build main features from bulletsTop or defaults
             const mainFeatures = pkg.bulletsTop.length > 0
@@ -208,8 +231,18 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
                     ))}
                   </div>
 
+                  {/* Trial already purchased indicator */}
+                  {isTrialPurchased && (
+                    <div className="pt-4 border-t border-beige mt-auto">
+                      <div className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-green-50 text-green-700 text-sm font-medium">
+                        <Check className="h-4 w-4" />
+                        Ya comprado
+                      </div>
+                    </div>
+                  )}
+
                   {/* CTA Button - only show when expanded or on larger cards */}
-                  {isExpanded && (
+                  {isExpanded && !isTrialPurchased && (
                     <div className="pt-4 border-t border-beige animate-slide-down">
                       <Button
                         className="w-full"
@@ -226,7 +259,7 @@ export function PackagesGrid({ packages, colors }: PackagesGridProps) {
                   )}
 
                   {/* Click hint */}
-                  {!isExpanded && (
+                  {!isExpanded && !isTrialPurchased && (
                     <button className="text-sm text-primary hover:underline mt-auto pt-2">
                       Tap para comprar →
                     </button>
