@@ -119,7 +119,7 @@ export async function markOrderPaidAndCreatePurchase({
               finalPrice,
               discountCode: order.discountCode || null,
               status: 'ACTIVE',
-              stripePaymentId: `${provider.toLowerCase()}_${orderId}_${item.id}_${i}`,
+              paymentProviderId: `${provider.toLowerCase()}_${orderId}_${item.id}_${i}`,
             },
             include: {
               package: true,

@@ -172,7 +172,7 @@ model Purchase {
   originalPrice    Float
   finalPrice       Float
   status           PurchaseStatus @default(ACTIVE)
-  stripePaymentId  String?
+  paymentProviderId String?  @map("stripePaymentId")
   createdAt        DateTime       @default(now())
 
   reservations     Reservation[]

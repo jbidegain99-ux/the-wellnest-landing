@@ -83,7 +83,7 @@ export async function POST(request: Request) {
         originalPrice: 0,
         finalPrice: 0,
         status: 'ACTIVE',
-        stripePaymentId: `trial_${Date.now()}`,
+        paymentProviderId: `trial_${Date.now()}`,
       },
       include: {
         package: true,

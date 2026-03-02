@@ -74,7 +74,7 @@ async function handleSuccessfulPayment({
           finalPrice,
           discountCode: discountCode || null,
           status: 'ACTIVE',
-          stripePaymentId: isTestMode ? `test_${Date.now()}_${i}` : `free_${Date.now()}_${i}`,
+          paymentProviderId: isTestMode ? `test_${Date.now()}_${i}` : `free_${Date.now()}_${i}`,
         },
         include: {
           package: true,

@@ -346,7 +346,7 @@ export default function CarritoPage() {
               </Button>
 
               <p className="text-xs text-gray-500 text-center">
-                Pago seguro procesado por Stripe
+                Pago seguro procesado por PayWay
               </p>
             </CardContent>
           </Card>
