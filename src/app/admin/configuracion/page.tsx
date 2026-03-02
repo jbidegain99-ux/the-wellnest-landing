@@ -28,9 +28,9 @@ const defaultSettings: Settings = {
   address: 'Presidente Plaza, Colonia San Benito, San Salvador, El Salvador',
   stripePublicKey: 'pk_test_...',
   stripeSecretKey: 'sk_test_...',
-  cancellationHours: '4',
+  cancellationHours: '8',
   defaultCapacity: '15',
-  cancellationPolicy: 'Puedes cancelar tu reserva hasta 4 horas antes del inicio de la clase sin penalización. Las cancelaciones tardías o no asistencias resultarán en la pérdida de la clase de tu paquete.',
+  cancellationPolicy: 'Puedes cancelar tu reserva hasta 8 horas antes del inicio de la clase sin penalización. Las cancelaciones tardías o no asistencias resultarán en la pérdida de la clase de tu paquete.',
 }
 
 export default function AdminConfiguracionPage() {

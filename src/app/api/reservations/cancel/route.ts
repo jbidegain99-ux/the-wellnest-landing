@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if class is in the future (at least 4 hours)
+    // Check if class is in the future (at least 8 hours)
     const classDateTime = new Date(reservation.class.dateTime)
     const now = new Date()
     const hoursUntilClass = (classDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
@@ -109,8 +109,8 @@ export async function POST(request: Request) {
       classLocalTime: classDateTime.toLocaleString('es-SV'),
       currentTime: now.toISOString(),
       hoursUntilClass: hoursUntilClass.toFixed(2),
-      minimumHours: 4,
-      canCancel: hoursUntilClass >= 4,
+      minimumHours: 8,
+      canCancel: hoursUntilClass >= 8,
     })
 
     if (classDateTime <= now) {
@@ -121,10 +121,10 @@ export async function POST(request: Request) {
       )
     }
 
-    if (hoursUntilClass < 4) {
+    if (hoursUntilClass < 8) {
       console.log('[CANCEL API] ERROR: Too close to class time')
       return NextResponse.json(
-        { error: `No puedes cancelar una reserva con menos de 4 horas de anticipación. La clase es en ${hoursUntilClass.toFixed(1)} horas.` },
+        { error: `No puedes cancelar una reserva con menos de 8 horas de anticipación. La clase es en ${hoursUntilClass.toFixed(1)} horas.` },
         { status: 400 }
       )
     }

@@ -90,12 +90,12 @@ export default function ReservasPage() {
     fetchReservations()
   }, [fetchReservations])
 
-  // Check if reservation can be cancelled (4 hours before class)
+  // Check if reservation can be cancelled (8 hours before class)
   const canCancel = (reservation: Reservation): boolean => {
     const classDate = new Date(reservation.class.dateTime)
     const now = new Date()
     const hoursUntilClass = (classDate.getTime() - now.getTime()) / (1000 * 60 * 60)
-    return hoursUntilClass >= 4
+    return hoursUntilClass >= 8
   }
 
   const handleOpenCancelModal = (reservation: Reservation) => {
@@ -290,7 +290,7 @@ export default function ReservasPage() {
                           </Button>
                         ) : (
                           <span className="text-xs text-gray-500 flex items-center">
-                            No cancelable (menos de 4h)
+                            No cancelable (menos de 8h)
                           </span>
                         )}
                       </div>
@@ -306,7 +306,7 @@ export default function ReservasPage() {
       {/* Info note */}
       <div className="p-4 bg-white rounded-xl border border-beige text-sm text-gray-600">
         <strong>Política de cancelación:</strong> Puedes cancelar tu reserva
-        hasta 4 horas antes del inicio de la clase sin penalización. Las
+        hasta 8 horas antes del inicio de la clase sin penalización. Las
         cancelaciones tardías o no asistencias resultarán en la pérdida de la
         clase de tu paquete.
       </div>

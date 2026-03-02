@@ -91,7 +91,7 @@ export default function TerminosPage() {
 
             <h3>4.2 Política de Cancelación</h3>
             <p>
-              Las cancelaciones deben realizarse con al menos 4 horas de
+              Las cancelaciones deben realizarse con al menos 8 horas de
               anticipación a la hora de inicio de la clase. Las cancelaciones
               tardías o la no asistencia sin previo aviso resultarán en la pérdida
               de la clase de su paquete.
