@@ -16,7 +16,7 @@ export function getPaywayConfig() {
 
   const baseUrl =
     env === 'PROD'
-      ? process.env.PAYWAY_BASE_URL_PROD || 'https://payway.sv'
+      ? process.env.PAYWAY_BASE_URL_PROD || 'https://www.payway.sv'
       : process.env.PAYWAY_BASE_URL_TEST || 'https://test.payway.sv'
 
   const callbackBaseUrl = process.env.PAYWAY_CALLBACK_PUBLIC_BASE_URL || process.env.NEXTAUTH_URL || ''
@@ -45,8 +45,8 @@ export function encryptPaywayValue(value: string, encryptionKey: string): string
   // Fixed IV as per PayWay documentation
   const iv = Buffer.from('fedcba9876543210', 'utf8')
 
-  // Ensure key is exactly 32 bytes for AES-256
-  const key = Buffer.from(encryptionKey.padEnd(32).slice(0, 32), 'utf8')
+  // Decode base64 key and take first 32 bytes for AES-256
+  const key = Buffer.from(encryptionKey, 'base64').subarray(0, 32)
 
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv)
   let encrypted = cipher.update(value, 'utf8', 'base64')
