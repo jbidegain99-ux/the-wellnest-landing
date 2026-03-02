@@ -74,3 +74,33 @@
 - Created `formatClassType()` in `src/lib/utils.ts` — maps "test" → "Clase de Prueba", "regular" → "Clase Regular"
 - Applied in 5 files: admin horarios, public horarios (mobile + desktop), admin asistencias list + detail
 - Only visual change — DB still stores "test"/"regular" as-is
+
+## Migración PayWay a Producción (2 Mar 2026)
+
+### Cambios realizados
+- Variables de entorno actualizadas en Vercel (Production only) via CLI
+- `PAYWAY_ENV=PROD` (el código compara contra `"PROD"`, no `"production"`)
+- Texto "Procesado por Stripe" actualizado a "PayWay" en carrito
+- Campo `stripePaymentId` renombrado a `paymentProviderId` usando `@map("stripePaymentId")` — sin migración de BD
+
+### Credenciales de Producción
+- ID Comercio: 1711
+- Usuario Operación: PAGOS.THE.WELLNEST
+- Base URL: https://www.payway.sv
+- Callback URL: https://wellneststudio.net
+
+### Detalles técnicos
+- `@map()` en Prisma permite renombrar el campo en código sin tocar la columna de BD
+- Variables de Dev/Preview mantienen valores de test (rollback: cambiar `PAYWAY_ENV=TEST`)
+- Usar `printf` (no `echo`) con `vercel env add` para evitar newlines que rompen valores
+- PayWay ya estaba 100% implementado, solo faltaba cambiar credenciales de test a producción
+
+### Archivos modificados
+- `prisma/schema.prisma` — `paymentProviderId @map("stripePaymentId")`
+- `src/app/(dashboard)/carrito/page.tsx` — texto Stripe → PayWay
+- `src/lib/payments/markOrderPaid.ts` — usa `paymentProviderId`
+- `src/app/api/checkout/route.ts` — usa `paymentProviderId`
+- `src/app/api/packages/claim-trial/route.ts` — usa `paymentProviderId`
+
+### Rollback
+Si hay problemas: cambiar `PAYWAY_ENV=TEST` en Vercel Production y redeploy
