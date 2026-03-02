@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma'
 export const dynamic = 'force-dynamic'
 
 // Official data for duplicate detection
-const OFFICIAL_DISCIPLINE_SLUGS = ['yoga', 'pilates', 'pole', 'soundbath', 'nutricion']
+const OFFICIAL_DISCIPLINE_SLUGS = ['yoga', 'pilates', 'pole', 'soundbath', 'nutricion', 'aro-telas', 'aro', 'telas']
 const OFFICIAL_INSTRUCTOR_IDS = [
   'instructor-nicolle', 'instructor-florence', 'instructor-adriana',
   'instructor-kevin', 'instructor-denisse',

@@ -16,6 +16,9 @@ export const DISCIPLINE_COLORS: Record<string, string> = {
   soundbath: '#482F21',         // Café oscuro
   'terapia-de-sonido': '#482F21', // Café oscuro
   nutricion: '#6B7F5E',         // Verde oscuro
+  'aro-telas': '#8B6B61',       // Terracota
+  aro: '#8B6B61',               // Terracota (misma familia)
+  telas: '#7B6B8A',             // Lavanda oscuro
 }
 
 // Colores para fondos de Tailwind (desktop calendar)
@@ -28,6 +31,9 @@ export const disciplineColors: Record<string, string> = {
   soundbath: 'bg-[#482F21]',
   'terapia-de-sonido': 'bg-[#482F21]',
   nutricion: 'bg-[#6B7F5E]',
+  'aro-telas': 'bg-[#8B6B61]',
+  aro: 'bg-[#8B6B61]',
+  telas: 'bg-[#7B6B8A]',
 }
 
 // Colores para borde izquierdo en móvil
@@ -40,6 +46,9 @@ export const disciplineBorderColors: Record<string, string> = {
   soundbath: 'border-l-[#482F21]',
   'terapia-de-sonido': 'border-l-[#482F21]',
   nutricion: 'border-l-[#6B7F5E]',
+  'aro-telas': 'border-l-[#8B6B61]',
+  aro: 'border-l-[#8B6B61]',
+  telas: 'border-l-[#7B6B8A]',
 }
 
 // Badge colors para móvil (texto visible)
@@ -52,6 +61,9 @@ export const disciplineBadgeColors: Record<string, string> = {
   soundbath: 'bg-[#482F21] text-white',
   'terapia-de-sonido': 'bg-[#482F21] text-white',
   nutricion: 'bg-[#6B7F5E] text-white',
+  'aro-telas': 'bg-[#8B6B61] text-white',
+  aro: 'bg-[#8B6B61] text-white',
+  telas: 'bg-[#7B6B8A] text-white',
 }
 
 /**

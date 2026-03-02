@@ -30,6 +30,9 @@ const OFFICIAL_DISCIPLINE_SLUGS = [
   'pole',
   'soundbath',
   'nutricion',
+  'aro-telas',
+  'aro',
+  'telas',
 ]
 
 export async function POST() {

@@ -87,6 +87,32 @@ async function main() {
         order: 6,
       },
     }),
+    prisma.discipline.upsert({
+      where: { slug: 'aro' },
+      update: {},
+      create: {
+        name: 'Aro',
+        slug: 'aro',
+        description:
+          'El aro aéreo (lyra) es una disciplina aérea que combina fuerza, flexibilidad y gracia. Aprenderás a realizar figuras y transiciones en un aro suspendido en el aire.',
+        benefits:
+          'Fuerza de agarre y core, flexibilidad, coordinación, confianza y autoexpresión.',
+        order: 7,
+      },
+    }),
+    prisma.discipline.upsert({
+      where: { slug: 'telas' },
+      update: {},
+      create: {
+        name: 'Telas',
+        slug: 'telas',
+        description:
+          'Las telas aéreas son una disciplina que desarrolla fuerza, flexibilidad y control corporal mientras aprendes a moverte con técnica en telas suspendidas.',
+        benefits:
+          'Fuerza funcional completa, flexibilidad, control corporal, confianza en las alturas.',
+        order: 8,
+      },
+    }),
   ])
 
   console.log('Created disciplines:', disciplines.length)
