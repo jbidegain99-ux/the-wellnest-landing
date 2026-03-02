@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic - this route uses request.url and DB queries
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
       endDate: endDate || 'not specified'
     })
 
-    const where: any = {
+    const where: Prisma.ClassWhereInput = {
       isCancelled: false,
     }
 

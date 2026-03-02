@@ -240,6 +240,10 @@ export default function AdminHorariosPage() {
       'nutricion': 'bg-[#6B7F5E]',
       'nutrición': 'bg-[#6B7F5E]',
       'nutrition': 'bg-[#6B7F5E]',
+      'aro': 'bg-[#8B6B61]',
+      'telas': 'bg-[#7B6B8A]',
+      'aro-telas': 'bg-[#8B6B61]',
+      'aro y telas': 'bg-[#8B6B61]',
     }
 
     const lowerName = disciplineName.toLowerCase()
