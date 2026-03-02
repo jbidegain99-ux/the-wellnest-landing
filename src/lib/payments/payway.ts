@@ -45,8 +45,8 @@ export function encryptPaywayValue(value: string, encryptionKey: string): string
   // Fixed IV as per PayWay documentation
   const iv = Buffer.from('fedcba9876543210', 'utf8')
 
-  // Decode base64 key and take first 32 bytes for AES-256
-  const key = Buffer.from(encryptionKey, 'base64').subarray(0, 32)
+  // Use first 32 characters of key as UTF-8 bytes for AES-256
+  const key = Buffer.from(encryptionKey.slice(0, 32), 'utf8')
 
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv)
   let encrypted = cipher.update(value, 'utf8', 'base64')

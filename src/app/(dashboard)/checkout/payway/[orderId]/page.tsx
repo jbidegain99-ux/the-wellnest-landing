@@ -46,7 +46,7 @@ interface PayWayInitConfig {
   clientIP: string
   amount: string
   responseCallback: string
-  deniedCallback?: string
+  responseCallbackForDenied?: string
 }
 
 interface OrderItem {
@@ -290,7 +290,7 @@ export default function PayWayCheckoutPage() {
         clientIP: payload.clientIP,
         amount: payload.amountEncrypted,
         responseCallback: payload.responseCallbackEncrypted,
-        deniedCallback: payload.deniedCallbackEncrypted,
+        responseCallbackForDenied: payload.deniedCallbackEncrypted,
       })
 
       console.log('[PayWay] Payment button initialized')
