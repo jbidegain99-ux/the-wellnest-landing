@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Instagram, Facebook, Mail, Phone, MapPin } from 'lucide-react'
+import { Instagram, Facebook, MapPin } from 'lucide-react'
 
 const navigation = {
   disciplinas: [
@@ -122,18 +122,6 @@ export function Footer() {
               <li className="flex items-start gap-2">
                 <MapPin className="h-5 w-5 mt-0.5 flex-shrink-0" />
                 <span>San Salvador, El Salvador</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="h-5 w-5 flex-shrink-0" />
-                <a href="tel:+50312345678" className="hover:text-primary transition-colors">
-                  +503 1234 5678
-                </a>
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="h-5 w-5 flex-shrink-0" />
-                <a href="mailto:hola@thewellnest.sv" className="hover:text-primary transition-colors">
-                  hola@thewellnest.sv
-                </a>
               </li>
             </ul>
 

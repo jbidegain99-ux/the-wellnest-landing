@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { MapPin, Phone, Clock, MessageCircle, Send, AlertCircle } from 'lucide-react'
+import { MapPin, Clock, MessageCircle, Send, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -16,13 +16,7 @@ const contactInfo = [
     content: 'Presidente Plaza, Colonia San Benito, San Salvador, El Salvador',
     link: 'https://maps.google.com/?q=Presidente+Plaza+San+Benito+San+Salvador',
   },
-  {
-    icon: Phone,
-    title: 'Teléfono',
-    content: '+503 1234 5678',
-    link: 'tel:+50312345678',
-  },
-  {
+{
     icon: Clock,
     title: 'Horario',
     content: 'Lunes a Sábado, 6:00 AM - 8:00 PM',
@@ -45,7 +39,6 @@ export default function ContactoPage() {
     const data = {
       name: formData.get('name') as string,
       email: formData.get('email') as string,
-      phone: formData.get('phone') as string,
       subject: formData.get('subject') as string,
       message: formData.get('message') as string,
     }
@@ -227,13 +220,6 @@ export default function ContactoPage() {
                       required
                     />
                   </div>
-
-                  <Input
-                    label="Teléfono (opcional)"
-                    name="phone"
-                    type="tel"
-                    placeholder="+503 1234 5678"
-                  />
 
                   <Input
                     label="Asunto"

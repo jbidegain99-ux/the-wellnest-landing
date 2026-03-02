@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Check, ShoppingCart, Users } from 'lucide-react'
+import { Check, ShoppingCart, Users, Gift } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 
@@ -57,6 +57,44 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
   }
 
   const [cartError, setCartError] = React.useState<string | null>(null)
+  const [claimedTrialIds, setClaimedTrialIds] = React.useState<string[]>([])
+  const [trialSuccess, setTrialSuccess] = React.useState<string | null>(null)
+
+  const handleClaimTrial = async (pkg: Package) => {
+    if (!session) {
+      router.push('/login?redirect=/paquetes')
+      return
+    }
+
+    setIsAddingToCart(pkg.id)
+    setCartError(null)
+
+    try {
+      const response = await fetch('/api/packages/claim-trial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packageId: pkg.id }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setClaimedTrialIds(prev => [...prev, pkg.id])
+        setTrialSuccess(`Has adquirido "${pkg.name}" exitosamente. Revisa tu email para más detalles.`)
+        setTimeout(() => setTrialSuccess(null), 6000)
+      } else {
+        if (data.code === 'TRIAL_PACKAGE_LIMIT_EXCEEDED') {
+          setClaimedTrialIds(prev => [...prev, pkg.id])
+        }
+        setCartError(data.error)
+      }
+    } catch (error) {
+      console.error('Error claiming trial:', error)
+      setCartError('Error al procesar la solicitud. Intenta de nuevo.')
+    } finally {
+      setIsAddingToCart(null)
+    }
+  }
 
   const handleAddToCart = async (pkg: Package) => {
     if (!session) {
@@ -114,6 +152,11 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
   return (
     <section className="py-12 sm:py-16 bg-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {trialSuccess && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm text-center">
+            {trialSuccess}
+          </div>
+        )}
         {cartError && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm text-center">
             {cartError}
@@ -124,7 +167,8 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
             const isExpanded = expandedId === pkg.id
             const color = colors[index % colors.length]
             const hasDiscount = pkg.originalPrice && pkg.discountPercent
-            const isTrialPurchased = purchasedTrialPackageIds.includes(pkg.id)
+            const isTrialPurchased = purchasedTrialPackageIds.includes(pkg.id) || claimedTrialIds.includes(pkg.id)
+            const isFreeTrial = pkg.price === 0
 
             // Build main features from bulletsTop or defaults
             const mainFeatures = pkg.bulletsTop.length > 0
@@ -244,24 +288,38 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
                   {/* CTA Button - only show when expanded or on larger cards */}
                   {isExpanded && !isTrialPurchased && (
                     <div className="pt-4 border-t border-beige animate-slide-down">
-                      <Button
-                        className="w-full"
-                        isLoading={isAddingToCart === pkg.id}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleAddToCart(pkg)
-                        }}
-                      >
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                        Agregar al carrito
-                      </Button>
+                      {isFreeTrial ? (
+                        <Button
+                          className="w-full"
+                          isLoading={isAddingToCart === pkg.id}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleClaimTrial(pkg)
+                          }}
+                        >
+                          <Gift className="mr-2 h-4 w-4" />
+                          Obtener Gratis
+                        </Button>
+                      ) : (
+                        <Button
+                          className="w-full"
+                          isLoading={isAddingToCart === pkg.id}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleAddToCart(pkg)
+                          }}
+                        >
+                          <ShoppingCart className="mr-2 h-4 w-4" />
+                          Agregar al carrito
+                        </Button>
+                      )}
                     </div>
                   )}
 
                   {/* Click hint */}
                   {!isExpanded && !isTrialPurchased && (
                     <button className="text-sm text-primary hover:underline mt-auto pt-2">
-                      Tap para comprar →
+                      {isFreeTrial ? 'Tap para obtener gratis →' : 'Tap para comprar →'}
                     </button>
                   )}
                 </div>
