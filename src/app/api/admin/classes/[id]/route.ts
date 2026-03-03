@@ -40,7 +40,11 @@ export async function GET(
         complementaryDiscipline: true,
         instructor: true,
         _count: {
-          select: { reservations: true },
+          select: {
+            reservations: {
+              where: { status: { not: 'CANCELLED' } },
+            },
+          },
         },
       },
     })
@@ -243,7 +247,11 @@ export async function DELETE(
       where: { id },
       include: {
         _count: {
-          select: { reservations: true },
+          select: {
+            reservations: {
+              where: { status: { not: 'CANCELLED' } },
+            },
+          },
         },
       },
     })

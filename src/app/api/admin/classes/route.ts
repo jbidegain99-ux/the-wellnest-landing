@@ -83,7 +83,11 @@ export async function GET(request: Request) {
         complementaryDiscipline: true,
         instructor: true,
         _count: {
-          select: { reservations: true },
+          select: {
+            reservations: {
+              where: { status: { not: 'CANCELLED' } },
+            },
+          },
         },
       },
       orderBy: { dateTime: 'asc' },
