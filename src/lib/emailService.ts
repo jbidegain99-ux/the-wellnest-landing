@@ -1,5 +1,3 @@
-import { Resend } from 'resend'
-
 interface SendEmailOptions {
   to: string
   subject: string
@@ -12,36 +10,97 @@ interface SendEmailResult {
   error?: string
 }
 
-const FROM_EMAIL = process.env.EMAIL_FROM || 'Wellnest <contact@wellneststudio.net>'
+interface AzureTokenResponse {
+  access_token: string
+  expires_in: number
+  token_type: string
+}
 
-function getResendClient(): Resend {
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) {
-    throw new Error('RESEND_API_KEY is not configured')
+interface AzureErrorResponse {
+  error: string
+  error_description: string
+}
+
+const EMAIL_FROM = process.env.EMAIL_FROM || 'contact@wellneststudio.net'
+
+let cachedToken: string | null = null
+let tokenExpiresAt = 0
+
+async function getAccessToken(): Promise<string> {
+  // Return cached token if still valid (with 5 min buffer)
+  if (cachedToken && Date.now() < tokenExpiresAt - 300_000) {
+    return cachedToken
   }
-  return new Resend(apiKey)
+
+  const tenantId = process.env.AZURE_TENANT_ID
+  const clientId = process.env.AZURE_CLIENT_ID
+  const clientSecret = process.env.AZURE_CLIENT_SECRET
+
+  if (!tenantId || !clientId || !clientSecret) {
+    throw new Error('Missing Azure env vars: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET')
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    scope: 'https://graph.microsoft.com/.default',
+    client_secret: clientSecret,
+    grant_type: 'client_credentials',
+  })
+
+  const res = await fetch(
+    `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    }
+  )
+
+  if (!res.ok) {
+    const err = await res.json() as AzureErrorResponse
+    throw new Error(`Azure token error: ${err.error_description}`)
+  }
+
+  const data = await res.json() as AzureTokenResponse
+  cachedToken = data.access_token
+  tokenExpiresAt = Date.now() + data.expires_in * 1000
+
+  return cachedToken
 }
 
 export async function sendEmail({ to, subject, html }: SendEmailOptions): Promise<SendEmailResult> {
   try {
-    const resend = getResendClient()
+    console.log(`[EMAIL] Sending to ${to} via Microsoft Graph...`)
 
-    console.log(`[EMAIL] Sending to ${to} via Resend...`)
+    const token = await getAccessToken()
 
-    const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to,
-      subject,
-      html,
-    })
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${EMAIL_FROM}/sendMail`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: {
+            subject,
+            body: { contentType: 'HTML', content: html },
+            toRecipients: [{ emailAddress: { address: to } }],
+          },
+          saveToSentItems: true,
+        }),
+      }
+    )
 
-    if (error) {
-      console.error(`[EMAIL] Resend error:`, error.message)
-      return { success: false, error: error.message }
+    if (!res.ok) {
+      const errorText = await res.text()
+      console.error(`[EMAIL] Graph API error (${res.status}):`, errorText)
+      return { success: false, error: `Graph API ${res.status}: ${errorText}` }
     }
 
-    console.log(`[EMAIL] Sent successfully: ${data?.id}`)
-    return { success: true, messageId: data?.id }
+    console.log(`[EMAIL] Sent successfully to ${to}`)
+    return { success: true }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err))
     console.error(`[EMAIL] Failed:`, error.message)
