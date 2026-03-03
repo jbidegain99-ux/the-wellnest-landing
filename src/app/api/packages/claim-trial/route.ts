@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { addDays } from 'date-fns'
 import { sendEmail, buildTrialPackageEmail } from '@/lib/emailService'
+import { formatDate } from '@/lib/utils'
 
 export async function POST(request: Request) {
   try {
@@ -104,11 +105,7 @@ export async function POST(request: Request) {
           userName: user.name || null,
           packageName: pkg.name,
           classCount: pkg.classCount,
-          expiresAt: expiresAt.toLocaleDateString('es-SV', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          }),
+          expiresAt: formatDate(expiresAt),
           profileUrl: `${process.env.NEXTAUTH_URL || 'https://wellneststudio.net'}/perfil/paquetes`,
         }),
       })

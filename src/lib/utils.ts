@@ -12,11 +12,14 @@ export function formatPrice(price: number): string {
   }).format(price)
 }
 
+export const EL_SALVADOR_TZ = 'America/El_Salvador'
+
 export function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat('es-SV', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+    timeZone: EL_SALVADOR_TZ,
   }).format(new Date(date))
 }
 
@@ -25,6 +28,7 @@ export function formatTime(date: Date | string): string {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
+    timeZone: EL_SALVADOR_TZ,
   }).format(new Date(date))
 }
 
@@ -36,7 +40,21 @@ export function formatDateTime(date: Date | string): string {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
+    timeZone: EL_SALVADOR_TZ,
   }).format(new Date(date))
+}
+
+export function formatDateTimeFull(date: Date | string): string {
+  const d = new Date(date)
+  const datePart = new Intl.DateTimeFormat('es-SV', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    timeZone: EL_SALVADOR_TZ,
+  }).format(d)
+  const timePart = new Intl.DateTimeFormat('es-SV', {
+    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: EL_SALVADOR_TZ,
+  }).format(d)
+  return `${datePart} a las ${timePart}`
 }
 
 export function slugify(text: string): string {

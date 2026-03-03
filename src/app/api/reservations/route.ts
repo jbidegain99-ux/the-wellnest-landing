@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { sendEmail, buildGuestInvitationEmail, buildReservationConfirmationEmail } from '@/lib/emailService'
+import { formatDate, formatDateTimeFull } from '@/lib/utils'
 
 // Error codes for specific error types
 const ERROR_CODES = {
@@ -525,7 +526,7 @@ export async function POST(request: Request) {
 
         if (requestedPurchaseDetails.expiresAt <= now) {
           return NextResponse.json({
-            error: `El paquete "${requestedPurchaseDetails.package.name}" venció el ${requestedPurchaseDetails.expiresAt.toLocaleDateString('es-SV')}.`,
+            error: `El paquete "${requestedPurchaseDetails.package.name}" venció el ${formatDate(requestedPurchaseDetails.expiresAt)}.`,
             code: ERROR_CODES.PACKAGE_EXPIRED
           }, { status: 400 })
         }
@@ -678,12 +679,7 @@ export async function POST(request: Request) {
       })
 
       // Fire-and-forget: send guest invitation email with acceptance link
-      const classDateTime = new Date(reservation.class.dateTime)
-      const formattedDateTime = classDateTime.toLocaleDateString('es-SV', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      }) + ' a las ' + classDateTime.toLocaleTimeString('es-SV', {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-      })
+      const formattedDateTime = formatDateTimeFull(reservation.class.dateTime)
       const hostName = session.user.name || session.user.email || 'Un usuario'
       const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
       const acceptUrl = `${baseUrl}/invitacion/${guestToken}`
@@ -805,12 +801,7 @@ export async function POST(request: Request) {
 
     // Fire-and-forget: send reservation confirmation email with QR link
     if (session.user.email) {
-      const resClassDate = new Date(reservation.class.dateTime)
-      const formattedResDateTime = resClassDate.toLocaleDateString('es-SV', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      }) + ' a las ' + resClassDate.toLocaleTimeString('es-SV', {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-      })
+      const formattedResDateTime = formatDateTimeFull(reservation.class.dateTime)
       const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
 
       sendEmail({
