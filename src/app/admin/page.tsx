@@ -10,14 +10,24 @@ import { Badge } from '@/components/ui/Badge'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { prisma } from '@/lib/prisma'
 
-// El Salvador is UTC-6
-const EL_SALVADOR_UTC_OFFSET = 6
+// El Salvador is UTC-6 (no DST)
+const SV_OFFSET_HOURS = 6
 
 function getElSalvadorTime(utcDate: Date): string {
-  const esSv = new Date(utcDate.getTime() - EL_SALVADOR_UTC_OFFSET * 60 * 60 * 1000)
+  const esSv = new Date(utcDate.getTime() - SV_OFFSET_HOURS * 60 * 60 * 1000)
   const hours = esSv.getUTCHours().toString().padStart(2, '0')
   const minutes = esSv.getUTCMinutes().toString().padStart(2, '0')
   return `${hours}:${minutes}`
+}
+
+/** Convert an El Salvador local wall-clock date to a UTC Date */
+function svToUTC(year: number, month: number, day: number, hour = 0, min = 0, sec = 0, ms = 0): Date {
+  return new Date(Date.UTC(year, month, day, hour + SV_OFFSET_HOURS, min, sec, ms))
+}
+
+/** Get the current date/time components in El Salvador */
+function getNowInSV(): Date {
+  return new Date(Date.now() - SV_OFFSET_HOURS * 60 * 60 * 1000)
 }
 
 interface DashboardStats {
@@ -53,28 +63,22 @@ interface UpcomingClass {
 
 async function getDashboardData() {
   const now = new Date()
+  const nowSV = getNowInSV()
+  const y = nowSV.getUTCFullYear()
+  const m = nowSV.getUTCMonth()
+  const d = nowSV.getUTCDate()
 
   // Start of current month in El Salvador time → UTC
-  const monthStartLocal = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, EL_SALVADOR_UTC_OFFSET, 0, 0))
+  const monthStartLocal = svToUTC(y, m, 1)
 
   // Today in El Salvador time → UTC range
-  const esSvNow = new Date(now.getTime() - EL_SALVADOR_UTC_OFFSET * 60 * 60 * 1000)
-  const todayStartUTC = new Date(Date.UTC(
-    esSvNow.getUTCFullYear(), esSvNow.getUTCMonth(), esSvNow.getUTCDate(),
-    EL_SALVADOR_UTC_OFFSET, 0, 0
-  ))
-  const todayEndUTC = new Date(Date.UTC(
-    esSvNow.getUTCFullYear(), esSvNow.getUTCMonth(), esSvNow.getUTCDate() + 1,
-    EL_SALVADOR_UTC_OFFSET - 1, 59, 59, 999
-  ))
+  const todayStartUTC = svToUTC(y, m, d)
+  const todayEndUTC = svToUTC(y, m, d, 23, 59, 59, 999)
 
   // Start of current week (Monday) in El Salvador time
-  const dayOfWeek = esSvNow.getUTCDay()
+  const dayOfWeek = nowSV.getUTCDay()
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-  const weekStartUTC = new Date(Date.UTC(
-    esSvNow.getUTCFullYear(), esSvNow.getUTCMonth(), esSvNow.getUTCDate() + mondayOffset,
-    EL_SALVADOR_UTC_OFFSET, 0, 0
-  ))
+  const weekStartUTC = svToUTC(y, m, d + mondayOffset)
 
   // Run all queries in parallel
   const [
@@ -108,7 +112,7 @@ async function getDashboardData() {
     // Today's reservations
     prisma.reservation.count({
       where: {
-        status: 'CONFIRMED',
+        status: { in: ['CONFIRMED', 'ATTENDED'] },
         class: {
           dateTime: { gte: todayStartUTC, lte: todayEndUTC },
         },
@@ -118,7 +122,7 @@ async function getDashboardData() {
     // This week's reservations
     prisma.reservation.count({
       where: {
-        status: 'CONFIRMED',
+        status: { in: ['CONFIRMED', 'ATTENDED'] },
         class: {
           dateTime: { gte: weekStartUTC, lte: todayEndUTC },
         },
@@ -172,7 +176,7 @@ async function getDashboardData() {
         instructor: { select: { name: true } },
         _count: {
           select: {
-            reservations: { where: { status: 'CONFIRMED' } },
+            reservations: { where: { status: { in: ['CONFIRMED', 'ATTENDED'] } } },
           },
         },
       },
@@ -197,7 +201,6 @@ async function getDashboardData() {
   }
   const popularClasses: PopularClass[] = Array.from(disciplineCounts.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
     .map(([name, count]) => ({ name, count }))
 
   // Format recent sales
@@ -334,7 +337,7 @@ export default async function AdminDashboard() {
                 No hay datos de reservas este mes
               </p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-64 overflow-y-auto">
                 {popularClasses.map((cls) => (
                   <div key={cls.name} className="flex items-center justify-between">
                     <span className="font-medium text-foreground">{cls.name}</span>

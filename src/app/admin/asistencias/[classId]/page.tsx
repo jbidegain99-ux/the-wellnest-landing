@@ -68,6 +68,7 @@ export default function ClassAttendancePage() {
   const [scannerOpen, setScannerOpen] = React.useState(false)
   const [scanResult, setScanResult] = React.useState<ScanResult | null>(null)
   const [isProcessing, setIsProcessing] = React.useState(false)
+  const [lastCheckedIn, setLastCheckedIn] = React.useState<{ name: string; discipline: string } | null>(null)
 
   const fetchClassData = React.useCallback(async () => {
     try {
@@ -102,15 +103,14 @@ export default function ClassAttendancePage() {
       const data = await response.json()
 
       if (response.ok) {
-        setScanResult({
-          type: 'success',
-          message: 'Check-in exitoso',
-          userName: data.user.name,
-        })
+        // Close scanner modal (stops camera)
+        setScannerOpen(false)
+        setScanResult(null)
+        // Show confirmation banner on main page
+        setLastCheckedIn({ name: data.user.name, discipline: classData?.discipline.name || '' })
+        setTimeout(() => setLastCheckedIn(null), 5000)
         // Refresh data
         await fetchClassData()
-        // Auto-clear success after 2.5s
-        setTimeout(() => setScanResult(null), 2500)
       } else {
         setScanResult({
           type: 'error',
@@ -208,6 +208,16 @@ export default function ClassAttendancePage() {
           Escanear QR
         </Button>
       </div>
+
+      {/* Check-in confirmation banner */}
+      {lastCheckedIn && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+          <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+          <span className="text-green-800 text-sm font-medium">
+            {lastCheckedIn.name} registrado — {lastCheckedIn.discipline}
+          </span>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
