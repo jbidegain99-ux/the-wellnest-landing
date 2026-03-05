@@ -63,6 +63,11 @@ interface ActivePurchase {
 }
 
 // Mobile Class Card Component
+// El Salvador is UTC-6 (no DST)
+function getNowSV(): Date {
+  return new Date(Date.now() - 6 * 60 * 60 * 1000)
+}
+
 function MobileClassCard({
   cls,
   onClick,
@@ -73,18 +78,22 @@ function MobileClassCard({
   const reservationCount = cls._count?.reservations ?? cls.currentCount
   const isFull = reservationCount >= cls.maxCapacity
   const spotsLeft = cls.maxCapacity - reservationCount
+  const isPast = new Date(cls.dateTime) < getNowSV()
+  const isDisabled = isFull || isPast
 
   return (
     <button
       onClick={onClick}
-      disabled={isFull}
+      disabled={isDisabled}
       className={cn(
         'w-full p-4 bg-white rounded-xl border-l-4 shadow-sm',
         'text-left transition-all min-h-[88px]',
         disciplineBorderColors[cls.discipline.slug] || 'border-l-primary',
-        isFull
-          ? 'opacity-60 cursor-not-allowed'
-          : 'hover:shadow-md active:scale-[0.98] cursor-pointer'
+        isPast
+          ? 'opacity-50 cursor-not-allowed'
+          : isFull
+            ? 'opacity-60 cursor-not-allowed'
+            : 'hover:shadow-md active:scale-[0.98] cursor-pointer'
       )}
     >
       <div className="flex items-start justify-between gap-3 min-w-0">
@@ -144,12 +153,19 @@ function MobileClassCard({
         <div className={cn(
           'flex-shrink-0 flex flex-col items-center justify-center',
           'px-3 py-2 rounded-lg min-w-[70px]',
+          isPast ? 'bg-stone-100 text-stone-400' :
           isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
         )}>
-          <Users className="h-4 w-4 mb-1" />
-          <span className="text-xs font-medium text-center">
-            {isFull ? 'Lleno' : `${spotsLeft} cupos`}
-          </span>
+          {isPast ? (
+            <span className="text-xs font-medium text-center italic">Clase finalizada</span>
+          ) : (
+            <>
+              <Users className="h-4 w-4 mb-1" />
+              <span className="text-xs font-medium text-center">
+                {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+              </span>
+            </>
+          )}
         </div>
       </div>
     </button>
@@ -384,8 +400,9 @@ export default function HorariosPage() {
   const handleClassClick = (cls: ClassData) => {
     const reservationCount = cls._count?.reservations ?? cls.currentCount
     const isFull = reservationCount >= cls.maxCapacity
+    const isPast = new Date(cls.dateTime) < getNowSV()
 
-    if (isFull) return
+    if (isFull || isPast) return
 
     // Not logged in - show login modal
     if (!session) {
@@ -531,18 +548,22 @@ export default function HorariosPage() {
                             const reservationCount = cls._count?.reservations ?? cls.currentCount
                             const isFull = reservationCount >= cls.maxCapacity
                             const spotsLeft = cls.maxCapacity - reservationCount
+                            const isPast = new Date(cls.dateTime) < getNowSV()
+                            const isDisabled = isFull || isPast
 
                             return (
                               <button
                                 key={cls.id}
                                 onClick={() => handleClassClick(cls)}
-                                disabled={isFull}
+                                disabled={isDisabled}
                                 className={cn(
                                   'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
                                   disciplineColors[cls.discipline.slug] || 'bg-primary',
-                                  isFull
-                                    ? 'opacity-50 cursor-not-allowed'
-                                    : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
+                                  isPast
+                                    ? 'opacity-40 cursor-not-allowed'
+                                    : isFull
+                                      ? 'opacity-50 cursor-not-allowed'
+                                      : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
                                 )}
                               >
                                 <p className="font-medium truncate">
@@ -564,8 +585,14 @@ export default function HorariosPage() {
                                   <span className="truncate">{cls.instructor.name.split(' ')[0]}</span>
                                 </p>
                                 <p className="flex items-center gap-1 mt-1">
-                                  <Users className="h-3 w-3 flex-shrink-0" />
-                                  {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                                  {isPast ? (
+                                    <span className="italic">Finalizada</span>
+                                  ) : (
+                                    <>
+                                      <Users className="h-3 w-3 flex-shrink-0" />
+                                      {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                                    </>
+                                  )}
                                 </p>
                               </button>
                             )

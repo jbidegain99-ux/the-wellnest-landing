@@ -80,6 +80,11 @@ interface SelectedPurchase {
 // Modal states - separate state for each modal type to prevent conflicts
 type ModalState = 'closed' | 'confirm' | 'success' | 'error'
 
+// El Salvador is UTC-6 (no DST)
+function getNowSV(): Date {
+  return new Date(Date.now() - 6 * 60 * 60 * 1000)
+}
+
 const disciplineColors: Record<string, string> = {
   yoga: 'bg-[#9CAF88]',
   pilates: 'bg-[#C4A77D]',
@@ -160,7 +165,8 @@ function MobileDaySection({
               const alreadyReserved = reservedClassIds.has(cls.id)
               const isTrialUser = activePurchase?.packageId === TRIAL_PACKAGE_ID
               const isBlockedForTrial = isTrialUser && new Date(cls.dateTime) >= TRIAL_CUTOFF_UTC
-              const isDisabled = isFull || alreadyReserved || isBlockedForTrial
+              const isPast = new Date(cls.dateTime) < getNowSV()
+              const isDisabled = isFull || alreadyReserved || isBlockedForTrial || isPast
 
               return (
                 <button
@@ -173,9 +179,11 @@ function MobileDaySection({
                     cls.discipline.slug === 'pilates' ? 'border-l-[#C4A77D]' :
                     cls.discipline.slug === 'pole' ? 'border-l-[#E5E5E5]' :
                     'border-l-primary',
-                    isDisabled
+                    isPast
                       ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:shadow-md active:scale-[0.98] cursor-pointer'
+                      : isDisabled
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:shadow-md active:scale-[0.98] cursor-pointer'
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -199,11 +207,14 @@ function MobileDaySection({
                     </div>
                     <div className={cn(
                       'flex-shrink-0 flex flex-col items-center justify-center px-3 py-2 rounded-lg min-w-[70px]',
+                      isPast ? 'bg-stone-100 text-stone-400' :
                       alreadyReserved ? 'bg-primary/10 text-primary' :
                       isBlockedForTrial ? 'bg-yellow-50 text-yellow-700' :
                       isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
                     )}>
-                      {alreadyReserved ? (
+                      {isPast ? (
+                        <span className="text-xs font-medium text-center italic">Clase finalizada</span>
+                      ) : alreadyReserved ? (
                         <>
                           <Check className="h-4 w-4 mb-1" />
                           <span className="text-xs font-medium text-center">Reservado</span>
@@ -752,20 +763,23 @@ export default function ReservarPage() {
                         const alreadyReserved = reservedClassIds.has(cls.id)
                         const isTrialUser = activePurchase?.packageId === TRIAL_PACKAGE_ID
                         const isBlockedForTrial = isTrialUser && new Date(cls.dateTime) >= TRIAL_CUTOFF_UTC
-                        const isDisabled = isFull || alreadyReserved || isBlockedForTrial
+                        const isPast = new Date(cls.dateTime) < getNowSV()
+                        const isDisabled = isFull || alreadyReserved || isBlockedForTrial || isPast
 
                         return (
                           <button
                             key={cls.id}
                             onClick={() => handleSelectClass(cls)}
                             disabled={isDisabled}
-                            title={isBlockedForTrial ? 'Tu paquete de prueba solo aplica hasta el 7 de marzo' : undefined}
+                            title={isPast ? 'Clase finalizada' : isBlockedForTrial ? 'Tu paquete de prueba solo aplica hasta el 7 de marzo' : undefined}
                             className={cn(
                               'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
                               disciplineColors[cls.discipline.slug] || 'bg-primary',
-                              isDisabled
+                              isPast
                                 ? 'opacity-40 cursor-not-allowed'
-                                : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
+                                : isDisabled
+                                  ? 'opacity-40 cursor-not-allowed'
+                                  : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
                             )}
                           >
                             <p className="font-medium">
@@ -781,7 +795,9 @@ export default function ReservarPage() {
                               {cls.instructor.name.split(' ')[0]}
                             </p>
                             <p className="flex items-center gap-1 mt-1">
-                              {alreadyReserved ? (
+                              {isPast ? (
+                                <span className="italic">Finalizada</span>
+                              ) : alreadyReserved ? (
                                 <>
                                   <Check className="h-3 w-3" />
                                   Ya reservado
