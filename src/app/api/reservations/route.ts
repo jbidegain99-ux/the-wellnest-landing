@@ -16,9 +16,15 @@ const ERROR_CODES = {
   NO_PACKAGE: 'NO_PACKAGE',
   PACKAGE_EXPIRED: 'PACKAGE_EXPIRED',
   TIME_CONFLICT: 'TIME_CONFLICT',
+  TRIAL_EXPIRED_FOR_DATE: 'TRIAL_EXPIRED_FOR_DATE',
   UNIQUE_CONSTRAINT: 'UNIQUE_CONSTRAINT',
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 }
+
+// Trial package restriction: classes from March 9, 2026 onward require a paid package
+const TRIAL_PACKAGE_ID = 'cmm78xhwt0000bfage9rlmp2m'
+// March 9, 2026 midnight in El Salvador (UTC-6) = 06:00 UTC
+const TRIAL_CUTOFF_UTC = new Date('2026-03-09T06:00:00Z')
 
 export async function GET() {
   console.log('[RESERVATIONS API] GET request - fetching user reservations')
@@ -359,6 +365,15 @@ export async function POST(request: Request) {
           remaining: purchase.classesRemaining,
         })
 
+        // Trial package date restriction
+        if (purchase.packageId === TRIAL_PACKAGE_ID && classDateTime >= TRIAL_CUTOFF_UTC) {
+          console.log('[RESERVATIONS API] ERROR: Trial package blocked for post-cutoff class')
+          return NextResponse.json({
+            error: 'El paquete de prueba no es válido para clases a partir del 9 de marzo. Por favor adquiere un paquete para continuar.',
+            code: ERROR_CODES.TRIAL_EXPIRED_FOR_DATE,
+          }, { status: 403 })
+        }
+
         // Reactivate the reservation with atomic credit check
         const { reactivatedReservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
           const updPurchase = await tx.purchase.update({
@@ -609,6 +624,40 @@ export async function POST(request: Request) {
       expiresAt: purchase.expiresAt.toISOString(),
       afterReservation: purchase.classesRemaining - 1,
     })
+
+    // Trial package date restriction
+    if (purchase.packageId === TRIAL_PACKAGE_ID && classDateTime >= TRIAL_CUTOFF_UTC) {
+      // If auto-selected, try to find a non-trial purchase
+      if (!requestedPurchaseId) {
+        const nonTrialPurchase = await prisma.purchase.findFirst({
+          where: {
+            userId,
+            status: 'ACTIVE',
+            classesRemaining: { gt: 0 },
+            expiresAt: { gt: now },
+            packageId: { not: TRIAL_PACKAGE_ID },
+          },
+          orderBy: { expiresAt: 'asc' },
+          include: { package: true },
+        })
+        if (nonTrialPurchase) {
+          purchase = nonTrialPurchase
+          console.log('[RESERVATIONS API] Switched from trial to paid purchase:', nonTrialPurchase.id)
+        } else {
+          console.log('[RESERVATIONS API] ERROR: Trial package blocked, no paid package available')
+          return NextResponse.json({
+            error: 'El paquete de prueba no es válido para clases a partir del 9 de marzo. Por favor adquiere un paquete para continuar.',
+            code: ERROR_CODES.TRIAL_EXPIRED_FOR_DATE,
+          }, { status: 403 })
+        }
+      } else {
+        console.log('[RESERVATIONS API] ERROR: Trial package explicitly selected for post-cutoff class')
+        return NextResponse.json({
+          error: 'El paquete de prueba no es válido para clases a partir del 9 de marzo. Por favor adquiere un paquete para continuar.',
+          code: ERROR_CODES.TRIAL_EXPIRED_FOR_DATE,
+        }, { status: 403 })
+      }
+    }
 
     // === GUEST RESERVATION HANDLING ===
     // New model: 1 single reservation with guestEmail, decrement 1 class only.

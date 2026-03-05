@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Clock, User, Users, UserPlus, Check, Loader2, AlertCircle, Package } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, User, Users, UserPlus, Check, Loader2, AlertCircle, Package } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -22,8 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select'
-import { cn, getWeekDays, getMonthName } from '@/lib/utils'
+import { cn, getWeekDays, getMonthName, formatClassType } from '@/lib/utils'
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
+import { es } from 'date-fns/locale'
 
 interface Discipline {
   id: string
@@ -42,6 +43,7 @@ interface ClassData {
   duration: number
   maxCapacity: number
   currentCount: number
+  classType: string | null
   discipline: Discipline
   complementaryDiscipline?: Discipline | null
   instructor: Instructor
@@ -55,12 +57,18 @@ interface ActivePurchase {
   classesRemaining: number
   expiresAt?: string
   purchaseId?: string
+  packageId?: string
   package?: {
+    id: string
     name: string
     isShareable: boolean
     maxShares: number
   }
 }
+
+const TRIAL_PACKAGE_ID = 'cmm78xhwt0000bfage9rlmp2m'
+// March 9, 2026 midnight in El Salvador (UTC-6) = 06:00 UTC
+const TRIAL_CUTOFF_UTC = new Date('2026-03-09T06:00:00Z')
 
 interface SelectedPurchase {
   id: string
@@ -79,6 +87,147 @@ const disciplineColors: Record<string, string> = {
   soundbath: 'bg-[#F5E9DD]',
   'terapia-de-sonido': 'bg-[#F5E9DD]',
   nutricion: 'bg-[#6B7F5E]',
+}
+
+// Mobile day accordion for responsive reservar view
+function MobileDaySection({
+  date,
+  classes,
+  isToday: today,
+  weekDays,
+  reservedClassIds,
+  activePurchase,
+  onClassClick,
+}: {
+  date: Date
+  classes: ClassData[]
+  isToday: boolean
+  weekDays: string[]
+  reservedClassIds: Set<string>
+  activePurchase: ActivePurchase | null
+  onClassClick: (cls: ClassData) => void
+}) {
+  const [isOpen, setIsOpen] = React.useState(today || classes.length > 0)
+
+  const dayName = weekDays[date.getDay()]
+  const dayNumber = date.getDate()
+  const monthName = format(date, 'MMM', { locale: es })
+
+  return (
+    <div className={cn(
+      'rounded-xl overflow-hidden',
+      today ? 'ring-2 ring-primary ring-offset-2' : 'border border-gray-200'
+    )}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          'w-full flex items-center justify-between p-4 min-h-[56px] transition-colors',
+          today ? 'bg-primary/10' : 'bg-gray-50 hover:bg-gray-100'
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            'flex flex-col items-center justify-center w-12 h-12 rounded-lg',
+            today ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-foreground'
+          )}>
+            <span className="text-xs uppercase font-medium leading-none">{dayName.slice(0, 3)}</span>
+            <span className="text-lg font-bold leading-none mt-0.5">{dayNumber}</span>
+          </div>
+          <div className="text-left">
+            <span className="text-sm text-gray-500 capitalize">{monthName}</span>
+            {today && <span className="ml-2 text-xs font-medium text-primary">Hoy</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            'text-sm font-medium px-2 py-1 rounded-full',
+            classes.length > 0 ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-500'
+          )}>
+            {classes.length} {classes.length === 1 ? 'clase' : 'clases'}
+          </span>
+          {isOpen ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+        </div>
+      </button>
+      {isOpen && (
+        <div className="p-3 space-y-3 bg-[#F5F3EF]">
+          {classes.length === 0 ? (
+            <p className="text-center text-gray-500 py-4 text-sm">No hay clases programadas</p>
+          ) : (
+            classes.map((cls) => {
+              const reservationCount = cls._count?.reservations ?? cls.currentCount
+              const isFull = reservationCount >= cls.maxCapacity
+              const spotsLeft = cls.maxCapacity - reservationCount
+              const alreadyReserved = reservedClassIds.has(cls.id)
+              const isTrialUser = activePurchase?.packageId === TRIAL_PACKAGE_ID
+              const isBlockedForTrial = isTrialUser && new Date(cls.dateTime) >= TRIAL_CUTOFF_UTC
+              const isDisabled = isFull || alreadyReserved || isBlockedForTrial
+
+              return (
+                <button
+                  key={cls.id}
+                  onClick={() => onClassClick(cls)}
+                  disabled={isDisabled}
+                  className={cn(
+                    'w-full p-4 bg-white rounded-xl border-l-4 shadow-sm text-left transition-all min-h-[88px]',
+                    cls.discipline.slug === 'yoga' ? 'border-l-[#9CAF88]' :
+                    cls.discipline.slug === 'pilates' ? 'border-l-[#C4A77D]' :
+                    cls.discipline.slug === 'pole' ? 'border-l-[#E5E5E5]' :
+                    'border-l-primary',
+                    isDisabled
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:shadow-md active:scale-[0.98] cursor-pointer'
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
+                        {cls.discipline.name}
+                        {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline.name}`}
+                      </span>
+                      {cls.classType && (
+                        <p className="text-xs text-gray-500 italic">{formatClassType(cls.classType)}</p>
+                      )}
+                      <div className="flex items-center gap-2 text-foreground">
+                        <Clock className="h-4 w-4 flex-shrink-0 text-gray-500" />
+                        <span className="text-lg font-semibold">{format(new Date(cls.dateTime), 'HH:mm')}</span>
+                        <span className="text-sm text-gray-500">({cls.duration} min)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <User className="h-4 w-4 flex-shrink-0" />
+                        <span className="text-sm truncate">{cls.instructor.name}</span>
+                      </div>
+                    </div>
+                    <div className={cn(
+                      'flex-shrink-0 flex flex-col items-center justify-center px-3 py-2 rounded-lg min-w-[70px]',
+                      alreadyReserved ? 'bg-primary/10 text-primary' :
+                      isBlockedForTrial ? 'bg-yellow-50 text-yellow-700' :
+                      isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
+                    )}>
+                      {alreadyReserved ? (
+                        <>
+                          <Check className="h-4 w-4 mb-1" />
+                          <span className="text-xs font-medium text-center">Reservado</span>
+                        </>
+                      ) : isBlockedForTrial ? (
+                        <span className="text-[10px] font-medium text-center leading-tight">Solo paquete pagado</span>
+                      ) : (
+                        <>
+                          <Users className="h-4 w-4 mb-1" />
+                          <span className="text-xs font-medium text-center">
+                            {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function ReservarPage() {
@@ -485,33 +634,35 @@ export default function ReservarPage() {
       </Card>
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        {/* Week navigation */}
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4">
+        {/* Week navigation - centered */}
+        <div className="flex items-center justify-center gap-2 sm:gap-4">
           <button
             onClick={goToPreviousWeek}
-            className="p-2 rounded-full hover:bg-beige transition-colors"
+            className="p-3 sm:p-2 rounded-full hover:bg-beige transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Semana anterior"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <span className="font-medium text-foreground min-w-[200px] text-center">
+          <span className="font-medium text-foreground min-w-[180px] sm:min-w-[200px] text-center text-sm sm:text-base">
             {getMonthName(currentWeekStart.getMonth())}{' '}
             {currentWeekStart.getFullYear()}
           </span>
           <button
             onClick={goToNextWeek}
-            className="p-2 rounded-full hover:bg-beige transition-colors"
+            className="p-3 sm:p-2 rounded-full hover:bg-beige transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Semana siguiente"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Filter */}
+        {/* Filter - full width on mobile */}
         <Select
           value={selectedDiscipline}
           onValueChange={setSelectedDiscipline}
         >
-          <SelectTrigger className="w-full sm:w-[220px]">
+          <SelectTrigger className="w-full sm:w-[260px] sm:mx-auto min-h-[44px]">
             <SelectValue placeholder="Filtrar por disciplina" />
           </SelectTrigger>
           <SelectContent>
@@ -525,108 +676,136 @@ export default function ReservarPage() {
         </Select>
       </div>
 
-      {/* Calendar Grid */}
-      <Card className="overflow-hidden">
-        {/* Days header */}
-        <div className="grid grid-cols-7 border-b border-beige">
-          {weekDates.map((date, index) => (
-            <div
-              key={index}
-              className={cn(
-                'p-4 text-center border-r last:border-r-0 border-beige',
-                isToday(date) && 'bg-primary/5'
-              )}
-            >
-              <p className="text-sm text-gray-500">{weekDays[date.getDay()]}</p>
-              <p
-                className={cn(
-                  'font-serif text-2xl font-semibold',
-                  isToday(date) ? 'text-primary' : 'text-foreground'
-                )}
-              >
-                {date.getDate()}
-              </p>
-            </div>
-          ))}
+      {/* Loading */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-
-        {/* Classes grid */}
-        <div className="grid grid-cols-7 min-h-[400px]">
-          {isLoading ? (
-            <div className="col-span-7 flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            weekDates.map((date, dayIndex) => {
+      ) : (
+        <>
+          {/* Mobile Agenda View */}
+          <div className="md:hidden space-y-3">
+            {weekDates.map((date, index) => {
               const dayClasses = getClassesForDay(date)
+              const today = isToday(date)
               return (
+                <MobileDaySection
+                  key={index}
+                  date={date}
+                  classes={dayClasses}
+                  isToday={today}
+                  weekDays={weekDays}
+                  reservedClassIds={reservedClassIds}
+                  activePurchase={activePurchase}
+                  onClassClick={handleSelectClass}
+                />
+              )
+            })}
+          </div>
+
+          {/* Desktop Calendar Grid */}
+          <Card className="hidden md:block overflow-hidden">
+            {/* Days header */}
+            <div className="grid grid-cols-7 border-b border-beige">
+              {weekDates.map((date, index) => (
                 <div
-                  key={dayIndex}
+                  key={index}
                   className={cn(
-                    'border-r last:border-r-0 border-beige p-2 space-y-2',
+                    'p-4 text-center border-r last:border-r-0 border-beige',
                     isToday(date) && 'bg-primary/5'
                   )}
                 >
-                  {dayClasses.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center py-4">
-                      Sin clases
-                    </p>
-                  ) : (
-                    dayClasses.map((cls) => {
-                      const reservationCount = cls._count?.reservations ?? cls.currentCount
-                      const isFull = reservationCount >= cls.maxCapacity
-                      const spotsLeft = cls.maxCapacity - reservationCount
-                      const alreadyReserved = reservedClassIds.has(cls.id)
-                      const isDisabled = isFull || alreadyReserved
-
-                      return (
-                        <button
-                          key={cls.id}
-                          onClick={() => handleSelectClass(cls)}
-                          disabled={isDisabled}
-                          className={cn(
-                            'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
-                            disciplineColors[cls.discipline.slug] || 'bg-primary',
-                            isDisabled
-                              ? 'opacity-50 cursor-not-allowed'
-                              : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
-                          )}
-                        >
-                          <p className="font-medium">
-                            {cls.discipline.name}
-                            {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline.name}`}
-                          </p>
-                          <p className="flex items-center gap-1 opacity-90">
-                            <Clock className="h-3 w-3" />
-                            {formatClassTime(cls.dateTime)}
-                          </p>
-                          <p className="flex items-center gap-1 opacity-90">
-                            <User className="h-3 w-3" />
-                            {cls.instructor.name.split(' ')[0]}
-                          </p>
-                          <p className="flex items-center gap-1 mt-1">
-                            {alreadyReserved ? (
-                              <>
-                                <Check className="h-3 w-3" />
-                                Ya reservado
-                              </>
-                            ) : (
-                              <>
-                                <Users className="h-3 w-3" />
-                                {isFull ? 'Lleno' : `${spotsLeft} cupos`}
-                              </>
-                            )}
-                          </p>
-                        </button>
-                      )
-                    })
-                  )}
+                  <p className="text-sm text-gray-500">{weekDays[date.getDay()]}</p>
+                  <p
+                    className={cn(
+                      'font-serif text-2xl font-semibold',
+                      isToday(date) ? 'text-primary' : 'text-foreground'
+                    )}
+                  >
+                    {date.getDate()}
+                  </p>
                 </div>
-              )
-            })
-          )}
-        </div>
-      </Card>
+              ))}
+            </div>
+
+            {/* Classes grid */}
+            <div className="grid grid-cols-7 min-h-[400px]">
+              {weekDates.map((date, dayIndex) => {
+                const dayClasses = getClassesForDay(date)
+                return (
+                  <div
+                    key={dayIndex}
+                    className={cn(
+                      'border-r last:border-r-0 border-beige p-2 space-y-2',
+                      isToday(date) && 'bg-primary/5'
+                    )}
+                  >
+                    {dayClasses.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-4">
+                        Sin clases
+                      </p>
+                    ) : (
+                      dayClasses.map((cls) => {
+                        const reservationCount = cls._count?.reservations ?? cls.currentCount
+                        const isFull = reservationCount >= cls.maxCapacity
+                        const spotsLeft = cls.maxCapacity - reservationCount
+                        const alreadyReserved = reservedClassIds.has(cls.id)
+                        const isTrialUser = activePurchase?.packageId === TRIAL_PACKAGE_ID
+                        const isBlockedForTrial = isTrialUser && new Date(cls.dateTime) >= TRIAL_CUTOFF_UTC
+                        const isDisabled = isFull || alreadyReserved || isBlockedForTrial
+
+                        return (
+                          <button
+                            key={cls.id}
+                            onClick={() => handleSelectClass(cls)}
+                            disabled={isDisabled}
+                            title={isBlockedForTrial ? 'Tu paquete de prueba solo aplica hasta el 7 de marzo' : undefined}
+                            className={cn(
+                              'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
+                              disciplineColors[cls.discipline.slug] || 'bg-primary',
+                              isDisabled
+                                ? 'opacity-40 cursor-not-allowed'
+                                : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
+                            )}
+                          >
+                            <p className="font-medium">
+                              {cls.discipline.name}
+                              {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline.name}`}
+                            </p>
+                            <p className="flex items-center gap-1 opacity-90">
+                              <Clock className="h-3 w-3" />
+                              {formatClassTime(cls.dateTime)}
+                            </p>
+                            <p className="flex items-center gap-1 opacity-90">
+                              <User className="h-3 w-3" />
+                              {cls.instructor.name.split(' ')[0]}
+                            </p>
+                            <p className="flex items-center gap-1 mt-1">
+                              {alreadyReserved ? (
+                                <>
+                                  <Check className="h-3 w-3" />
+                                  Ya reservado
+                                </>
+                              ) : isBlockedForTrial ? (
+                                <span className="text-[10px]">Solo paquete pagado</span>
+                              ) : (
+                                <>
+                                  <Users className="h-3 w-3" />
+                                  {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                                </>
+                              )}
+                            </p>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        </>
+      )}
 
       {/* Confirmation Modal - Single modal with different content based on state */}
       <Modal open={modalState !== 'closed'} onOpenChange={(open) => !open && closeModal()}>
