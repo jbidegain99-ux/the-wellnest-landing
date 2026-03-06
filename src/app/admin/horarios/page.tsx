@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/Modal'
 import { cn, getWeekDays, getMonthName, formatClassType } from '@/lib/utils'
 import { disciplineColors, getDisciplineColor } from '@/config/disciplineColors'
+import MobileScheduleView from '@/components/admin/MobileScheduleView'
 
 interface Discipline {
   id: string
@@ -467,66 +468,80 @@ export default function AdminHorariosPage() {
         </button>
       </div>
 
-      {/* Calendar Grid */}
-      <Card className="overflow-hidden">
-        {/* Days header */}
-        <div className="grid grid-cols-7 border-b border-beige">
-          {weekDates.map((date, index) => (
-            <div key={index} className="p-4 text-center border-r last:border-r-0 border-beige">
-              <p className="text-sm text-gray-500">{weekDays[date.getDay()]}</p>
-              <p className="font-serif text-xl font-semibold text-foreground">
-                {date.getDate()}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Classes grid */}
-        <div className="grid grid-cols-7 min-h-[500px] max-h-[700px]">
-          {weekDates.map((date, dayIndex) => {
-            const dayClasses = getClassesForDay(date)
-            return (
-              <div
-                key={dayIndex}
-                className="border-r last:border-r-0 border-beige p-2 space-y-2 overflow-y-auto max-h-[650px]"
-              >
-                {dayClasses.map((cls) => (
-                  <div
-                    key={cls.id}
-                    className={cn(
-                      'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
-                      cls.isCancelled ? 'bg-gray-400' : getDisciplineColorForClass(cls.discipline)
-                    )}
-                    onClick={() => handleEdit(cls)}
-                  >
-                    <p className="font-medium">
-                      {cls.discipline}
-                      {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
-                    </p>
-                    {cls.classType && (
-                      <p className="opacity-75 italic text-[10px] truncate">{formatClassType(cls.classType)}</p>
-                    )}
-                    <p className="opacity-90">{cls.time}</p>
-                    <p className="opacity-90">{cls.instructor.split(' ')[0]}</p>
-                    <p className="opacity-90">
-                      {cls.reservationsCount || 0}/{cls.maxCapacity} cupos
-                    </p>
-                    {cls.isCancelled && (
-                      <p className="text-[10px] font-medium uppercase mt-1">Cancelada</p>
-                    )}
-                  </div>
-                ))}
-                <button
-                  onClick={() => handleCreate(date.getDay())}
-                  className="w-full p-2 border-2 border-dashed border-beige-dark rounded-lg text-gray-400 hover:border-primary hover:text-primary transition-colors text-xs"
-                >
-                  + Agregar
-                </button>
+      {/* Calendar Grid — Desktop */}
+      <div className="hidden md:block">
+        <Card className="overflow-hidden">
+          {/* Days header */}
+          <div className="grid grid-cols-7 border-b border-beige">
+            {weekDates.map((date, index) => (
+              <div key={index} className="p-4 text-center border-r last:border-r-0 border-beige">
+                <p className="text-sm text-gray-500">{weekDays[date.getDay()]}</p>
+                <p className="font-serif text-xl font-semibold text-foreground">
+                  {date.getDate()}
+                </p>
               </div>
-            )
-          })}
-        </div>
-      </Card>
+            ))}
+          </div>
+
+          {/* Classes grid */}
+          <div className="grid grid-cols-7 min-h-[500px] max-h-[700px]">
+            {weekDates.map((date, dayIndex) => {
+              const dayClasses = getClassesForDay(date)
+              return (
+                <div
+                  key={dayIndex}
+                  className="border-r last:border-r-0 border-beige p-2 space-y-2 overflow-y-auto max-h-[650px]"
+                >
+                  {dayClasses.map((cls) => (
+                    <div
+                      key={cls.id}
+                      className={cn(
+                        'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
+                        cls.isCancelled ? 'bg-gray-400' : getDisciplineColorForClass(cls.discipline)
+                      )}
+                      onClick={() => handleEdit(cls)}
+                    >
+                      <p className="font-medium">
+                        {cls.discipline}
+                        {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
+                      </p>
+                      {cls.classType && (
+                        <p className="opacity-75 italic text-[10px] truncate">{formatClassType(cls.classType)}</p>
+                      )}
+                      <p className="opacity-90">{cls.time}</p>
+                      <p className="opacity-90">{cls.instructor.split(' ')[0]}</p>
+                      <p className="opacity-90">
+                        {cls.reservationsCount || 0}/{cls.maxCapacity} cupos
+                      </p>
+                      {cls.isCancelled && (
+                        <p className="text-[10px] font-medium uppercase mt-1">Cancelada</p>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => handleCreate(date.getDay())}
+                    className="w-full p-2 border-2 border-dashed border-beige-dark rounded-lg text-gray-400 hover:border-primary hover:text-primary transition-colors text-xs"
+                  >
+                    + Agregar
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      </div>
+
+      {/* Calendar — Mobile */}
+      <div className="md:hidden">
+        <MobileScheduleView
+          weekDates={weekDates}
+          weekDays={weekDays}
+          getClassesForDay={getClassesForDay}
+          getDisciplineColorForClass={getDisciplineColorForClass}
+          onEditClass={handleEdit}
+          onAddClass={handleCreate}
+        />
+      </div>
 
       {/* Create/Edit Modal */}
       <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>

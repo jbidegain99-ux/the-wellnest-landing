@@ -75,6 +75,12 @@ async function getDashboardData() {
   const todayStartUTC = svToUTC(y, m, d)
   const todayEndUTC = svToUTC(y, m, d, 23, 59, 59, 999)
 
+  // Debug: verify timezone calculations (remove after confirming on Vercel)
+  console.log('[Dashboard TZ Debug] nowUTC:', now.toISOString())
+  console.log('[Dashboard TZ Debug] nowSV date:', y, m + 1, d)
+  console.log('[Dashboard TZ Debug] todayStartUTC:', todayStartUTC.toISOString())
+  console.log('[Dashboard TZ Debug] todayEndUTC:', todayEndUTC.toISOString())
+
   // Start of current week (Monday) in El Salvador time
   const dayOfWeek = nowSV.getUTCDay()
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
