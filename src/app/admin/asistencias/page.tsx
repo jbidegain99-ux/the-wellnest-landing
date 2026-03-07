@@ -35,6 +35,7 @@ function formatDateSV(date: Date): string {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'America/El_Salvador',
   })
 }
 
@@ -43,6 +44,7 @@ function formatTimeSV(dateStr: string): string {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
+    timeZone: 'America/El_Salvador',
   })
 }
 

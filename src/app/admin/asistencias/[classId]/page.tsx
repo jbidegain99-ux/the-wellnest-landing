@@ -189,7 +189,7 @@ export default function ClassAttendancePage() {
           <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
             <span className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
-              {classDate.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: true })}
+              {classDate.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'America/El_Salvador' })}
               {' '}({classData.duration} min)
             </span>
             <span className="flex items-center gap-1">
@@ -306,6 +306,7 @@ export default function ClassAttendancePage() {
                             <p className="text-xs text-gray-500 mt-1">
                               {new Date(reservation.checkedInAt).toLocaleTimeString('es-SV', {
                                 hour: '2-digit', minute: '2-digit', hour12: true,
+                                timeZone: 'America/El_Salvador',
                               })}
                             </p>
                           )}

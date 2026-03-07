@@ -479,7 +479,7 @@ export async function POST(request: Request) {
           },
         })
         return NextResponse.json({
-          error: `Ya tienes una reserva a esa hora: ${conflictingReservation.class.discipline.name} a las ${otherClassStart.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}. No puedes reservar dos clases en horarios que se solapan.`,
+          error: `Ya tienes una reserva a esa hora: ${conflictingReservation.class.discipline.name} a las ${otherClassStart.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', timeZone: 'America/El_Salvador' })}. No puedes reservar dos clases en horarios que se solapan.`,
           code: ERROR_CODES.TIME_CONFLICT,
           conflictingClass: {
             id: conflictingReservation.class.id,

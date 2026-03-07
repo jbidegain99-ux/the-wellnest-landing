@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       const checkedInTime = reservation.checkedInAt
         ? new Date(reservation.checkedInAt).toLocaleTimeString('es-SV', {
             hour: '2-digit', minute: '2-digit', hour12: true,
+            timeZone: 'America/El_Salvador',
           })
         : ''
       return NextResponse.json({

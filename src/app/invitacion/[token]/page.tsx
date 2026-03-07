@@ -103,9 +103,11 @@ export default function InvitacionPage() {
   const classDate = new Date(invitation.class.dateTime)
   const formattedDate = classDate.toLocaleDateString('es-SV', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    timeZone: 'America/El_Salvador',
   })
   const formattedTime = classDate.toLocaleTimeString('es-SV', {
     hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'America/El_Salvador',
   })
 
   // Already responded

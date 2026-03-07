@@ -9,26 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { prisma } from '@/lib/prisma'
+import {
+  getStartOfTodaySV,
+  getEndOfTodaySV,
+  getStartOfWeekSV,
+  getStartOfMonthSV,
+  getTimeInSV,
+} from '@/lib/utils/timezone'
 
-// El Salvador is UTC-6 (no DST)
-const SV_OFFSET_HOURS = 6
-
-function getElSalvadorTime(utcDate: Date): string {
-  const esSv = new Date(utcDate.getTime() - SV_OFFSET_HOURS * 60 * 60 * 1000)
-  const hours = esSv.getUTCHours().toString().padStart(2, '0')
-  const minutes = esSv.getUTCMinutes().toString().padStart(2, '0')
-  return `${hours}:${minutes}`
-}
-
-/** Convert an El Salvador local wall-clock date to a UTC Date */
-function svToUTC(year: number, month: number, day: number, hour = 0, min = 0, sec = 0, ms = 0): Date {
-  return new Date(Date.UTC(year, month, day, hour + SV_OFFSET_HOURS, min, sec, ms))
-}
-
-/** Get the current date/time components in El Salvador */
-function getNowInSV(): Date {
-  return new Date(Date.now() - SV_OFFSET_HOURS * 60 * 60 * 1000)
-}
+export const dynamic = 'force-dynamic'
 
 interface DashboardStats {
   monthlyRevenue: number
@@ -63,28 +52,14 @@ interface UpcomingClass {
 
 async function getDashboardData() {
   const now = new Date()
-  const nowSV = getNowInSV()
-  const y = nowSV.getUTCFullYear()
-  const m = nowSV.getUTCMonth()
-  const d = nowSV.getUTCDate()
+  const todayStartUTC = getStartOfTodaySV()
+  const todayEndUTC = getEndOfTodaySV()
+  const weekStartUTC = getStartOfWeekSV()
+  const monthStartUTC = getStartOfMonthSV()
 
-  // Start of current month in El Salvador time → UTC
-  const monthStartLocal = svToUTC(y, m, 1)
-
-  // Today in El Salvador time → UTC range
-  const todayStartUTC = svToUTC(y, m, d)
-  const todayEndUTC = svToUTC(y, m, d, 23, 59, 59, 999)
-
-  // Debug: verify timezone calculations (remove after confirming on Vercel)
   console.log('[Dashboard TZ Debug] nowUTC:', now.toISOString())
-  console.log('[Dashboard TZ Debug] nowSV date:', y, m + 1, d)
   console.log('[Dashboard TZ Debug] todayStartUTC:', todayStartUTC.toISOString())
   console.log('[Dashboard TZ Debug] todayEndUTC:', todayEndUTC.toISOString())
-
-  // Start of current week (Monday) in El Salvador time
-  const dayOfWeek = nowSV.getUTCDay()
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-  const weekStartUTC = svToUTC(y, m, d + mondayOffset)
 
   // Run all queries in parallel
   const [
@@ -102,7 +77,7 @@ async function getDashboardData() {
     prisma.order.aggregate({
       where: {
         status: 'PAID',
-        paidAt: { gte: monthStartLocal },
+        paidAt: { gte: monthStartUTC },
       },
       _sum: { total: true },
     }),
@@ -112,7 +87,7 @@ async function getDashboardData() {
 
     // New users this month
     prisma.user.count({
-      where: { createdAt: { gte: monthStartLocal } },
+      where: { createdAt: { gte: monthStartUTC } },
     }),
 
     // Today's reservations
@@ -149,7 +124,7 @@ async function getDashboardData() {
       by: ['classId'],
       where: {
         status: { in: ['CONFIRMED', 'ATTENDED'] },
-        createdAt: { gte: monthStartLocal },
+        createdAt: { gte: monthStartUTC },
       },
       _count: true,
       orderBy: { _count: { classId: 'desc' } },
@@ -222,7 +197,7 @@ async function getDashboardData() {
   const upcomingClasses: UpcomingClass[] = todayClasses.map(cls => ({
     id: cls.id,
     disciplineName: cls.discipline.name,
-    time: getElSalvadorTime(cls.dateTime),
+    time: getTimeInSV(cls.dateTime),
     instructorName: cls.instructor.name,
     enrolled: cls._count.reservations,
     capacity: cls.maxCapacity,
