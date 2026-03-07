@@ -8,6 +8,18 @@ import { z } from 'zod'
 // we need to add 6 hours to the desired local time to get UTC.
 const EL_SALVADOR_UTC_OFFSET = 6
 
+function getElSalvadorTime(utcDate: Date): string {
+  const elSalvadorDate = new Date(utcDate.getTime() - EL_SALVADOR_UTC_OFFSET * 60 * 60 * 1000)
+  const hours = elSalvadorDate.getUTCHours().toString().padStart(2, '0')
+  const minutes = elSalvadorDate.getUTCMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+function getElSalvadorDayOfWeek(utcDate: Date): number {
+  const elSalvadorDate = new Date(utcDate.getTime() - EL_SALVADOR_UTC_OFFSET * 60 * 60 * 1000)
+  return elSalvadorDate.getUTCDay()
+}
+
 const updateClassSchema = z.object({
   disciplineId: z.string().optional(),
   complementaryDisciplineId: z.string().nullable().optional(),
@@ -65,8 +77,8 @@ export async function GET(
       instructorId: cls.instructorId,
       instructor: cls.instructor.name,
       dateTime: cls.dateTime,
-      time: cls.dateTime.toTimeString().slice(0, 5),
-      dayOfWeek: cls.dateTime.getDay(),
+      time: getElSalvadorTime(cls.dateTime),
+      dayOfWeek: getElSalvadorDayOfWeek(cls.dateTime),
       duration: cls.duration,
       maxCapacity: cls.maxCapacity,
       currentCount: cls.currentCount,
@@ -212,8 +224,8 @@ export async function PUT(
         instructorId: cls.instructorId,
         instructor: cls.instructor.name,
         dateTime: cls.dateTime,
-        time: cls.dateTime.toTimeString().slice(0, 5),
-        dayOfWeek: cls.dateTime.getDay(),
+        time: getElSalvadorTime(cls.dateTime),
+        dayOfWeek: getElSalvadorDayOfWeek(cls.dateTime),
         duration: cls.duration,
         maxCapacity: cls.maxCapacity,
         isCancelled: cls.isCancelled,
