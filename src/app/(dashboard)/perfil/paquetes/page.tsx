@@ -29,6 +29,18 @@ interface PurchasesData {
 }
 
 export default function PaquetesPage() {
+  return (
+    <React.Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <PaquetesContent />
+    </React.Suspense>
+  )
+}
+
+function PaquetesContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [data, setData] = React.useState<PurchasesData | null>(null)

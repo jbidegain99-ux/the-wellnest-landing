@@ -6,6 +6,9 @@ import { authOptions } from '@/lib/auth'
 import { sendEmail, buildGuestInvitationEmail, buildReservationConfirmationEmail } from '@/lib/emailService'
 import { formatDate, formatDateTimeFull } from '@/lib/utils'
 
+// Force dynamic - this route uses headers/session
+export const dynamic = 'force-dynamic'
+
 // Error codes for specific error types
 const ERROR_CODES = {
   UNAUTHORIZED: 'UNAUTHORIZED',
