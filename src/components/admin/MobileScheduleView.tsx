@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
 import { cn, formatClassType } from '@/lib/utils'
+import { getNowInSV } from '@/lib/utils/timezone'
 
 interface ClassItem {
   id: string
@@ -127,38 +128,51 @@ export default function MobileScheduleView({
                     Sin clases programadas
                   </p>
                 ) : (
-                  dayClasses.map((cls) => (
-                    <div
-                      key={cls.id}
-                      onClick={() => onEditClass(cls)}
-                      className={cn(
-                        'flex items-center justify-between p-3 rounded-lg text-white cursor-pointer active:opacity-80 transition-opacity',
-                        cls.isCancelled ? 'bg-gray-400' : getDisciplineColorForClass(cls.discipline)
-                      )}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm truncate">
-                          {cls.discipline}
-                          {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
-                        </p>
-                        {cls.classType && (
-                          <p className="text-[10px] opacity-75 italic truncate">{formatClassType(cls.classType)}</p>
+                  dayClasses.map((cls) => {
+                    const isPast = new Date(cls.dateTime) < getNowInSV()
+                    return (
+                      <div
+                        key={cls.id}
+                        onClick={() => onEditClass(cls)}
+                        className={cn(
+                          'flex items-center justify-between p-3 rounded-lg text-white cursor-pointer active:opacity-80 transition-opacity',
+                          cls.isCancelled ? 'bg-gray-400' : getDisciplineColorForClass(cls.discipline),
+                          isPast && 'opacity-50'
                         )}
-                        <p className="text-xs opacity-80">
-                          {cls.time} · {cls.instructor.split(' ')[0]}
-                        </p>
-                        {cls.isCancelled && (
-                          <p className="text-[10px] font-medium uppercase mt-0.5">Cancelada</p>
-                        )}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">
+                            {cls.discipline}
+                            {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
+                          </p>
+                          {cls.classType && (
+                            <p className="text-[10px] opacity-75 italic truncate">{formatClassType(cls.classType)}</p>
+                          )}
+                          <p className="text-xs opacity-80">
+                            {cls.time} · {cls.instructor.split(' ')[0]}
+                          </p>
+                          {isPast && (
+                            <p className="text-xs font-medium italic mt-0.5">Clase finalizada</p>
+                          )}
+                          {cls.isCancelled && (
+                            <p className="text-[10px] font-medium uppercase mt-0.5">Cancelada</p>
+                          )}
+                        </div>
+                        <div className="text-right ml-3 shrink-0">
+                          {isPast ? (
+                            <p className="text-xs italic opacity-75">Finalizada</p>
+                          ) : (
+                            <>
+                              <p className="text-sm font-medium">
+                                {cls.reservationsCount || 0}/{cls.maxCapacity}
+                              </p>
+                              <p className="text-[10px] opacity-75">cupos</p>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right ml-3 shrink-0">
-                        <p className="text-sm font-medium">
-                          {cls.reservationsCount || 0}/{cls.maxCapacity}
-                        </p>
-                        <p className="text-[10px] opacity-75">cupos</p>
-                      </div>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
 
                 <button

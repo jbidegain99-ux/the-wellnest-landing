@@ -20,6 +20,7 @@ import {
   ModalFooter,
 } from '@/components/ui/Modal'
 import { cn, getWeekDays, getMonthName, formatClassType } from '@/lib/utils'
+import { getNowInSV } from '@/lib/utils/timezone'
 import { disciplineColors, getDisciplineColor } from '@/config/disciplineColors'
 import MobileScheduleView from '@/components/admin/MobileScheduleView'
 
@@ -492,32 +493,40 @@ export default function AdminHorariosPage() {
                   key={dayIndex}
                   className="border-r last:border-r-0 border-beige p-2 space-y-2 overflow-y-auto max-h-[650px]"
                 >
-                  {dayClasses.map((cls) => (
-                    <div
-                      key={cls.id}
-                      className={cn(
-                        'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
-                        cls.isCancelled ? 'bg-gray-400' : getDisciplineColorForClass(cls.discipline)
-                      )}
-                      onClick={() => handleEdit(cls)}
-                    >
-                      <p className="font-medium">
-                        {cls.discipline}
-                        {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
-                      </p>
-                      {cls.classType && (
-                        <p className="opacity-75 italic text-[10px] truncate">{formatClassType(cls.classType)}</p>
-                      )}
-                      <p className="opacity-90">{cls.time}</p>
-                      <p className="opacity-90">{cls.instructor.split(' ')[0]}</p>
-                      <p className="opacity-90">
-                        {cls.reservationsCount || 0}/{cls.maxCapacity} cupos
-                      </p>
-                      {cls.isCancelled && (
-                        <p className="text-[10px] font-medium uppercase mt-1">Cancelada</p>
-                      )}
-                    </div>
-                  ))}
+                  {dayClasses.map((cls) => {
+                    const isPast = new Date(cls.dateTime) < getNowInSV()
+                    return (
+                      <div
+                        key={cls.id}
+                        className={cn(
+                          'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
+                          cls.isCancelled ? 'bg-gray-400' : getDisciplineColorForClass(cls.discipline),
+                          isPast && 'opacity-40'
+                        )}
+                        onClick={() => handleEdit(cls)}
+                      >
+                        <p className="font-medium">
+                          {cls.discipline}
+                          {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
+                        </p>
+                        {cls.classType && (
+                          <p className="opacity-75 italic text-[10px] truncate">{formatClassType(cls.classType)}</p>
+                        )}
+                        <p className="opacity-90">{cls.time}</p>
+                        <p className="opacity-90">{cls.instructor.split(' ')[0]}</p>
+                        <p className="opacity-90">
+                          {isPast ? (
+                            <span className="italic">Finalizada</span>
+                          ) : (
+                            <>{cls.reservationsCount || 0}/{cls.maxCapacity} cupos</>
+                          )}
+                        </p>
+                        {cls.isCancelled && (
+                          <p className="text-[10px] font-medium uppercase mt-1">Cancelada</p>
+                        )}
+                      </div>
+                    )
+                  })}
                   <button
                     onClick={() => handleCreate(date.getDay())}
                     className="w-full p-2 border-2 border-dashed border-beige-dark rounded-lg text-gray-400 hover:border-primary hover:text-primary transition-colors text-xs"
