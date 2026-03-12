@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Instagram, Facebook, MapPin } from 'lucide-react'
+import { Instagram, MapPin } from 'lucide-react'
 
 const navigation = {
   disciplinas: [
@@ -27,8 +27,7 @@ const navigation = {
 }
 
 const socialLinks = [
-  { name: 'Instagram', href: 'https://instagram.com/thewellnest', icon: Instagram },
-  { name: 'Facebook', href: 'https://facebook.com/thewellnest', icon: Facebook },
+  { name: 'Instagram', href: 'https://www.instagram.com/wellnest.stu?igsh=NnFtZmIyZ3diaHZi', icon: Instagram },
 ]
 
 export function Footer() {
