@@ -104,3 +104,13 @@
 
 ### Rollback
 Si hay problemas: cambiar `PAYWAY_ENV=TEST` en Vercel Production y redeploy
+
+## Welcome to Wellnest Package (Mar 2026)
+- New introductory package: "Welcome to Wellnest (2 clases)" at $15, slug `welcome-to-wellnest-2`
+- Schema field mapping: `validityDays` (not `durationDays`), `order` (not `displayOrder`)
+- No `finalPrice` or `badge` field on Package model — those exist only on Purchase
+- `bulletsTop`/`bulletsBottom` are `String[]` (Postgres arrays, not JSON)
+- Set `order: 0` to position first (existing packages start at `order: 1`)
+- Added slug to `OFFICIAL_PACKAGE_SLUGS` in both `/api/packages/route.ts` and `/api/admin/cleanup/route.ts`
+- Seed script: `scripts/seed-welcome-package.ts` (idempotent via slug lookup)
+- Use `npx tsx` (not `npx ts-node`) to run scripts — ESM module format issues with ts-node

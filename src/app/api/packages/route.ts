@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 
 // Only return the 8 official packages
 const OFFICIAL_PACKAGE_SLUGS = [
+  'welcome-to-wellnest-2',
   'drop-in-class',
   'mini-flow-4',
   'balance-pass-8',

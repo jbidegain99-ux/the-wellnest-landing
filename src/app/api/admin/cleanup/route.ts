@@ -14,6 +14,7 @@ const OFFICIAL_INSTRUCTOR_IDS = [
 
 // Official package slugs from document
 const OFFICIAL_PACKAGE_SLUGS = [
+  'welcome-to-wellnest-2',
   'drop-in-class',
   'mini-flow-4',
   'balance-pass-8',
