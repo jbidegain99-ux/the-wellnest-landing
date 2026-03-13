@@ -77,8 +77,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Block adding $0 (trial) packages if user already purchased one
-    if (pkg.price === 0) {
+    // Block adding single-purchase packages if user already purchased one
+    if (pkg.singlePurchaseOnly) {
       const session = await getServerSession(authOptions)
       if (session?.user?.id) {
         const existingPurchase = await prisma.purchase.findFirst({
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
           return NextResponse.json(
             {
               error: `Ya compraste "${pkg.name}". Solo se puede adquirir una vez.`,
-              code: 'TRIAL_PACKAGE_LIMIT_EXCEEDED',
+              code: 'SINGLE_PURCHASE_LIMIT',
             },
             { status: 409 }
           )

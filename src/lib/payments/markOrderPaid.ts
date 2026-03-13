@@ -80,6 +80,32 @@ export async function markOrderPaidAndCreatePurchase({
       return { success: false, alreadyPaid: false, error: `Order status is ${order.status}, expected PENDING` }
     }
 
+    // 3b. Validate single-purchase packages before processing payment
+    for (const item of order.items) {
+      if (item.package.singlePurchaseOnly) {
+        const existingPurchase = await prisma.purchase.findFirst({
+          where: {
+            userId: order.userId,
+            packageId: item.packageId,
+          },
+        })
+
+        if (existingPurchase) {
+          console.error('[PAYMENT] Single-purchase package already owned:', {
+            userId: order.userId,
+            packageId: item.packageId,
+            packageName: item.package.name,
+            existingPurchaseId: existingPurchase.id,
+          })
+          return {
+            success: false,
+            alreadyPaid: false,
+            error: `El usuario ya compró "${item.package.name}". Solo se puede adquirir una vez.`,
+          }
+        }
+      }
+    }
+
     // 4. Create all records in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // 4a. Create Payment Transaction record

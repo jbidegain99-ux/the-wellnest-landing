@@ -25,16 +25,17 @@ interface Package {
   validityText: string | null
   bulletsTop: string[]
   bulletsBottom: string[]
+  singlePurchaseOnly: boolean
   isFeatured: boolean
 }
 
 interface PackagesGridProps {
   packages: Package[]
   colors: string[]
-  purchasedTrialPackageIds?: string[]
+  purchasedSinglePackageIds?: string[]
 }
 
-export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }: PackagesGridProps) {
+export function PackagesGrid({ packages, colors, purchasedSinglePackageIds = [] }: PackagesGridProps) {
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
   const [isAddingToCart, setIsAddingToCart] = React.useState<string | null>(null)
   const { data: session } = useSession()
@@ -57,8 +58,8 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
   }
 
   const [cartError, setCartError] = React.useState<string | null>(null)
-  const [claimedTrialIds, setClaimedTrialIds] = React.useState<string[]>([])
-  const [trialSuccess, setTrialSuccess] = React.useState<string | null>(null)
+  const [claimedSingleIds, setClaimedSingleIds] = React.useState<string[]>([])
+  const [claimSuccess, setClaimSuccess] = React.useState<string | null>(null)
 
   const handleClaimTrial = async (pkg: Package) => {
     if (!session) {
@@ -79,12 +80,12 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
       const data = await response.json()
 
       if (response.ok) {
-        setClaimedTrialIds(prev => [...prev, pkg.id])
-        setTrialSuccess(`Has adquirido "${pkg.name}" exitosamente. Revisa tu email para más detalles.`)
-        setTimeout(() => setTrialSuccess(null), 6000)
+        setClaimedSingleIds(prev => [...prev, pkg.id])
+        setClaimSuccess(`Has adquirido "${pkg.name}" exitosamente. Revisa tu email para más detalles.`)
+        setTimeout(() => setClaimSuccess(null), 6000)
       } else {
-        if (data.code === 'TRIAL_PACKAGE_LIMIT_EXCEEDED') {
-          setClaimedTrialIds(prev => [...prev, pkg.id])
+        if (data.code === 'SINGLE_PURCHASE_LIMIT') {
+          setClaimedSingleIds(prev => [...prev, pkg.id])
         }
         setCartError(data.error)
       }
@@ -118,7 +119,8 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
         router.push('/carrito')
       } else {
         const data = await response.json()
-        if (data.code === 'TRIAL_PACKAGE_LIMIT_EXCEEDED') {
+        if (data.code === 'SINGLE_PURCHASE_LIMIT') {
+          setClaimedSingleIds(prev => [...prev, pkg.id])
           setCartError(data.error)
         }
       }
@@ -152,9 +154,9 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
   return (
     <section className="py-12 sm:py-16 bg-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {trialSuccess && (
+        {claimSuccess && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm text-center">
-            {trialSuccess}
+            {claimSuccess}
           </div>
         )}
         {cartError && (
@@ -167,7 +169,7 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
             const isExpanded = expandedId === pkg.id
             const color = colors[index % colors.length]
             const hasDiscount = pkg.originalPrice && pkg.discountPercent
-            const isTrialPurchased = purchasedTrialPackageIds.includes(pkg.id) || claimedTrialIds.includes(pkg.id)
+            const isAlreadyPurchased = pkg.singlePurchaseOnly && (purchasedSinglePackageIds.includes(pkg.id) || claimedSingleIds.includes(pkg.id))
             const isFreeTrial = pkg.price === 0
 
             // Build main features from bulletsTop or defaults
@@ -235,11 +237,6 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
                         {formatPrice(pkg.originalPrice, pkg.currency)}
                       </p>
                     )}
-                    {pkg.isShareable && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        {formatPrice(pkg.price / 2, pkg.currency)} por persona
-                      </p>
-                    )}
                   </div>
 
                   {/* Shareable badge */}
@@ -275,18 +272,18 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
                     ))}
                   </div>
 
-                  {/* Trial already purchased indicator */}
-                  {isTrialPurchased && (
+                  {/* Already purchased indicator */}
+                  {isAlreadyPurchased && (
                     <div className="pt-4 border-t border-beige mt-auto">
                       <div className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-green-50 text-green-700 text-sm font-medium">
                         <Check className="h-4 w-4" />
-                        Ya comprado
+                        Ya adquirido
                       </div>
                     </div>
                   )}
 
                   {/* CTA Button - only show when expanded or on larger cards */}
-                  {isExpanded && !isTrialPurchased && (
+                  {isExpanded && !isAlreadyPurchased && (
                     <div className="pt-4 border-t border-beige animate-slide-down">
                       {isFreeTrial ? (
                         <Button
@@ -317,7 +314,7 @@ export function PackagesGrid({ packages, colors, purchasedTrialPackageIds = [] }
                   )}
 
                   {/* Click hint */}
-                  {!isExpanded && !isTrialPurchased && (
+                  {!isExpanded && !isAlreadyPurchased && (
                     <button className="text-sm text-primary hover:underline mt-auto pt-2">
                       {isFreeTrial ? 'Tap para obtener gratis →' : 'Tap para comprar →'}
                     </button>

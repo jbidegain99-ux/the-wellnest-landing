@@ -45,6 +45,7 @@ async function getPackages() {
       discountPercent: true,
       isShareable: true,
       maxShares: true,
+      singlePurchaseOnly: true,
       isFeatured: true,
     },
   })
@@ -54,20 +55,20 @@ async function getPackages() {
 export default async function PaquetesPage() {
   const packages = await getPackages()
 
-  // Check which $0 (trial) packages the logged-in user has already purchased
-  let purchasedTrialPackageIds: string[] = []
+  // Check which singlePurchaseOnly packages the logged-in user has already purchased
+  let purchasedSinglePackageIds: string[] = []
   const session = await getServerSession(authOptions)
   if (session?.user?.id) {
-    const freePackageIds = packages.filter(p => p.price === 0).map(p => p.id)
-    if (freePackageIds.length > 0) {
+    const singlePurchaseIds = packages.filter(p => p.singlePurchaseOnly).map(p => p.id)
+    if (singlePurchaseIds.length > 0) {
       const existingPurchases = await prisma.purchase.findMany({
         where: {
           userId: session.user.id,
-          packageId: { in: freePackageIds },
+          packageId: { in: singlePurchaseIds },
         },
         select: { packageId: true },
       })
-      purchasedTrialPackageIds = existingPurchases.map(p => p.packageId)
+      purchasedSinglePackageIds = existingPurchases.map(p => p.packageId)
     }
   }
 
@@ -87,7 +88,7 @@ export default async function PaquetesPage() {
       </section>
 
       {/* Packages Grid - Client Component for interactivity */}
-      <PackagesGrid packages={packages} colors={packageColors} purchasedTrialPackageIds={purchasedTrialPackageIds} />
+      <PackagesGrid packages={packages} colors={packageColors} purchasedSinglePackageIds={purchasedSinglePackageIds} />
 
       {/* Info note */}
       <section className="pb-12 sm:pb-16 bg-cream">

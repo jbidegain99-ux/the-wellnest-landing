@@ -54,22 +54,24 @@ export async function POST(request: Request) {
       )
     }
 
-    // 2. Check if user already has this package (1 per user limit)
-    const existingPurchase = await prisma.purchase.findFirst({
-      where: {
-        userId,
-        packageId,
-      },
-    })
-
-    if (existingPurchase) {
-      return NextResponse.json(
-        {
-          error: 'Ya adquiriste el paquete de prueba. Solo se puede obtener una vez.',
-          code: 'TRIAL_PACKAGE_LIMIT_EXCEEDED',
+    // 2. Check if user already has this package (singlePurchaseOnly or legacy $0 check)
+    if (pkg.singlePurchaseOnly) {
+      const existingPurchase = await prisma.purchase.findFirst({
+        where: {
+          userId,
+          packageId,
         },
-        { status: 400 }
-      )
+      })
+
+      if (existingPurchase) {
+        return NextResponse.json(
+          {
+            error: 'Ya adquiriste este paquete. Solo se puede obtener una vez.',
+            code: 'SINGLE_PURCHASE_LIMIT',
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // 3. Create the Purchase record

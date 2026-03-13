@@ -114,3 +114,15 @@ Si hay problemas: cambiar `PAYWAY_ENV=TEST` en Vercel Production y redeploy
 - Added slug to `OFFICIAL_PACKAGE_SLUGS` in both `/api/packages/route.ts` and `/api/admin/cleanup/route.ts`
 - Seed script: `scripts/seed-welcome-package.ts` (idempotent via slug lookup)
 - Use `npx tsx` (not `npx ts-node`) to run scripts — ESM module format issues with ts-node
+
+## Single Purchase Restriction (Mar 2026)
+- Added `singlePurchaseOnly Boolean @default(false)` to Package model
+- Replaces hardcoded `price === 0` checks across checkout, cart, claim-trial, and paquetes UI
+- **Audit found**: 1 duplicate for trial package (Jose, admin/test), 1 duplicate for Welcome package (Vanessa — same-second race condition via markOrderPaid)
+- Policy: existing duplicates are NOT reverted, only future duplicates blocked
+- Validation added in 4 backend paths: `/api/checkout`, `/api/cart`, `/api/packages/claim-trial`, `markOrderPaid.ts` (PayWay callback)
+- `markOrderPaid.ts` had NO single-purchase check before — critical gap for PayWay payments
+- New endpoint: `GET /api/packages/[packageId]/purchase-status` for frontend pre-check
+- UI: `purchasedTrialPackageIds` prop renamed to `purchasedSinglePackageIds`, uses `singlePurchaseOnly` field instead of `price === 0`
+- Error code unified to `SINGLE_PURCHASE_LIMIT` (was `TRIAL_PACKAGE_LIMIT_EXCEEDED`)
+- Used `prisma db push` (not `migrate dev`) — Accelerate proxy doesn't support interactive migrate

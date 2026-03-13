@@ -138,6 +138,7 @@ model Package {
   isShareable      Boolean  @default(false)  // true = buyer can bring guests
   maxShares        Int      @default(0)      // max guests per class (e.g. 1)
   isActive         Boolean  @default(true)
+  singlePurchaseOnly Boolean @default(false)
   isFeatured       Boolean  @default(false)
   order            Int      @default(0)
   createdAt        DateTime @default(now())

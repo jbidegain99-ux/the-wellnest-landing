@@ -240,32 +240,30 @@ export async function POST(request: Request) {
       }
     }
 
-    // Validate trial package limit: each $0 package can only be purchased once per user
-    const freePackages = itemsWithPackages.filter((item) => item.package.price === 0)
-    if (freePackages.length > 0) {
-      for (const item of freePackages) {
-        const existingPurchase = await prisma.purchase.findFirst({
-          where: {
-            userId,
-            packageId: item.packageId,
-          },
-        })
+    // Validate single-purchase packages: each singlePurchaseOnly package can only be purchased once per user
+    const singlePurchaseItems = itemsWithPackages.filter((item) => item.package.singlePurchaseOnly)
+    for (const item of singlePurchaseItems) {
+      const existingPurchase = await prisma.purchase.findFirst({
+        where: {
+          userId,
+          packageId: item.packageId,
+        },
+      })
 
-        if (existingPurchase) {
-          console.log('[CHECKOUT API] Trial package already purchased:', {
-            userId,
-            packageId: item.packageId,
-            packageName: item.package.name,
-            existingPurchaseId: existingPurchase.id,
-          })
-          return NextResponse.json(
-            {
-              error: `Ya compraste "${item.package.name}". Solo se puede adquirir una vez por usuario.`,
-              code: 'TRIAL_PACKAGE_LIMIT_EXCEEDED',
-            },
-            { status: 409 }
-          )
-        }
+      if (existingPurchase) {
+        console.log('[CHECKOUT API] Single-purchase package already purchased:', {
+          userId,
+          packageId: item.packageId,
+          packageName: item.package.name,
+          existingPurchaseId: existingPurchase.id,
+        })
+        return NextResponse.json(
+          {
+            error: `Ya compraste "${item.package.name}". Solo se puede adquirir una vez por usuario.`,
+            code: 'SINGLE_PURCHASE_LIMIT',
+          },
+          { status: 409 }
+        )
       }
     }
 
