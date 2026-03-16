@@ -24,3 +24,22 @@
 - [x] Build sin errores
 - [x] 12 test classes coinciden con Excel (horas SV correctas)
 - [x] tasks/lessons.md actualizado
+
+---
+
+# Extensión de Vigencia Pre-Marzo + Deducción de Paquetes Admin
+
+## Vigencia Pre-Marzo
+- [x] Audit script: identificar compras antes de 2026-03-09T06:00:00Z
+- [x] Migration script: extender expiresAt a 2026-04-09T23:59:59 SV (idempotente)
+
+## Deducción de Paquetes
+- [x] API endpoint: POST /api/admin/users/[id]/deduct-package (con validación y logging)
+- [x] API endpoint: GET /api/admin/users/[id]/purchases (para poblar dropdown)
+- [x] Admin UI: modal de deducción en página de usuarios (con confirmación visual)
+
+## Testing
+- [ ] Ejecutar audit script y verificar output
+- [ ] Ejecutar migration script en --dry-run primero
+- [ ] Probar deducción via UI: caso exitoso, balance insuficiente
+- [ ] Verificar que deducción a 0 marca Purchase como DEPLETED

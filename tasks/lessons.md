@@ -126,3 +126,25 @@ Si hay problemas: cambiar `PAYWAY_ENV=TEST` en Vercel Production y redeploy
 - UI: `purchasedTrialPackageIds` prop renamed to `purchasedSinglePackageIds`, uses `singlePurchaseOnly` field instead of `price === 0`
 - Error code unified to `SINGLE_PURCHASE_LIMIT` (was `TRIAL_PACKAGE_LIMIT_EXCEEDED`)
 - Used `prisma db push` (not `migrate dev`) — Accelerate proxy doesn't support interactive migrate
+
+## Vigency Extension & Package Deduction (Mar 2026)
+
+### What was done:
+- Identified all Purchase records created before 2026-03-09T06:00:00Z (class start in SV time)
+- Extended expiresAt to 2026-04-10T05:59:59Z (= 2026-04-09T23:59:59 SV time) for affected users
+- Implemented bidirectional package management: admin can now ADD or DEDUCT classes from user purchases
+- Added audit logging for all deduction actions (via console.log in production)
+
+### Key learnings:
+- Pre-class presales cause vigency misalignment — in future, sync purchase date with class start date
+- Timezone conversion: 9-Abr 23:59:59 SV = 10-Abr 05:59:59 UTC (UTC-6 fixed offset)
+- Purchase model tracks balance (classesRemaining), not Order — Order is only for payment gateway tracking
+- Deduction sets status to DEPLETED when classesRemaining reaches 0
+- Migration scripts should support --dry-run flag for safe testing before applying changes
+
+### Files changed:
+- `scripts/audit-pre-march-packages.ts` (new) — audit script
+- `scripts/migrate-extend-vigency.ts` (new) — migration script with --dry-run support
+- `src/app/api/admin/users/[id]/deduct-package/route.ts` (new) — deduction endpoint
+- `src/app/api/admin/users/[id]/purchases/route.ts` (new) — user purchases list endpoint
+- `src/app/admin/usuarios/page.tsx` (updated) — added deduction modal to admin UI

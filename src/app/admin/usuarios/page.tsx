@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Eye, Package, Calendar, Loader2, Check, AlertCircle, Plus } from 'lucide-react'
+import { Search, Eye, Package, Calendar, Loader2, Check, AlertCircle, Plus, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Textarea } from '@/components/ui/Textarea'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -46,6 +47,18 @@ interface Package {
   isActive: boolean
 }
 
+interface UserPurchase {
+  id: string
+  packageId: string
+  packageName: string
+  classCount: number
+  classesRemaining: number
+  expiresAt: string
+  createdAt: string
+  status: string
+  finalPrice: number
+}
+
 interface PaginationData {
   current: number
   limit: number
@@ -69,6 +82,16 @@ export default function AdminUsuariosPage() {
   const [isAssigning, setIsAssigning] = React.useState(false)
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+
+  // Deduct state
+  const [showDeductModal, setShowDeductModal] = React.useState(false)
+  const [userToDeduct, setUserToDeduct] = React.useState<User | null>(null)
+  const [userPurchases, setUserPurchases] = React.useState<UserPurchase[]>([])
+  const [selectedPurchaseId, setSelectedPurchaseId] = React.useState<string>('')
+  const [deductQuantity, setDeductQuantity] = React.useState(1)
+  const [deductReason, setDeductReason] = React.useState('')
+  const [isDeducting, setIsDeducting] = React.useState(false)
+  const [isLoadingPurchases, setIsLoadingPurchases] = React.useState(false)
 
   // Debounced search
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
@@ -177,6 +200,70 @@ export default function AdminUsuariosPage() {
       showError('Error de conexión')
     } finally {
       setIsAssigning(false)
+    }
+  }
+
+  const openDeductModal = async (user: User) => {
+    setUserToDeduct(user)
+    setSelectedPurchaseId('')
+    setDeductQuantity(1)
+    setDeductReason('')
+    setShowDeductModal(true)
+    setIsLoadingPurchases(true)
+
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}/purchases`)
+      if (response.ok) {
+        const data = await response.json()
+        setUserPurchases(data.purchases.filter((p: UserPurchase) => p.classesRemaining > 0))
+      } else {
+        showError('Error al cargar las compras del usuario')
+        setUserPurchases([])
+      }
+    } catch (error) {
+      console.error('Error fetching user purchases:', error)
+      showError('Error de conexión')
+      setUserPurchases([])
+    } finally {
+      setIsLoadingPurchases(false)
+    }
+  }
+
+  const selectedPurchase = userPurchases.find(p => p.id === selectedPurchaseId)
+
+  const handleDeductPackage = async () => {
+    if (!userToDeduct || !selectedPurchaseId || !deductReason.trim()) return
+
+    setIsDeducting(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch(`/api/admin/users/${userToDeduct.id}/deduct-package`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          purchaseId: selectedPurchaseId,
+          quantity: deductQuantity,
+          reason: deductReason.trim(),
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        showError(result.error || 'Error al deducir del paquete')
+        return
+      }
+
+      showSuccess(result.message || 'Clases deducidas correctamente')
+      setShowDeductModal(false)
+      setUserToDeduct(null)
+      await fetchUsers(currentPage, searchQuery)
+    } catch (error) {
+      console.error('Error deducting package:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsDeducting(false)
     }
   }
 
@@ -323,6 +410,14 @@ export default function AdminUsuariosPage() {
                           <Plus className="h-4 w-4 mr-1" />
                           Asignar
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openDeductModal(user)}
+                        >
+                          <Minus className="h-4 w-4 mr-1" />
+                          Deducir
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -456,8 +551,19 @@ export default function AdminUsuariosPage() {
                     openAssignModal(selectedUser)
                   }}
                 >
-                  <Package className="h-4 w-4 mr-2" />
+                  <Plus className="h-4 w-4 mr-2" />
                   Asignar Paquete
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setSelectedUser(null)
+                    openDeductModal(selectedUser)
+                  }}
+                >
+                  <Minus className="h-4 w-4 mr-2" />
+                  Deducir Clases
                 </Button>
               </div>
             </div>
@@ -521,6 +627,133 @@ export default function AdminUsuariosPage() {
               isLoading={isAssigning}
             >
               Asignar Paquete
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Deduct Package Modal */}
+      <Modal open={showDeductModal} onOpenChange={() => !isDeducting && setShowDeductModal(false)}>
+        <ModalContent className="max-w-md">
+          <ModalHeader>
+            <ModalTitle>Deducir Clases</ModalTitle>
+          </ModalHeader>
+
+          <div className="py-4 space-y-4">
+            {userToDeduct && (
+              <div className="p-4 bg-beige rounded-lg">
+                <p className="text-sm text-gray-600">Deducir clases de:</p>
+                <p className="font-medium text-foreground">
+                  {userToDeduct.name || userToDeduct.email}
+                </p>
+              </div>
+            )}
+
+            {isLoadingPurchases ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : userPurchases.length === 0 ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
+                Este usuario no tiene paquetes con clases disponibles.
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Seleccionar compra
+                  </label>
+                  <Select
+                    value={selectedPurchaseId}
+                    onValueChange={(value) => {
+                      setSelectedPurchaseId(value)
+                      setDeductQuantity(1)
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una compra" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {userPurchases.map((purchase) => (
+                        <SelectItem key={purchase.id} value={purchase.id}>
+                          {purchase.packageName} ({purchase.classesRemaining} disponibles)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedPurchase && (
+                  <>
+                    <div className="p-3 bg-beige rounded-lg text-sm space-y-1">
+                      <p><span className="text-gray-500">Paquete:</span> {selectedPurchase.packageName}</p>
+                      <p><span className="text-gray-500">Clases disponibles:</span> {selectedPurchase.classesRemaining}</p>
+                      <p><span className="text-gray-500">Expira:</span> {formatDate(new Date(selectedPurchase.expiresAt))}</p>
+                      <p><span className="text-gray-500">Estado:</span>{' '}
+                        <Badge variant={selectedPurchase.status === 'ACTIVE' ? 'success' : 'error'}>
+                          {selectedPurchase.status}
+                        </Badge>
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Cantidad a deducir
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={selectedPurchase.classesRemaining}
+                        value={deductQuantity}
+                        onChange={(e) => setDeductQuantity(Math.max(1, Math.min(
+                          selectedPurchase.classesRemaining,
+                          parseInt(e.target.value) || 1
+                        )))}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Máximo: {selectedPurchase.classesRemaining}
+                      </p>
+                    </div>
+
+                    <div>
+                      <Textarea
+                        label="Motivo de la deducción"
+                        placeholder="Ej: Ajuste manual, reembolso parcial, error en asignación..."
+                        value={deductReason}
+                        onChange={(e) => setDeductReason(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    {deductQuantity > 0 && deductReason.trim() && (
+                      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                        <p>
+                          Se deducirán <strong>{deductQuantity}</strong> clase(s) de &quot;{selectedPurchase.packageName}&quot;.
+                          Balance resultante: <strong>{selectedPurchase.classesRemaining - deductQuantity}</strong> clase(s).
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+
+          <ModalFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeductModal(false)}
+              disabled={isDeducting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleDeductPackage}
+              disabled={!selectedPurchaseId || !deductReason.trim() || deductQuantity < 1 || isLoadingPurchases}
+              isLoading={isDeducting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Confirmar Deducción
             </Button>
           </ModalFooter>
         </ModalContent>
