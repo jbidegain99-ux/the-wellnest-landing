@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Check, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Check, AlertCircle, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -23,6 +23,9 @@ import { cn, getWeekDays, getMonthName, formatClassType } from '@/lib/utils'
 import { getNowInSV } from '@/lib/utils/timezone'
 import { disciplineColors, getDisciplineColor } from '@/config/disciplineColors'
 import MobileScheduleView from '@/components/admin/MobileScheduleView'
+import { useDuplicateMode } from '@/components/admin/duplicate/useDuplicateMode'
+import DuplicateToolbar from '@/components/admin/duplicate/DuplicateToolbar'
+import DuplicateConfigModal from '@/components/admin/duplicate/DuplicateConfigModal'
 
 interface Discipline {
   id: string
@@ -126,6 +129,16 @@ export default function AdminHorariosPage() {
       console.error('Error fetching classes:', error)
     }
   }, [currentWeekStart])
+
+  // Duplicate mode hook
+  const dup = useDuplicateMode({
+    classes,
+    currentWeekStart,
+    showSuccess,
+    showError,
+    fetchClasses,
+    setCurrentWeekStart,
+  })
 
   // Fetch disciplines and instructors from database
   React.useEffect(() => {
@@ -429,10 +442,23 @@ export default function AdminHorariosPage() {
             Administra el calendario de clases
           </p>
         </div>
-        <Button onClick={() => handleCreate()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva Clase
-        </Button>
+        <div className="flex items-center gap-2">
+          {!dup.isDuplicateMode && (
+            <>
+              <Button variant="outline" onClick={dup.enterDuplicateMode}>
+                <Copy className="h-4 w-4 mr-2" />
+                Duplicar Clases
+              </Button>
+              <Button onClick={() => handleCreate()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nueva Clase
+              </Button>
+            </>
+          )}
+          {dup.isDuplicateMode && (
+            <span className="text-sm text-gray-500 italic">Selecciona las clases a duplicar</span>
+          )}
+        </div>
       </div>
 
       {/* Success/Error Messages */}
@@ -454,7 +480,8 @@ export default function AdminHorariosPage() {
       <div className="flex items-center justify-center gap-4">
         <button
           onClick={goToPreviousWeek}
-          className="p-2 rounded-full hover:bg-beige transition-colors"
+          disabled={dup.isDuplicateMode}
+          className="p-2 rounded-full hover:bg-beige transition-colors disabled:opacity-30"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -463,7 +490,8 @@ export default function AdminHorariosPage() {
         </span>
         <button
           onClick={goToNextWeek}
-          className="p-2 rounded-full hover:bg-beige transition-colors"
+          disabled={dup.isDuplicateMode}
+          className="p-2 rounded-full hover:bg-beige transition-colors disabled:opacity-30"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -495,17 +523,35 @@ export default function AdminHorariosPage() {
                 >
                   {dayClasses.map((cls) => {
                     const isPast = new Date(cls.dateTime) < getNowInSV()
+                    const isEligibleForDuplicate = dup.isDuplicateMode && !cls.isCancelled
+                    const isSelected = dup.selectedClassIds.has(cls.id)
                     return (
                       <div
                         key={cls.id}
                         className={cn(
-                          'p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-opacity',
+                          'relative p-2 rounded-lg text-white text-xs cursor-pointer hover:opacity-90 transition-all',
                           cls.isCancelled ? 'bg-gray-400' : getDisciplineColorForClass(cls.discipline),
-                          isPast && 'opacity-40'
+                          isPast && 'opacity-40',
+                          isSelected && 'ring-2 ring-primary ring-offset-1'
                         )}
-                        onClick={() => handleEdit(cls)}
+                        onClick={() => {
+                          if (isEligibleForDuplicate) {
+                            dup.toggleClass(cls.id)
+                          } else if (!dup.isDuplicateMode) {
+                            handleEdit(cls)
+                          }
+                        }}
                       >
-                        <p className="font-medium">
+                        {isEligibleForDuplicate && (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => dup.toggleClass(cls.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute top-1.5 left-1.5 h-3.5 w-3.5 rounded border-white accent-primary z-10"
+                          />
+                        )}
+                        <p className={cn("font-medium", isEligibleForDuplicate && "ml-5")}>
                           {cls.discipline}
                           {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
                         </p>
@@ -549,6 +595,10 @@ export default function AdminHorariosPage() {
           getDisciplineColorForClass={getDisciplineColorForClass}
           onEditClass={handleEdit}
           onAddClass={handleCreate}
+          isDuplicateMode={dup.isDuplicateMode}
+          selectedClassIds={dup.selectedClassIds}
+          onToggleClass={dup.toggleClass}
+          onSelectAllForDay={dup.selectAllForDay}
         />
       </div>
 
@@ -789,6 +839,39 @@ export default function AdminHorariosPage() {
           </div>
         </ModalContent>
       </Modal>
+
+      {/* Duplicate Mode: Toolbar */}
+      {dup.isDuplicateMode && dup.step === 'select' && (
+        <DuplicateToolbar
+          selectedCount={dup.selectedClassIds.size}
+          weekDates={weekDates}
+          weekDays={weekDays}
+          onSelectDay={dup.selectAllForDay}
+          onSelectAll={dup.selectAllWeek}
+          onCancel={dup.exitDuplicateMode}
+          onNext={dup.proceedToConfig}
+        />
+      )}
+
+      {/* Duplicate Mode: Config Modal */}
+      <DuplicateConfigModal
+        open={dup.step === 'configure'}
+        onOpenChange={(open) => { if (!open) dup.exitDuplicateMode() }}
+        entries={dup.entries}
+        conflicts={dup.conflicts}
+        duplicateMode={dup.duplicateMode}
+        onModeChange={dup.handleModeChange}
+        targetWeekStart={dup.targetWeekStart}
+        onTargetWeekChange={dup.handleTargetWeekChange}
+        targetDate={dup.targetDate}
+        onTargetDateChange={dup.handleTargetDateChange}
+        sourceWeekMonday={dup.sourceWeekMonday}
+        instructors={instructors}
+        onUpdateEntry={dup.updateEntry}
+        onSubmit={dup.submit}
+        isSubmitting={dup.isSubmitting}
+        selectionSpansMultipleDays={dup.selectionSpansMultipleDays}
+      />
     </div>
   )
 }

@@ -31,6 +31,10 @@ interface MobileScheduleViewProps {
   getDisciplineColorForClass: (disciplineName: string) => string
   onEditClass: (cls: ClassItem) => void
   onAddClass: (dayOfWeek: number) => void
+  isDuplicateMode?: boolean
+  selectedClassIds?: Set<string>
+  onToggleClass?: (classId: string) => void
+  onSelectAllForDay?: (dayOfWeek: number) => void
 }
 
 export default function MobileScheduleView({
@@ -40,6 +44,10 @@ export default function MobileScheduleView({
   getDisciplineColorForClass,
   onEditClass,
   onAddClass,
+  isDuplicateMode,
+  selectedClassIds,
+  onToggleClass,
+  onSelectAllForDay,
 }: MobileScheduleViewProps) {
   const today = new Date()
   const todayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`
@@ -94,6 +102,18 @@ export default function MobileScheduleView({
               className="w-full flex items-center justify-between p-4 text-left"
             >
               <div className="flex items-center gap-3">
+                {isDuplicateMode && onSelectAllForDay && (
+                  <input
+                    type="checkbox"
+                    checked={dayClasses.filter(c => !c.isCancelled).length > 0 && dayClasses.filter(c => !c.isCancelled).every(c => selectedClassIds?.has(c.id))}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      onSelectAllForDay(date.getDay())
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4 rounded border-beige-dark accent-primary shrink-0"
+                  />
+                )}
                 <div className={cn(
                   'w-10 h-10 rounded-full flex items-center justify-center font-serif text-lg font-semibold',
                   isToday ? 'bg-primary text-white' : 'bg-beige text-foreground'
@@ -130,16 +150,34 @@ export default function MobileScheduleView({
                 ) : (
                   dayClasses.map((cls) => {
                     const isPast = new Date(cls.dateTime) < getNowInSV()
+                    const isEligible = isDuplicateMode && !cls.isCancelled
+                    const isSelected = selectedClassIds?.has(cls.id)
                     return (
                       <div
                         key={cls.id}
-                        onClick={() => onEditClass(cls)}
+                        onClick={() => {
+                          if (isEligible && onToggleClass) {
+                            onToggleClass(cls.id)
+                          } else if (!isDuplicateMode) {
+                            onEditClass(cls)
+                          }
+                        }}
                         className={cn(
-                          'flex items-center justify-between p-3 rounded-lg text-white cursor-pointer active:opacity-80 transition-opacity',
+                          'flex items-center justify-between p-3 rounded-lg text-white cursor-pointer active:opacity-80 transition-all',
                           cls.isCancelled ? 'bg-gray-400' : getDisciplineColorForClass(cls.discipline),
-                          isPast && 'opacity-50'
+                          isPast && 'opacity-50',
+                          isSelected && 'ring-2 ring-primary ring-offset-1'
                         )}
                       >
+                        {isEligible && (
+                          <input
+                            type="checkbox"
+                            checked={!!isSelected}
+                            onChange={() => onToggleClass?.(cls.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-4 w-4 rounded border-white accent-primary shrink-0 mr-2"
+                          />
+                        )}
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-sm truncate">
                             {cls.discipline}
