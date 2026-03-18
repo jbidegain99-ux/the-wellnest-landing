@@ -148,3 +148,23 @@ Si hay problemas: cambiar `PAYWAY_ENV=TEST` en Vercel Production y redeploy
 - `src/app/api/admin/users/[id]/deduct-package/route.ts` (new) — deduction endpoint
 - `src/app/api/admin/users/[id]/purchases/route.ts` (new) — user purchases list endpoint
 - `src/app/admin/usuarios/page.tsx` (updated) — added deduction modal to admin UI
+
+---
+
+## 10. Fix búsqueda usuarios + Reset contraseña admin (Mar 2026)
+
+### Loading state pattern — never unmount the whole page for non-initial fetches
+- **Anti-pattern**: Using a single `isLoading` state that replaces the entire page with a spinner causes inputs to unmount, losing focus and state.
+- **Fix**: Separate `isLoading` (initial page load → full spinner) from `isSearching` (subsequent fetches → subtle indicator like animated icon). Only the initial load should show full-page spinner. Pass an `isInitial` flag to the fetch function to distinguish.
+
+### Admin password reset — transactional email with temporary password
+- Generate readable temporary passwords: prefix + random chars excluding ambiguous ones (0/O, 1/l/I). Format: `WnSt-XXXXXXXX`.
+- Hash with same method as auth system (bcryptjs, 12 rounds).
+- Never return the temporary password in API response or log it — only send via email.
+- If email fails after password update, inform admin to contact user directly (password is already changed).
+- Reuse existing email infrastructure (`sendEmail` + branded HTML template matching project style).
+
+### Files changed:
+- `src/app/admin/usuarios/page.tsx` (updated) — fixed search focus loss, added reset password button + modal
+- `src/app/api/admin/users/[id]/reset-password/route.ts` (new) — password reset endpoint
+- `src/lib/emailService.ts` (updated) — added `buildAdminPasswordResetEmail` template

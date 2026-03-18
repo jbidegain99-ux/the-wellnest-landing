@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Eye, Package, Calendar, Loader2, Check, AlertCircle, Plus, Minus } from 'lucide-react'
+import { Search, Eye, Package, Calendar, Loader2, Check, AlertCircle, Plus, Minus, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -70,6 +70,7 @@ export default function AdminUsuariosPage() {
   const [users, setUsers] = React.useState<User[]>([])
   const [packages, setPackages] = React.useState<Package[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [isSearching, setIsSearching] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [currentPage, setCurrentPage] = React.useState(1)
   const [pagination, setPagination] = React.useState<PaginationData>({
@@ -93,12 +94,21 @@ export default function AdminUsuariosPage() {
   const [isDeducting, setIsDeducting] = React.useState(false)
   const [isLoadingPurchases, setIsLoadingPurchases] = React.useState(false)
 
+  // Password reset state
+  const [showResetPasswordModal, setShowResetPasswordModal] = React.useState(false)
+  const [userToReset, setUserToReset] = React.useState<User | null>(null)
+  const [isResettingPassword, setIsResettingPassword] = React.useState(false)
+
   // Debounced search
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
 
   // Fetch users from database with pagination
-  const fetchUsers = React.useCallback(async (page = 1, search = '') => {
-    setIsLoading(true)
+  const fetchUsers = React.useCallback(async (page = 1, search = '', isInitial = false) => {
+    if (isInitial) {
+      setIsLoading(true)
+    } else {
+      setIsSearching(true)
+    }
     try {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -119,6 +129,7 @@ export default function AdminUsuariosPage() {
       showError('Error de conexión')
     } finally {
       setIsLoading(false)
+      setIsSearching(false)
     }
   }, [])
 
@@ -135,9 +146,12 @@ export default function AdminUsuariosPage() {
     }
   }, [])
 
+  const isInitialLoad = React.useRef(true)
+
   React.useEffect(() => {
-    fetchUsers(currentPage, searchQuery)
+    fetchUsers(currentPage, searchQuery, isInitialLoad.current)
     fetchPackages()
+    isInitialLoad.current = false
   }, [currentPage, fetchUsers, fetchPackages]) // searchQuery handled via debounce
 
   const showSuccess = (message: string) => {
@@ -267,6 +281,40 @@ export default function AdminUsuariosPage() {
     }
   }
 
+  const openResetPasswordModal = (user: User) => {
+    setUserToReset(user)
+    setShowResetPasswordModal(true)
+  }
+
+  const handleResetPassword = async () => {
+    if (!userToReset) return
+
+    setIsResettingPassword(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch(`/api/admin/users/${userToReset.id}/reset-password`, {
+        method: 'POST',
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        showError(result.error || 'Error al resetear la contraseña')
+        return
+      }
+
+      showSuccess(result.message || `Contraseña temporal enviada a ${userToReset.email}`)
+      setShowResetPasswordModal(false)
+      setUserToReset(null)
+    } catch (error) {
+      console.error('Error resetting password:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsResettingPassword(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -303,13 +351,13 @@ export default function AdminUsuariosPage() {
       )}
 
       {/* Search */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 items-center">
         <div className="flex-1 max-w-md">
           <Input
             placeholder="Buscar por nombre o email..."
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            icon={<Search className="h-5 w-5" />}
+            icon={isSearching ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <Search className="h-5 w-5" />}
           />
         </div>
       </div>
@@ -417,6 +465,14 @@ export default function AdminUsuariosPage() {
                         >
                           <Minus className="h-4 w-4 mr-1" />
                           Deducir
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openResetPasswordModal(user)}
+                        >
+                          <KeyRound className="h-4 w-4 mr-1" />
+                          Resetear
                         </Button>
                       </div>
                     </td>
@@ -542,7 +598,7 @@ export default function AdminUsuariosPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 pt-4 border-t border-beige">
+              <div className="flex flex-wrap gap-2 pt-4 border-t border-beige">
                 <Button
                   variant="outline"
                   className="flex-1"
@@ -564,6 +620,17 @@ export default function AdminUsuariosPage() {
                 >
                   <Minus className="h-4 w-4 mr-2" />
                   Deducir Clases
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setSelectedUser(null)
+                    openResetPasswordModal(selectedUser)
+                  }}
+                >
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  Resetear Contraseña
                 </Button>
               </div>
             </div>
@@ -754,6 +821,52 @@ export default function AdminUsuariosPage() {
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               Confirmar Deducción
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Reset Password Modal */}
+      <Modal open={showResetPasswordModal} onOpenChange={() => !isResettingPassword && setShowResetPasswordModal(false)}>
+        <ModalContent className="max-w-md">
+          <ModalHeader>
+            <ModalTitle>Resetear Contraseña</ModalTitle>
+          </ModalHeader>
+
+          <div className="py-4 space-y-4">
+            {userToReset && (
+              <>
+                <div className="p-4 bg-beige rounded-lg">
+                  <p className="text-sm text-gray-600">Resetear contraseña de:</p>
+                  <p className="font-medium text-foreground">
+                    {userToReset.name || 'Sin nombre'}
+                  </p>
+                  <p className="text-sm text-gray-500">{userToReset.email}</p>
+                </div>
+
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
+                  <p>
+                    Se generar&aacute; una contraseña temporal y se enviar&aacute; a <strong>{userToReset.email}</strong>. La contraseña actual del usuario dejar&aacute; de funcionar.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          <ModalFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowResetPasswordModal(false)}
+              disabled={isResettingPassword}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              isLoading={isResettingPassword}
+            >
+              <KeyRound className="h-4 w-4 mr-2" />
+              Confirmar Reset
             </Button>
           </ModalFooter>
         </ModalContent>

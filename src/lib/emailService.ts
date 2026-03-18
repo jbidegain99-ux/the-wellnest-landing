@@ -650,6 +650,110 @@ export function buildTrialPackageEmail(data: TrialPackageEmailData): string {
 </html>`
 }
 
+export function buildAdminPasswordResetEmail(name: string, email: string, temporaryPassword: string, loginUrl: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contrase&ntilde;a temporal - Wellnest</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F5F0EB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', system-ui, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0EB;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <!-- Modal card -->
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width: 480px; width: 100%; background-color: #FFFFFF; border-radius: 12px;">
+
+          <!-- Header + Body -->
+          <tr>
+            <td style="padding: 32px;">
+
+              <h1 style="color: #1F2937; margin: 0 0 8px; font-size: 20px; font-weight: 600; line-height: 1.2; text-align: center;">Nueva Contrase&ntilde;a Temporal</h1>
+              <p style="color: #6B7280; margin: 0 0 32px; font-size: 16px; line-height: 1.5; text-align: center;">Wellnest</p>
+
+              <!-- Saludo -->
+              <p style="color: #374151; font-size: 16px; font-weight: 500; margin: 0 0 8px; line-height: 1.4;">Hola${name ? ` ${name}` : ''}</p>
+              <p style="color: #6B7280; margin: 0 0 24px; font-size: 14px; line-height: 1.5;">
+                El equipo de Wellnest ha reseteado tu contrase&ntilde;a. Usa la siguiente contrase&ntilde;a temporal para iniciar sesi&oacute;n:
+              </p>
+
+              <!-- Contraseña temporal -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 20px; text-align: center;">
+                    <p style="margin: 0 0 4px; font-size: 12px; color: #6B7280; text-transform: uppercase; letter-spacing: 1px;">Tu contrase&ntilde;a temporal</p>
+                    <p style="margin: 0; font-size: 24px; font-weight: 700; color: #1F2937; font-family: 'Monaco', 'Menlo', monospace; letter-spacing: 2px;">
+                      ${temporaryPassword}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Botón login -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color: #86A889; border-radius: 8px;">
+                          <a href="${loginUrl}"
+                             target="_blank"
+                             style="display: inline-block; background-color: #86A889; color: #FFFFFF; padding: 12px 32px; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px; line-height: 1.4;">
+                            Iniciar Sesi&oacute;n
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Recomendación -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F0F5F1; border: 1px solid #D4E5D7; border-radius: 8px; padding: 16px;">
+                    <p style="margin: 0; font-size: 13px; color: #374151; line-height: 1.5;">
+                      Te recomendamos cambiar esta contrase&ntilde;a desde tu perfil una vez que inicies sesi&oacute;n.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Nota de seguridad -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px;">
+                    <p style="margin: 0; font-size: 12px; color: #6B7280; line-height: 1.4;">
+                      Si no solicitaste este cambio, contacta a nuestro equipo en <strong style="color: #374151;">contact@wellneststudio.net</strong>.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Footer interno -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 32px;">
+                <tr>
+                  <td style="border-top: 1px solid #E5E7EB; padding-top: 16px; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #9CA3AF;">
+                      Wellnest &copy; 2026 &bull; contact@wellneststudio.net
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
 export function buildPasswordResetEmail(name: string, resetUrl: string): string {
   return `
 <!DOCTYPE html>

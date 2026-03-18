@@ -43,3 +43,30 @@
 - [ ] Ejecutar migration script en --dry-run primero
 - [ ] Probar deducción via UI: caso exitoso, balance insuficiente
 - [ ] Verificar que deducción a 0 marca Purchase como DEPLETED
+
+---
+
+# Fix Búsqueda Usuarios + Reset Contraseña Admin
+
+## Fix Barra de Búsqueda (Admin/Usuarios)
+- [x] Causa raíz: `isLoading` reemplazaba toda la página con spinner, desmontando el input de búsqueda
+- [x] Fix: separar `isLoading` (solo carga inicial) de `isSearching` (búsqueda/paginación)
+- [x] Indicador de búsqueda: icono de Search cambia a Loader2 animado durante búsqueda
+- [x] El input nunca pierde foco — la tabla se actualiza sin desmontar el search
+
+## Reset de Contraseña desde Admin
+- [x] API endpoint: POST /api/admin/users/[id]/reset-password
+- [x] Genera contraseña temporal legible (formato WnSt-XXXXXXXX, sin caracteres ambiguos)
+- [x] Hashea con bcryptjs (12 rounds, mismo método del sistema de auth)
+- [x] Envía email con contraseña temporal via Microsoft Graph API (template con branding Wellnest)
+- [x] Contraseña temporal NO aparece en response de API ni en logs
+- [x] Validación de rol ADMIN en endpoint
+- [x] Botón "Resetear" en tabla de usuarios + botón en modal de detalle
+- [x] Modal de confirmación con nombre y email del usuario
+- [x] Toast de éxito/error
+
+## Verificación
+- [ ] Escribir en barra de búsqueda sin perder foco
+- [ ] Resetear contraseña de usuario de prueba → verificar email
+- [ ] Login con contraseña temporal → debe funcionar
+- [ ] Contraseña anterior ya no funciona
