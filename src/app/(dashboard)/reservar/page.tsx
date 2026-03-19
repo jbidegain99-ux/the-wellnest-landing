@@ -245,13 +245,6 @@ export default function ReservarPage() {
   const packageIdFromUrl = searchParams.get('packageId')
   const classIdFromUrl = searchParams.get('classId')
 
-  // Current time state — updates every 60s so isPast transitions smoothly
-  const [now, setNow] = React.useState(() => new Date())
-  React.useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60_000)
-    return () => clearInterval(interval)
-  }, [])
-
   // Data states
   const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
   const [classes, setClasses] = React.useState<ClassData[]>([])
@@ -592,6 +585,9 @@ export default function ReservarPage() {
       setGuestName('')
     }, 150)
   }, [])
+
+  // Compute current time for isPast checks — always fresh on every render
+  const now = new Date()
 
   return (
     <div className="space-y-8">

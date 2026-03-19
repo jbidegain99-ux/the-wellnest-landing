@@ -268,13 +268,6 @@ export default function HorariosPage() {
   const { data: session } = useSession()
   const router = useRouter()
 
-  // Current time state — updates every 60s so isPast transitions smoothly
-  const [now, setNow] = React.useState(() => new Date())
-  React.useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60_000)
-    return () => clearInterval(interval)
-  }, [])
-
   const [selectedDiscipline, setSelectedDiscipline] = React.useState('all')
   const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
   const [classes, setClasses] = React.useState<ClassData[]>([])
@@ -404,6 +397,9 @@ export default function HorariosPage() {
     const date = new Date(dateTime)
     return format(date, 'HH:mm')
   }
+
+  // Compute current time for isPast checks — always fresh on every render
+  const now = new Date()
 
   const handleClassClick = (cls: ClassData) => {
     const reservationCount = cls._count?.reservations ?? cls.currentCount
