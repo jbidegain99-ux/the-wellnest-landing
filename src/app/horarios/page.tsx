@@ -63,22 +63,19 @@ interface ActivePurchase {
 }
 
 // Mobile Class Card Component
-// El Salvador is UTC-6 (no DST)
-function getNowSV(): Date {
-  return new Date(Date.now() - 6 * 60 * 60 * 1000)
-}
-
 function MobileClassCard({
   cls,
+  now,
   onClick,
 }: {
   cls: ClassData
+  now: Date
   onClick: () => void
 }) {
   const reservationCount = cls._count?.reservations ?? cls.currentCount
   const isFull = reservationCount >= cls.maxCapacity
   const spotsLeft = cls.maxCapacity - reservationCount
-  const isPast = new Date(cls.dateTime) < getNowSV()
+  const isPast = new Date(cls.dateTime) < now
   const isDisabled = isFull || isPast
 
   return (
@@ -178,12 +175,14 @@ function MobileDayAccordion({
   classes,
   isToday,
   weekDays,
+  now,
   onClassClick,
 }: {
   date: Date
   classes: ClassData[]
   isToday: boolean
   weekDays: string[]
+  now: Date
   onClassClick: (cls: ClassData) => void
 }) {
   const [isOpen, setIsOpen] = React.useState(isToday || classes.length > 0)
@@ -254,6 +253,7 @@ function MobileDayAccordion({
               <MobileClassCard
                 key={cls.id}
                 cls={cls}
+                now={now}
                 onClick={() => onClassClick(cls)}
               />
             ))
@@ -267,6 +267,14 @@ function MobileDayAccordion({
 export default function HorariosPage() {
   const { data: session } = useSession()
   const router = useRouter()
+
+  // Current time state — updates every 60s so isPast transitions smoothly
+  const [now, setNow] = React.useState(() => new Date())
+  React.useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
   const [selectedDiscipline, setSelectedDiscipline] = React.useState('all')
   const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
   const [classes, setClasses] = React.useState<ClassData[]>([])
@@ -400,7 +408,7 @@ export default function HorariosPage() {
   const handleClassClick = (cls: ClassData) => {
     const reservationCount = cls._count?.reservations ?? cls.currentCount
     const isFull = reservationCount >= cls.maxCapacity
-    const isPast = new Date(cls.dateTime) < getNowSV()
+    const isPast = new Date(cls.dateTime) < now
 
     if (isFull || isPast) return
 
@@ -497,6 +505,7 @@ export default function HorariosPage() {
                     classes={getClassesForDay(date)}
                     isToday={isToday(date)}
                     weekDays={weekDays}
+                    now={now}
                     onClassClick={handleClassClick}
                   />
                 ))}
@@ -548,7 +557,7 @@ export default function HorariosPage() {
                             const reservationCount = cls._count?.reservations ?? cls.currentCount
                             const isFull = reservationCount >= cls.maxCapacity
                             const spotsLeft = cls.maxCapacity - reservationCount
-                            const isPast = new Date(cls.dateTime) < getNowSV()
+                            const isPast = new Date(cls.dateTime) < now
                             const isDisabled = isFull || isPast
 
                             return (

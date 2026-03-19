@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
 import { cn, formatClassType } from '@/lib/utils'
-import { getNowInSV } from '@/lib/utils/timezone'
 
 interface ClassItem {
   id: string
@@ -149,7 +148,7 @@ export default function MobileScheduleView({
                   </p>
                 ) : (
                   dayClasses.map((cls) => {
-                    const isPast = new Date(cls.dateTime) < getNowInSV()
+                    const isPast = new Date(cls.dateTime) < new Date()
                     const isEligible = isDuplicateMode && !cls.isCancelled
                     const isSelected = selectedClassIds?.has(cls.id)
                     return (

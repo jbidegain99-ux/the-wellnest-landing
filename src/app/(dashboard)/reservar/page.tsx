@@ -80,11 +80,6 @@ interface SelectedPurchase {
 // Modal states - separate state for each modal type to prevent conflicts
 type ModalState = 'closed' | 'confirm' | 'success' | 'error'
 
-// El Salvador is UTC-6 (no DST)
-function getNowSV(): Date {
-  return new Date(Date.now() - 6 * 60 * 60 * 1000)
-}
-
 const disciplineColors: Record<string, string> = {
   yoga: 'bg-[#9CAF88]',
   pilates: 'bg-[#C4A77D]',
@@ -102,6 +97,7 @@ function MobileDaySection({
   weekDays,
   reservedClassIds,
   activePurchase,
+  now,
   onClassClick,
 }: {
   date: Date
@@ -110,6 +106,7 @@ function MobileDaySection({
   weekDays: string[]
   reservedClassIds: Set<string>
   activePurchase: ActivePurchase | null
+  now: Date
   onClassClick: (cls: ClassData) => void
 }) {
   const [isOpen, setIsOpen] = React.useState(today || classes.length > 0)
@@ -165,7 +162,7 @@ function MobileDaySection({
               const alreadyReserved = reservedClassIds.has(cls.id)
               const isTrialUser = activePurchase?.packageId === TRIAL_PACKAGE_ID
               const isBlockedForTrial = isTrialUser && new Date(cls.dateTime) >= TRIAL_CUTOFF_UTC
-              const isPast = new Date(cls.dateTime) < getNowSV()
+              const isPast = new Date(cls.dateTime) < now
               const isDisabled = isFull || alreadyReserved || isBlockedForTrial || isPast
 
               return (
@@ -247,6 +244,13 @@ export default function ReservarPage() {
   const searchParams = useSearchParams()
   const packageIdFromUrl = searchParams.get('packageId')
   const classIdFromUrl = searchParams.get('classId')
+
+  // Current time state — updates every 60s so isPast transitions smoothly
+  const [now, setNow] = React.useState(() => new Date())
+  React.useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Data states
   const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
@@ -708,6 +712,7 @@ export default function ReservarPage() {
                   weekDays={weekDays}
                   reservedClassIds={reservedClassIds}
                   activePurchase={activePurchase}
+                  now={now}
                   onClassClick={handleSelectClass}
                 />
               )
@@ -763,7 +768,7 @@ export default function ReservarPage() {
                         const alreadyReserved = reservedClassIds.has(cls.id)
                         const isTrialUser = activePurchase?.packageId === TRIAL_PACKAGE_ID
                         const isBlockedForTrial = isTrialUser && new Date(cls.dateTime) >= TRIAL_CUTOFF_UTC
-                        const isPast = new Date(cls.dateTime) < getNowSV()
+                        const isPast = new Date(cls.dateTime) < now
                         const isDisabled = isFull || alreadyReserved || isBlockedForTrial || isPast
 
                         return (

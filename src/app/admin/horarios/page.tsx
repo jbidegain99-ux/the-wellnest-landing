@@ -20,7 +20,6 @@ import {
   ModalFooter,
 } from '@/components/ui/Modal'
 import { cn, getWeekDays, getMonthName, formatClassType } from '@/lib/utils'
-import { getNowInSV } from '@/lib/utils/timezone'
 import { disciplineColors, getDisciplineColor } from '@/config/disciplineColors'
 import MobileScheduleView from '@/components/admin/MobileScheduleView'
 import { useDuplicateMode } from '@/components/admin/duplicate/useDuplicateMode'
@@ -522,7 +521,7 @@ export default function AdminHorariosPage() {
                   className="border-r last:border-r-0 border-beige p-2 space-y-2 overflow-y-auto max-h-[650px]"
                 >
                   {dayClasses.map((cls) => {
-                    const isPast = new Date(cls.dateTime) < getNowInSV()
+                    const isPast = new Date(cls.dateTime) < new Date()
                     const isEligibleForDuplicate = dup.isDuplicateMode && !cls.isCancelled
                     const isSelected = dup.selectedClassIds.has(cls.id)
                     return (

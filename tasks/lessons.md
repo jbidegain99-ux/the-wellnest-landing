@@ -168,3 +168,28 @@ Si hay problemas: cambiar `PAYWAY_ENV=TEST` en Vercel Production y redeploy
 - `src/app/admin/usuarios/page.tsx` (updated) — fixed search focus loss, added reset password button + modal
 - `src/app/api/admin/users/[id]/reset-password/route.ts` (new) — password reset endpoint
 - `src/lib/emailService.ts` (updated) — added `buildAdminPasswordResetEmail` template
+
+---
+
+## 11. Fix "Finalizada" greyed-out classes after modal close (Mar 2026)
+
+### Root cause: wrong epoch comparison for isPast
+- `getNowSV()` used `new Date(Date.now() - 6 * 60 * 60 * 1000)` which creates a Date with a SHIFTED epoch (6 hours behind real UTC).
+- Class `dateTime` is stored in UTC in the database (e.g., 9am SV = 15:00 UTC).
+- Comparing UTC class epoch against a shifted epoch delayed the "past" marker by 6 hours.
+- **Correct approach**: Compare UTC directly — `new Date(cls.dateTime) < new Date()`. Both sides are UTC epoch values, so no timezone conversion is needed.
+- `getNowInSV()` from `date-fns-tz` has the SAME problem: `toZonedTime()` shifts the epoch for display purposes, making it wrong for `<` comparisons against UTC-stored dates.
+
+### Rule: never use timezone-shifted Dates for epoch comparisons
+- `toZonedTime()` is for DISPLAY only (`.getHours()`, `.toLocaleString()`, etc.), not for `<`/`>` comparisons.
+- For "is this past?", always compare UTC epochs: `new Date(utcString) < new Date()`.
+
+### No real-time update caused jarring state change
+- `isPast` was only recalculated on re-render. If the user spent time with the modal open, closing it triggered a re-render with updated time, causing many classes to suddenly flip to "Finalizada".
+- Fix: Add a `now` state that updates every 60 seconds via `setInterval`, so classes transition smoothly.
+
+### Files changed:
+- `src/app/(dashboard)/reservar/page.tsx` — removed `getNowSV()`, added `now` state with 60s interval
+- `src/app/horarios/page.tsx` — same fix
+- `src/app/admin/horarios/page.tsx` — replaced `getNowInSV()` with `new Date()`
+- `src/components/admin/MobileScheduleView.tsx` — same fix
