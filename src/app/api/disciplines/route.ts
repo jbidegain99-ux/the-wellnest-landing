@@ -1,23 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// Official class disciplines (nutricion is not a class)
-const OFFICIAL_DISCIPLINE_SLUGS = [
-  'yoga',
-  'pilates',
-  'pole',
-  'soundbath',
-  'aro-telas',
-  'aro',
-  'telas',
-]
-
 export async function GET() {
   try {
     const disciplines = await prisma.discipline.findMany({
       where: {
         isActive: true,
-        slug: { in: OFFICIAL_DISCIPLINE_SLUGS },
       },
       orderBy: { order: 'asc' },
     })
