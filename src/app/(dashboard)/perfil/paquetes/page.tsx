@@ -3,11 +3,16 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Package, Calendar, AlertCircle, ArrowRight, Loader2, CheckCircle2, X } from 'lucide-react'
+import { Package, Calendar, AlertCircle, ArrowRight, Loader2, CheckCircle2, X, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { formatDate, getDaysRemaining } from '@/lib/utils'
+
+interface SharedWith {
+  userName: string | null
+  isOriginal: boolean
+}
 
 interface Purchase {
   id: string
@@ -19,6 +24,10 @@ interface Purchase {
   expiresAt: string
   purchasedAt: string
   status: string
+  isShared?: boolean
+  isChild?: boolean
+  sharedByName?: string | null
+  sharedWith?: SharedWith[]
 }
 
 interface PurchasesData {
@@ -180,8 +189,26 @@ function PaquetesContent() {
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <CardTitle>{purchase.packageName}</CardTitle>
-                      <Badge variant="success">Activo</Badge>
+                      <div className="flex gap-1">
+                        {purchase.isShared && (
+                          <Badge variant="secondary">
+                            <Users className="h-3 w-3 mr-1" />
+                            Compartido
+                          </Badge>
+                        )}
+                        <Badge variant="success">Activo</Badge>
+                      </div>
                     </div>
+                    {purchase.isChild && purchase.sharedByName && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Compartido por {purchase.sharedByName}
+                      </p>
+                    )}
+                    {!purchase.isChild && purchase.sharedWith && purchase.sharedWith.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Compartido con {purchase.sharedWith.map((s) => s.userName || 'Sin nombre').join(', ')}
+                      </p>
+                    )}
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Classes progress */}

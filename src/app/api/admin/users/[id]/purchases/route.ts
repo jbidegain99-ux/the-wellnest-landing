@@ -43,6 +43,39 @@ export async function GET(
       orderBy: { createdAt: 'desc' },
     })
 
+    // For shared purchases, fetch group members
+    const sharedGroupIds = Array.from(new Set(
+      purchases.map((p) => p.sharedGroupId).filter(Boolean) as string[]
+    ))
+
+    let groupMembers: Record<string, Array<{ purchaseId: string; userId: string; userName: string | null; classesRemaining: number; classesAllocated: number | null }>> = {}
+
+    if (sharedGroupIds.length > 0) {
+      const allGroupPurchases = await prisma.purchase.findMany({
+        where: {
+          sharedGroupId: { in: sharedGroupIds },
+          userId: { not: userId }, // exclude current user
+        },
+        include: {
+          user: { select: { id: true, name: true } },
+        },
+      })
+
+      for (const gp of allGroupPurchases) {
+        if (!gp.sharedGroupId) continue
+        if (!groupMembers[gp.sharedGroupId]) {
+          groupMembers[gp.sharedGroupId] = []
+        }
+        groupMembers[gp.sharedGroupId].push({
+          purchaseId: gp.id,
+          userId: gp.user.id,
+          userName: gp.user.name,
+          classesRemaining: gp.classesRemaining,
+          classesAllocated: gp.classesAllocated,
+        })
+      }
+    }
+
     const formattedPurchases = purchases.map((p) => ({
       id: p.id,
       packageId: p.packageId,
@@ -53,6 +86,10 @@ export async function GET(
       createdAt: p.createdAt.toISOString(),
       status: p.status,
       finalPrice: p.finalPrice,
+      sharedGroupId: p.sharedGroupId,
+      sharedFromId: p.sharedFromId,
+      classesAllocated: p.classesAllocated,
+      sharedMembers: p.sharedGroupId ? (groupMembers[p.sharedGroupId] || []) : [],
     }))
 
     return NextResponse.json({

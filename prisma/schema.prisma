@@ -180,6 +180,11 @@ model Purchase {
   promoRedemptions PromoRedemption[]
   refundRequests   RefundRequest[]
   referrals        Referral[]
+  // Campos de paquete compartido
+  sharedGroupId    String?   // ID que agrupa purchases compartidos
+  sharedFromId     String?   // ID del Purchase original (null = es el original)
+  classesAllocated Int?      // Clases asignadas inicialmente (para calcular uso en compartidos)
+
   // Campos de facturación DTE El Salvador
   invoiceNumber     String?   // Número de factura DTE
   invoiceSeries     String?   // Serie de la factura
@@ -190,6 +195,8 @@ model Purchase {
   dteUuid           String?   // UUID del DTE generado
   invoiceSentAt     DateTime? // Cuándo se envió al facturador
   invoiceCompletedAt DateTime? // Cuándo se completó la factura
+
+  @@index([sharedGroupId])
 }
 
 enum PurchaseStatus {

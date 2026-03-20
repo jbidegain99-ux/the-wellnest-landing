@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Eye, Package, Calendar, Loader2, Check, AlertCircle, Plus, Minus, KeyRound } from 'lucide-react'
+import { Search, Eye, Package, Calendar, Loader2, Check, AlertCircle, Plus, Minus, KeyRound, Share2, Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -47,6 +47,14 @@ interface Package {
   isActive: boolean
 }
 
+interface SharedMember {
+  purchaseId: string
+  userId: string
+  userName: string | null
+  classesRemaining: number
+  classesAllocated: number | null
+}
+
 interface UserPurchase {
   id: string
   packageId: string
@@ -57,6 +65,22 @@ interface UserPurchase {
   createdAt: string
   status: string
   finalPrice: number
+  sharedGroupId?: string | null
+  sharedFromId?: string | null
+  classesAllocated?: number | null
+  sharedMembers?: SharedMember[]
+}
+
+interface ShareAllocation {
+  userId: string
+  userName: string
+  classCount: number
+}
+
+interface SearchedUser {
+  id: string
+  name: string | null
+  email: string
 }
 
 interface PaginationData {
@@ -99,8 +123,22 @@ export default function AdminUsuariosPage() {
   const [userToReset, setUserToReset] = React.useState<User | null>(null)
   const [isResettingPassword, setIsResettingPassword] = React.useState(false)
 
+  // Share package state
+  const [showShareModal, setShowShareModal] = React.useState(false)
+  const [userToShare, setUserToShare] = React.useState<User | null>(null)
+  const [sharePurchases, setSharePurchases] = React.useState<UserPurchase[]>([])
+  const [selectedSharePurchaseId, setSelectedSharePurchaseId] = React.useState<string>('')
+  const [shareAllocations, setShareAllocations] = React.useState<ShareAllocation[]>([])
+  const [shareUserSearch, setShareUserSearch] = React.useState('')
+  const [shareSearchResults, setShareSearchResults] = React.useState<SearchedUser[]>([])
+  const [isSearchingShareUsers, setIsSearchingShareUsers] = React.useState(false)
+  const [isSharing, setIsSharing] = React.useState(false)
+  const [isLoadingSharePurchases, setIsLoadingSharePurchases] = React.useState(false)
+  const [shareStep, setShareStep] = React.useState<1 | 2 | 3>(1)
+
   // Debounced search
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+  const shareSearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
 
   // Fetch users from database with pagination
   const fetchUsers = React.useCallback(async (page = 1, search = '', isInitial = false) => {
@@ -315,6 +353,126 @@ export default function AdminUsuariosPage() {
     }
   }
 
+  // Share package handlers
+  const openShareModal = async (user: User) => {
+    setUserToShare(user)
+    setSelectedSharePurchaseId('')
+    setShareAllocations([])
+    setShareUserSearch('')
+    setShareSearchResults([])
+    setShareStep(1)
+    setShowShareModal(true)
+    setIsLoadingSharePurchases(true)
+
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}/purchases`)
+      if (response.ok) {
+        const data = await response.json()
+        setSharePurchases(
+          data.purchases.filter((p: UserPurchase) => p.classesRemaining > 0 && p.status === 'ACTIVE')
+        )
+      } else {
+        showError('Error al cargar las compras del usuario')
+        setSharePurchases([])
+      }
+    } catch {
+      showError('Error de conexión')
+      setSharePurchases([])
+    } finally {
+      setIsLoadingSharePurchases(false)
+    }
+  }
+
+  const selectedSharePurchase = sharePurchases.find((p) => p.id === selectedSharePurchaseId)
+
+  const handleShareUserSearch = (value: string) => {
+    setShareUserSearch(value)
+    if (shareSearchTimeoutRef.current) clearTimeout(shareSearchTimeoutRef.current)
+    if (!value.trim()) {
+      setShareSearchResults([])
+      return
+    }
+    shareSearchTimeoutRef.current = setTimeout(async () => {
+      setIsSearchingShareUsers(true)
+      try {
+        const response = await fetch(`/api/admin/users?search=${encodeURIComponent(value)}&limit=5`)
+        if (response.ok) {
+          const data = await response.json()
+          // Filter out the source user and already added users
+          const addedIds = shareAllocations.map((a) => a.userId)
+          setShareSearchResults(
+            data.users
+              .filter((u: SearchedUser) => u.id !== userToShare?.id && !addedIds.includes(u.id))
+              .map((u: User) => ({ id: u.id, name: u.name, email: u.email }))
+          )
+        }
+      } catch {
+        // silent
+      } finally {
+        setIsSearchingShareUsers(false)
+      }
+    }, 300)
+  }
+
+  const addShareAllocation = (user: SearchedUser) => {
+    setShareAllocations((prev) => [
+      ...prev,
+      { userId: user.id, userName: user.name || user.email, classCount: 1 },
+    ])
+    setShareUserSearch('')
+    setShareSearchResults([])
+  }
+
+  const removeShareAllocation = (userId: string) => {
+    setShareAllocations((prev) => prev.filter((a) => a.userId !== userId))
+  }
+
+  const updateAllocationCount = (userId: string, count: number) => {
+    setShareAllocations((prev) =>
+      prev.map((a) => (a.userId === userId ? { ...a, classCount: count } : a))
+    )
+  }
+
+  const totalAllocated = shareAllocations.reduce((sum, a) => sum + a.classCount, 0)
+  const maxShareable = selectedSharePurchase?.classesRemaining ?? 0
+
+  const handleSharePackage = async () => {
+    if (!userToShare || !selectedSharePurchaseId || shareAllocations.length === 0) return
+
+    setIsSharing(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch(`/api/admin/users/${userToShare.id}/share-package`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          purchaseId: selectedSharePurchaseId,
+          allocations: shareAllocations.map((a) => ({
+            userId: a.userId,
+            classCount: a.classCount,
+          })),
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        showError(result.error || 'Error al compartir el paquete')
+        return
+      }
+
+      showSuccess(result.message || 'Paquete compartido exitosamente')
+      setShowShareModal(false)
+      setUserToShare(null)
+      await fetchUsers(currentPage, searchQuery)
+    } catch {
+      showError('Error de conexión')
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -465,6 +623,14 @@ export default function AdminUsuariosPage() {
                         >
                           <Minus className="h-4 w-4 mr-1" />
                           Deducir
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openShareModal(user)}
+                        >
+                          <Share2 className="h-4 w-4 mr-1" />
+                          Compartir
                         </Button>
                         <Button
                           variant="ghost"
@@ -868,6 +1034,261 @@ export default function AdminUsuariosPage() {
               <KeyRound className="h-4 w-4 mr-2" />
               Confirmar Reset
             </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Share Package Modal */}
+      <Modal open={showShareModal} onOpenChange={() => !isSharing && setShowShareModal(false)}>
+        <ModalContent className="max-w-lg">
+          <ModalHeader>
+            <ModalTitle>
+              <div className="flex items-center gap-2">
+                <Share2 className="h-5 w-5" />
+                Compartir Paquete
+              </div>
+            </ModalTitle>
+          </ModalHeader>
+
+          <div className="py-4 space-y-4">
+            {userToShare && (
+              <div className="p-4 bg-beige rounded-lg">
+                <p className="text-sm text-gray-600">Compartir paquete de:</p>
+                <p className="font-medium text-foreground">
+                  {userToShare.name || userToShare.email}
+                </p>
+              </div>
+            )}
+
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 text-sm">
+              <span className={`px-2 py-1 rounded ${shareStep >= 1 ? 'bg-primary text-white' : 'bg-beige text-gray-500'}`}>1. Paquete</span>
+              <span className="text-gray-300">→</span>
+              <span className={`px-2 py-1 rounded ${shareStep >= 2 ? 'bg-primary text-white' : 'bg-beige text-gray-500'}`}>2. Usuarios</span>
+              <span className="text-gray-300">→</span>
+              <span className={`px-2 py-1 rounded ${shareStep >= 3 ? 'bg-primary text-white' : 'bg-beige text-gray-500'}`}>3. Confirmar</span>
+            </div>
+
+            {isLoadingSharePurchases ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : sharePurchases.length === 0 ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
+                Este usuario no tiene paquetes activos con clases disponibles.
+              </div>
+            ) : (
+              <>
+                {/* Step 1: Select purchase */}
+                {shareStep === 1 && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Seleccionar paquete a compartir
+                      </label>
+                      <Select
+                        value={selectedSharePurchaseId}
+                        onValueChange={(value) => {
+                          setSelectedSharePurchaseId(value)
+                          setShareAllocations([])
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un paquete" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sharePurchases.map((purchase) => (
+                            <SelectItem key={purchase.id} value={purchase.id}>
+                              {purchase.packageName} ({purchase.classesRemaining} disponibles)
+                              {purchase.sharedGroupId && ' [Compartido]'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedSharePurchase && (
+                      <div className="p-3 bg-beige rounded-lg text-sm space-y-1">
+                        <p><span className="text-gray-500">Paquete:</span> {selectedSharePurchase.packageName}</p>
+                        <p><span className="text-gray-500">Clases disponibles:</span> {selectedSharePurchase.classesRemaining}</p>
+                        <p><span className="text-gray-500">Expira:</span> {formatDate(new Date(selectedSharePurchase.expiresAt))}</p>
+                        {selectedSharePurchase.sharedMembers && selectedSharePurchase.sharedMembers.length > 0 && (
+                          <div className="pt-1">
+                            <span className="text-gray-500">Ya compartido con:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {selectedSharePurchase.sharedMembers.map((m) => (
+                                <Badge key={m.purchaseId} variant="secondary">
+                                  <Users className="h-3 w-3 mr-1" />
+                                  {m.userName || 'Sin nombre'} ({m.classesRemaining})
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 2: Add users and allocations */}
+                {shareStep === 2 && selectedSharePurchase && (
+                  <div className="space-y-4">
+                    <div className="p-3 bg-beige rounded-lg text-sm">
+                      <p><span className="text-gray-500">Paquete:</span> {selectedSharePurchase.packageName}</p>
+                      <p><span className="text-gray-500">Disponibles:</span> {selectedSharePurchase.classesRemaining} clases</p>
+                    </div>
+
+                    {/* Search users */}
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Buscar usuario destinatario
+                      </label>
+                      <div className="relative">
+                        <Input
+                          placeholder="Buscar por nombre o email..."
+                          value={shareUserSearch}
+                          onChange={(e) => handleShareUserSearch(e.target.value)}
+                          icon={isSearchingShareUsers ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <Search className="h-5 w-5" />}
+                        />
+                        {shareSearchResults.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                            {shareSearchResults.map((user) => (
+                              <button
+                                key={user.id}
+                                type="button"
+                                className="w-full px-4 py-2 text-left hover:bg-beige text-sm flex justify-between items-center"
+                                onClick={() => addShareAllocation(user)}
+                              >
+                                <span className="font-medium">{user.name || 'Sin nombre'}</span>
+                                <span className="text-gray-500">{user.email}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Allocations list */}
+                    {shareAllocations.length > 0 && (
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-foreground">
+                          Asignaciones
+                        </label>
+                        {shareAllocations.map((allocation) => (
+                          <div
+                            key={allocation.userId}
+                            className="flex items-center gap-3 p-3 bg-beige rounded-lg"
+                          >
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{allocation.userName}</p>
+                            </div>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={maxShareable - totalAllocated + allocation.classCount}
+                              value={allocation.classCount}
+                              onChange={(e) =>
+                                updateAllocationCount(
+                                  allocation.userId,
+                                  Math.max(1, Math.min(
+                                    maxShareable - totalAllocated + allocation.classCount,
+                                    parseInt(e.target.value) || 1
+                                  ))
+                                )
+                              }
+                              className="w-20"
+                            />
+                            <span className="text-sm text-gray-500">clases</span>
+                            <button
+                              type="button"
+                              onClick={() => removeShareAllocation(allocation.userId)}
+                              className="p-1 hover:bg-red-100 rounded text-red-500"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                        <div className="text-sm text-gray-600 flex justify-between">
+                          <span>Total a compartir: <strong>{totalAllocated}</strong></span>
+                          <span>Restante para origen: <strong>{maxShareable - totalAllocated}</strong></span>
+                        </div>
+                        {totalAllocated > maxShareable && (
+                          <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                            Las clases asignadas exceden las disponibles
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 3: Confirm */}
+                {shareStep === 3 && selectedSharePurchase && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-sm space-y-2">
+                      <p className="font-medium text-green-800">Resumen de la distribución:</p>
+                      <div className="space-y-1 text-green-700">
+                        <p>
+                          <span className="text-green-600">Origen:</span>{' '}
+                          {userToShare?.name || userToShare?.email} →{' '}
+                          <strong>{maxShareable - totalAllocated}</strong> clases restantes
+                        </p>
+                        {shareAllocations.map((a) => (
+                          <p key={a.userId}>
+                            <span className="text-green-600">→</span>{' '}
+                            {a.userName}: <strong>{a.classCount}</strong> clases
+                          </p>
+                        ))}
+                      </div>
+                      <hr className="border-green-200" />
+                      <p className="text-green-700">
+                        Paquete: <strong>{selectedSharePurchase.packageName}</strong>
+                        {' '}| Vence: {formatDate(new Date(selectedSharePurchase.expiresAt))}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <ModalFooter>
+            {shareStep > 1 && (
+              <Button
+                variant="outline"
+                onClick={() => setShareStep((s) => (s > 1 ? (s - 1) as 1 | 2 | 3 : s))}
+                disabled={isSharing}
+              >
+                Atrás
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setShowShareModal(false)}
+              disabled={isSharing}
+            >
+              Cancelar
+            </Button>
+            {shareStep < 3 ? (
+              <Button
+                onClick={() => setShareStep((s) => (s < 3 ? (s + 1) as 1 | 2 | 3 : s))}
+                disabled={
+                  (shareStep === 1 && !selectedSharePurchaseId) ||
+                  (shareStep === 2 && (shareAllocations.length === 0 || totalAllocated > maxShareable))
+                }
+              >
+                Siguiente
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSharePackage}
+                isLoading={isSharing}
+                disabled={shareAllocations.length === 0 || totalAllocated > maxShareable}
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                Confirmar Compartir
+              </Button>
+            )}
           </ModalFooter>
         </ModalContent>
       </Modal>

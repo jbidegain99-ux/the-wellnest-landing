@@ -62,36 +62,92 @@ export async function GET() {
         new Date(p.expiresAt) <= now
     )
 
+    // For shared purchases, fetch sharing info
+    const sharedGroupIds = Array.from(new Set(
+      purchases.map((p) => p.sharedGroupId).filter(Boolean) as string[]
+    ))
+
+    let sharedInfo: Record<string, Array<{ userName: string | null; isOriginal: boolean }>> = {}
+
+    if (sharedGroupIds.length > 0) {
+      const groupPurchases = await prisma.purchase.findMany({
+        where: {
+          sharedGroupId: { in: sharedGroupIds },
+          userId: { not: userId },
+        },
+        include: {
+          user: { select: { name: true } },
+        },
+      })
+
+      for (const gp of groupPurchases) {
+        if (!gp.sharedGroupId) continue
+        if (!sharedInfo[gp.sharedGroupId]) {
+          sharedInfo[gp.sharedGroupId] = []
+        }
+        sharedInfo[gp.sharedGroupId].push({
+          userName: gp.user.name,
+          isOriginal: !gp.sharedFromId,
+        })
+      }
+    }
+
+    // For child purchases, fetch original owner name
+    const sharedFromIds = Array.from(new Set(
+      purchases.map((p) => p.sharedFromId).filter(Boolean) as string[]
+    ))
+
+    let originalOwners: Record<string, string | null> = {}
+
+    if (sharedFromIds.length > 0) {
+      const originals = await prisma.purchase.findMany({
+        where: { id: { in: sharedFromIds } },
+        include: { user: { select: { name: true } } },
+      })
+      for (const o of originals) {
+        originalOwners[o.id] = o.user.name
+      }
+    }
+
+    const mapPurchase = (p: typeof purchases[0], includeReservations: boolean) => {
+      const isShared = !!p.sharedGroupId
+      const isChild = !!p.sharedFromId
+      const classesTotal = isShared && p.classesAllocated != null
+        ? p.classesAllocated
+        : p.package.classCount
+      const classesUsed = classesTotal - p.classesRemaining
+
+      return {
+        id: p.id,
+        packageId: p.packageId,
+        packageName: p.package.name,
+        classesTotal,
+        classesRemaining: p.classesRemaining,
+        classesUsed: Math.max(0, classesUsed),
+        expiresAt: p.expiresAt,
+        purchasedAt: p.createdAt,
+        status: p.status,
+        isShared,
+        isChild,
+        sharedByName: isChild && p.sharedFromId ? (originalOwners[p.sharedFromId] || null) : null,
+        sharedWith: isShared && p.sharedGroupId ? (sharedInfo[p.sharedGroupId] || []) : [],
+        ...(includeReservations
+          ? {
+              reservations: p.reservations.map((r) => ({
+                id: r.id,
+                discipline: r.class.discipline?.name,
+                instructor: r.class.instructor?.name,
+                dateTime: r.class.dateTime,
+                status: r.status,
+              })),
+            }
+          : {}),
+      }
+    }
+
     return NextResponse.json({
-      activePurchases: activePurchases.map((p) => ({
-        id: p.id,
-        packageId: p.packageId,
-        packageName: p.package.name,
-        classesTotal: p.package.classCount,
-        classesRemaining: p.classesRemaining,
-        classesUsed: p.package.classCount - p.classesRemaining,
-        expiresAt: p.expiresAt,
-        purchasedAt: p.createdAt,
-        status: p.status,
-        reservations: p.reservations.map((r) => ({
-          id: r.id,
-          discipline: r.class.discipline?.name,
-          instructor: r.class.instructor?.name,
-          dateTime: r.class.dateTime,
-          status: r.status,
-        })),
-      })),
-      historyPurchases: historyPurchases.map((p) => ({
-        id: p.id,
-        packageId: p.packageId,
-        packageName: p.package.name,
-        classesTotal: p.package.classCount,
-        classesRemaining: p.classesRemaining,
-        classesUsed: p.package.classCount - p.classesRemaining,
-        expiresAt: p.expiresAt,
-        purchasedAt: p.createdAt,
-        status: p.status,
-      })),
+      activePurchases: activePurchases.map((p) => mapPurchase(p, true)),
+      historyPurchases: historyPurchases.map((p) => mapPurchase(p, false)),
       totalActive: activePurchases.length,
       totalClassesRemaining: activePurchases.reduce(
         (sum, p) => sum + p.classesRemaining,
