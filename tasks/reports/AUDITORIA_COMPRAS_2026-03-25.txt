@@ -1,0 +1,58 @@
+════════════════════════════════════════════════════════════════════
+AUDITORÍA DE COMPRAS - WELLNEST STUDIO
+Generado: 2026-03-25 (UTC-6 El Salvador)
+Corte: Todas las compras hasta 2026-03-25 23:59:59 (hora SV)
+════════════════════════════════════════════════════════════════════
+
+1. CLIENTES ACTIVOS CON COMPRAS
+──────────────────────────────────
+Total: 191 clientes únicos con al menos 1 compra
+
+2. DISTRIBUCIÓN POR PAQUETE
+───────────────────────────
+Paquete                                          Precio    Compras   Ingresos Totales
+─────────────────────────────────────────────────────────────────────────────────────
+Clase de Prueba                                   $0.00        147              $0.00
+Welcome to Wellnest (2 clases)                   $15.00         20            $285.00
+Mini Flow (4 clases)                             $49.99         17            $599.88
+Balance Pass (8 clases)                          $59.49         15            $832.86
+Mini Flow (4 clases)                             $42.49         15            $594.86
+1 Clase                                          $15.00         11            $120.00
+Energía Total (12 clases)                        $95.00          7            $484.50
+Balance Pass (8 clases)                          $69.99          6            $279.96
+Wellnest Trimestral (80 clases)                 $355.00          3              $0.00
+Special Balance (5 clases)                       $65.00          2            $130.00
+Vital Plan (16 clases)                           $92.00          1              $0.00
+─────────────────────────────────────────────────────────────────────────────────────
+TOTAL                                                          244           $3327.06
+
+3. DISTRIBUCIÓN POR DISCIPLINA (basada en reservaciones)
+─────────────────────────────────────────────────────────
+Nota: Los paquetes de Wellnest son "all-access" (no tienen
+disciplinas asignadas). Esta sección muestra la demanda real
+por disciplina, basada en las clases reservadas por los clientes.
+Si una clase tiene disciplina complementaria, se cuenta en ambas.
+
+Disciplina                               Reservaciones % del Total
+─────────────────────────────────────────────────────────────────
+Pole Fitness                                       222      52.6%
+Mat Pilates                                         57      13.5%
+Terapia de Sonido                                   57      13.5%
+Yoga                                                46      10.9%
+Telas                                               35       8.3%
+Aro                                                 28       6.6%
+Aro y Telas                                         12       2.8%
+Baile                                                1       0.2%
+─────────────────────────────────────────────────────────────────
+Total reservaciones (no canceladas)                422
+
+════════════════════════════════════════════════════════════════════
+VERIFICACIÓN
+──────────────────────────────────
+✅ Clientes distintos (DISTINCT userId): 191
+✅ Total de compras (Purchase records): 244
+✅ Total ingresos (suma finalPrice): $3327.06
+✅ Clientes (191) <= Compras (244): OK
+✅ Reservaciones no canceladas: 422
+✅ PackageDiscipline vacía → disciplinas medidas por uso real: OK
+════════════════════════════════════════════════════════════════════
