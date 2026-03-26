@@ -100,7 +100,7 @@ export default function InvitacionesPage() {
           Programa de Referidos
         </h1>
         <p className="text-gray-600 mt-1">
-          Invita a tus amigos y gana clases gratis
+          Invita a tus amigos y obtén un 10% de descuento.
         </p>
       </div>
 
@@ -116,11 +116,21 @@ export default function InvitacionesPage() {
                 ¿Cómo funciona?
               </h3>
               <ol className="list-decimal list-inside space-y-2 text-gray-600">
-                <li>Comparte tu código o link con tus amigos</li>
+                <li>Comparte tu código o link con tus amigos.</li>
                 <li>Cuando tu amigo se registre y compre su primer paquete</li>
+                <li>Tu recibes un código con el 10% de descuento.</li>
+                <li>Está promoción solo aplica para el paquete balance pass (8 clases).</li>
                 <li>
-                  ¡Tú recibes <strong>1 clase gratis</strong> y tu amigo recibe{' '}
-                  <strong>10% de descuento</strong>!
+                  Si tu paquete código no funciona escríbenos al{' '}
+                  <a
+                    href="https://www.instagram.com/wellnest.stu?igsh=NnFtZmIyZ3diaHZi"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline hover:text-primary/80"
+                  >
+                    instagram de Wellnest
+                  </a>
+                  .
                 </li>
               </ol>
             </div>
