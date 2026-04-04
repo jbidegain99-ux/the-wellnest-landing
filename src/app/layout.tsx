@@ -56,7 +56,7 @@ export default function RootLayout({
           </main>
           <Footer />
         </Providers>
-        <Script id="sw-register" strategy="lazyOnceIdle">
+        <Script id="sw-register" strategy="lazyOnload">
           {`if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(() => {}) }`}
         </Script>
       </body>
