@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Quicksand } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -39,6 +40,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={quicksand.variable}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#9CAF88" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Wellnest" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
       <body className="min-h-screen flex flex-col">
         <Providers>
           <Navbar />
@@ -47,6 +56,9 @@ export default function RootLayout({
           </main>
           <Footer />
         </Providers>
+        <Script id="sw-register" strategy="lazyOnceIdle">
+          {`if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(() => {}) }`}
+        </Script>
       </body>
     </html>
   )

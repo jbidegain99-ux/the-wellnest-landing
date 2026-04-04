@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/Select'
 import { format } from 'date-fns'
+import { StatusCard } from '@/components/dashboard/StatusCard'
 
 interface UserProfile {
   id: string
@@ -238,6 +239,9 @@ export default function PerfilPage() {
           </div>
         )}
       </div>
+
+      {/* Status Card */}
+      <StatusCard />
 
       {/* Success message */}
       {saveSuccess && (

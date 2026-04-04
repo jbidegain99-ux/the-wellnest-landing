@@ -18,13 +18,19 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+interface NavBadges {
+  activePaquetes: number
+  proximasReservas: number
+  listaEspera: number
+}
+
 const navigation = [
-  { name: 'Mi Perfil', href: '/perfil', icon: User },
-  { name: 'Mis Paquetes', href: '/perfil/paquetes', icon: Package },
-  { name: 'Próximas Reservas', href: '/perfil/reservas', icon: Calendar },
-  { name: 'Lista de Espera', href: '/perfil/espera', icon: Clock },
-  { name: 'Historial', href: '/perfil/historial', icon: History },
-  { name: 'Mis Invitaciones', href: '/perfil/invitaciones', icon: Gift },
+  { name: 'Mi Perfil', href: '/perfil', icon: User, badgeKey: null },
+  { name: 'Mis Paquetes', href: '/perfil/paquetes', icon: Package, badgeKey: 'activePaquetes' as const },
+  { name: 'Próximas Reservas', href: '/perfil/reservas', icon: Calendar, badgeKey: 'proximasReservas' as const },
+  { name: 'Lista de Espera', href: '/perfil/espera', icon: Clock, badgeKey: 'listaEspera' as const },
+  { name: 'Historial', href: '/perfil/historial', icon: History, badgeKey: null },
+  { name: 'Mis Invitaciones', href: '/perfil/invitaciones', icon: Gift, badgeKey: null },
 ]
 
 export default function DashboardLayout({
@@ -35,6 +41,23 @@ export default function DashboardLayout({
   const { data: session, status } = useSession()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
+  const [badges, setBadges] = React.useState<NavBadges | null>(null)
+
+  React.useEffect(() => {
+    if (status !== 'authenticated') return
+
+    fetch('/api/user/nav-badges')
+      .then((res) => {
+        if (res.ok) return res.json()
+        return null
+      })
+      .then((data) => {
+        if (data) setBadges(data)
+      })
+      .catch(() => {
+        // Silently ignore badge fetch errors
+      })
+  }, [status])
 
   if (status === 'loading') {
     return (
@@ -86,7 +109,12 @@ export default function DashboardLayout({
                       )}
                     >
                       <Icon className="h-5 w-5" />
-                      {item.name}
+                      <span className="flex-1">{item.name}</span>
+                      {item.badgeKey && badges && badges[item.badgeKey] > 0 && (
+                        <span className="min-w-[20px] h-5 flex items-center justify-center rounded-full bg-primary text-white text-xs">
+                          {badges[item.badgeKey]}
+                        </span>
+                      )}
                     </Link>
                   )
                 })}
