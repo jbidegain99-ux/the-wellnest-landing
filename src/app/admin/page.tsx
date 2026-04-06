@@ -4,6 +4,8 @@ import {
   Calendar,
   Package,
   Clock,
+  UserCheck,
+  AlertTriangle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -26,6 +28,8 @@ interface DashboardStats {
   todayReservations: number
   weekReservations: number
   activePackages: number
+  activePackageUsers: number
+  expiringThisWeek: number
 }
 
 interface PopularClass {
@@ -69,6 +73,8 @@ async function getDashboardData() {
     todayReservations,
     weekReservations,
     activePackages,
+    activePackageUsersRaw,
+    expiringThisWeekRaw,
     popularClassesRaw,
     recentSalesRaw,
     todayClasses,
@@ -117,6 +123,29 @@ async function getDashboardData() {
         classesRemaining: { gt: 0 },
         expiresAt: { gt: now },
       },
+    }),
+
+    // Distinct users with at least one active (non-expired) package
+    prisma.purchase.findMany({
+      where: {
+        status: 'ACTIVE',
+        expiresAt: { gt: now },
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+    }),
+
+    // Packages expiring within the next 7 days (America/El_Salvador)
+    prisma.purchase.findMany({
+      where: {
+        status: 'ACTIVE',
+        expiresAt: {
+          gt: now,
+          lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        },
+      },
+      select: { userId: true },
+      distinct: ['userId'],
     }),
 
     // Popular classes this month (by reservation count per discipline)
@@ -210,6 +239,8 @@ async function getDashboardData() {
     todayReservations,
     weekReservations,
     activePackages,
+    activePackageUsers: activePackageUsersRaw.length,
+    expiringThisWeek: expiringThisWeekRaw.length,
   }
 
   return { stats, popularClasses, recentSales, upcomingClasses }
@@ -231,7 +262,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -300,6 +331,40 @@ export default async function AdminDashboard() {
               </div>
               <div className="p-3 bg-earthTone/10 rounded-full">
                 <Package className="h-6 w-6 text-earthTone" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Usuarios con paquete activo</p>
+                <p className="text-2xl font-serif font-semibold text-foreground mt-1">
+                  {stats.activePackageUsers}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">Con paquete vigente</p>
+              </div>
+              <div className="p-3 bg-primary/10 rounded-full">
+                <UserCheck className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Vencen esta semana</p>
+                <p className="text-2xl font-serif font-semibold text-foreground mt-1">
+                  {stats.expiringThisWeek}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">Próximos 7 días</p>
+              </div>
+              <div className="p-3 bg-[var(--color-warning)]/10 rounded-full">
+                <AlertTriangle className="h-6 w-6 text-[var(--color-warning)]" />
               </div>
             </div>
           </CardContent>

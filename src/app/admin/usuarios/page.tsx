@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Eye, Package, Calendar, Loader2, Check, AlertCircle, Plus, Minus, KeyRound, Share2, Users, X } from 'lucide-react'
+import { Search, Eye, Package, Calendar, Loader2, Check, AlertCircle, Plus, Minus, KeyRound, Share2, Users, X, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -104,6 +104,7 @@ export default function AdminUsuariosPage() {
   const [showAssignModal, setShowAssignModal] = React.useState(false)
   const [userToAssign, setUserToAssign] = React.useState<User | null>(null)
   const [selectedPackageId, setSelectedPackageId] = React.useState<string>('')
+  const [sendInvoice, setSendInvoice] = React.useState(false)
   const [isAssigning, setIsAssigning] = React.useState(false)
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
@@ -220,6 +221,7 @@ export default function AdminUsuariosPage() {
   const openAssignModal = (user: User) => {
     setUserToAssign(user)
     setSelectedPackageId('')
+    setSendInvoice(false)
     setShowAssignModal(true)
   }
 
@@ -233,7 +235,7 @@ export default function AdminUsuariosPage() {
       const response = await fetch(`/api/admin/users/${userToAssign.id}/assign-package`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageId: selectedPackageId }),
+        body: JSON.stringify({ packageId: selectedPackageId, sendInvoice }),
       })
 
       const result = await response.json()
@@ -549,7 +551,7 @@ export default function AdminUsuariosPage() {
               </thead>
               <tbody className="divide-y divide-beige">
                 {users.map((user) => (
-                  <tr key={user.id}>
+                  <tr key={user.id} className="cursor-pointer hover:bg-beige/50 transition-colors" onClick={() => window.location.href = `/admin/usuarios/${user.id}`}>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <Avatar
@@ -598,7 +600,7 @@ export default function AdminUsuariosPage() {
                     <td className="py-3 px-4 text-gray-600">
                       {formatDate(new Date(user.createdAt))}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
                         <Button
                           variant="ghost"
@@ -840,9 +842,34 @@ export default function AdminUsuariosPage() {
             </div>
 
             {selectedPackageId && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                <p>Este paquete será asignado sin costo al usuario.</p>
-              </div>
+              <>
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                  <p>Este paquete será asignado sin costo al usuario.</p>
+                </div>
+
+                {(() => {
+                  const selectedPkg = packages.find(p => p.id === selectedPackageId)
+                  return selectedPkg && selectedPkg.price > 0 ? (
+                    <label className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sendInvoice}
+                        onChange={(e) => setSendInvoice(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <div className="text-sm">
+                        <p className="font-medium text-blue-800 flex items-center gap-1.5">
+                          <FileText className="h-4 w-4" />
+                          Enviar a facturación
+                        </p>
+                        <p className="text-blue-600 mt-0.5">
+                          Genera factura electrónica por ${selectedPkg.price.toFixed(2)}
+                        </p>
+                      </div>
+                    </label>
+                  ) : null
+                })()}
+              </>
             )}
           </div>
 
@@ -859,7 +886,7 @@ export default function AdminUsuariosPage() {
               disabled={!selectedPackageId}
               isLoading={isAssigning}
             >
-              Asignar Paquete
+              {sendInvoice ? 'Asignar y Facturar' : 'Asignar Paquete'}
             </Button>
           </ModalFooter>
         </ModalContent>
