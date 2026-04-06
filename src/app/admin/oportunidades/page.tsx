@@ -39,6 +39,7 @@ interface ExpiringPackage {
   userName: string | null
   userEmail: string
   userPhone: string | null
+  hasActivePackage: boolean
   packageName: string
   packagePrice: number
   classesRemaining: number
@@ -51,6 +52,7 @@ interface AbandonedCart {
   userName: string | null
   userEmail: string
   userPhone: string | null
+  hasActivePackage: boolean
   packageName: string
   amount: number
   attemptDate: string
@@ -62,6 +64,7 @@ interface TrialUser {
   userName: string | null
   userEmail: string
   userPhone: string | null
+  hasActivePackage: boolean
   trialDate: string
   daysSinceTrial: number
   trialPackage: string
@@ -72,6 +75,7 @@ interface LowRemaining {
   userName: string | null
   userEmail: string
   userPhone: string | null
+  hasActivePackage: boolean
   packageName: string
   classesRemaining: number
   totalClasses: number
@@ -83,6 +87,7 @@ interface InactiveUser {
   userName: string | null
   userEmail: string
   userPhone: string | null
+  hasActivePackage: boolean
   lastPackage: string
   lastPurchaseDate: string
   daysSinceLastPurchase: number
@@ -93,6 +98,7 @@ interface UpsellCandidate {
   userName: string | null
   userEmail: string
   userPhone: string | null
+  hasActivePackage: boolean
   purchaseCount: number
   totalSpent: number
   maxPackageSize: number
@@ -113,6 +119,7 @@ interface RecurringNoShow {
   userName: string | null
   userEmail: string
   userPhone: string | null
+  hasActivePackage: boolean
   noShowCount: number
   lastClass: string
 }
@@ -190,6 +197,7 @@ function UserRow({
   userEmail,
   userPhone,
   userId,
+  hasActivePackage,
   children,
   message,
 }: {
@@ -197,6 +205,7 @@ function UserRow({
   userEmail: string
   userPhone: string | null
   userId: string
+  hasActivePackage?: boolean
   children: React.ReactNode
   message: string
 }) {
@@ -211,6 +220,17 @@ function UserRow({
             {userName || 'Sin nombre'}
           </a>
           <ExternalLink className="h-3 w-3 text-gray-400" />
+          {hasActivePackage !== undefined && (
+            hasActivePackage ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-50 text-green-700 border border-green-200">
+                Paquete activo
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-50 text-red-600 border border-red-200">
+                Sin paquete
+              </span>
+            )
+          )}
         </div>
         <p className="text-sm text-gray-500 truncate">{userEmail}</p>
         {children}
@@ -368,6 +388,7 @@ export default function OportunidadesPage() {
                     userName={item.userName}
                     userEmail={item.userEmail}
                     userPhone={item.userPhone}
+                    hasActivePackage={item.hasActivePackage}
                     message={`Hola ${item.userName || ''}! Tu paquete ${item.packageName} en Wellnest Studio vence en ${item.daysUntilExpiry} dia(s). Nos encantaria que continues tu practica. Te podemos ayudar a renovar?`}
                   >
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -394,6 +415,7 @@ export default function OportunidadesPage() {
                     userName={item.userName}
                     userEmail={item.userEmail}
                     userPhone={item.userPhone}
+                    hasActivePackage={item.hasActivePackage}
                     message={`Hola ${item.userName || ''}! Notamos que estuviste interesado(a) en el paquete ${item.packageName} en Wellnest Studio. Podemos ayudarte a completar tu compra?`}
                   >
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -420,6 +442,7 @@ export default function OportunidadesPage() {
                     userName={item.userName}
                     userEmail={item.userEmail}
                     userPhone={item.userPhone}
+                    hasActivePackage={item.hasActivePackage}
                     message={`Hola ${item.userName || ''}! Esperamos que hayas disfrutado tu clase de prueba en Wellnest Studio. Tenemos paquetes especiales para que continues tu practica. Te gustaria conocerlos?`}
                   >
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -445,6 +468,7 @@ export default function OportunidadesPage() {
                     userName={item.userName}
                     userEmail={item.userEmail}
                     userPhone={item.userPhone}
+                    hasActivePackage={item.hasActivePackage}
                     message={`Hola ${item.userName || ''}! Te quedan ${item.classesRemaining} clase(s) en tu paquete ${item.packageName}. Quieres que te ayudemos a renovar para que no pierdas tu ritmo?`}
                   >
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -471,6 +495,7 @@ export default function OportunidadesPage() {
                     userName={item.userName}
                     userEmail={item.userEmail}
                     userPhone={item.userPhone}
+                    hasActivePackage={item.hasActivePackage}
                     message={`Hola ${item.userName || ''}! Te extraniamos en Wellnest Studio. Han pasado ${item.daysSinceLastPurchase} dias desde tu ultimo paquete. Tenemos nuevas clases y horarios que podrian interesarte!`}
                   >
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -496,6 +521,7 @@ export default function OportunidadesPage() {
                     userName={item.userName}
                     userEmail={item.userEmail}
                     userPhone={item.userPhone}
+                    hasActivePackage={item.hasActivePackage}
                     message={`Hola ${item.userName || ''}! Hemos notado que eres un cliente frecuente de Wellnest Studio (${item.purchaseCount} compras). Tenemos paquetes mas grandes con mejor precio por clase. Te gustaria conocerlos?`}
                   >
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -570,6 +596,7 @@ export default function OportunidadesPage() {
                     userName={item.userName}
                     userEmail={item.userEmail}
                     userPhone={item.userPhone}
+                    hasActivePackage={item.hasActivePackage}
                     message={`Hola ${item.userName || ''}! Hemos notado que no pudiste asistir a algunas clases reservadas. Todo bien? Podemos ayudarte a encontrar horarios mas convenientes.`}
                   >
                     <div className="flex flex-wrap gap-2 mt-1">

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getNowInSV } from '@/lib/utils/timezone'
+import { EXCLUDED_USER_IDS } from '@/lib/constants'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,9 @@ export async function GET() {
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
+    // Exclusion filter for test/internal users
+    const excludeUsers = { notIn: EXCLUDED_USER_IDS }
+
     const [
       expiringPackages,
       abandonedCarts,
@@ -25,12 +29,14 @@ export async function GET() {
       lowRemainingPackages,
       classes,
       noShowReservations,
+      activePackagePurchases,
     ] = await Promise.all([
       // 1. Packages expiring this week
       prisma.purchase.findMany({
         where: {
           status: 'ACTIVE',
           expiresAt: { gt: now, lte: sevenDaysFromNow },
+          userId: excludeUsers,
         },
         include: {
           user: { select: { id: true, name: true, email: true, phone: true } },
@@ -41,7 +47,7 @@ export async function GET() {
 
       // 2. Abandoned carts (pending orders)
       prisma.order.findMany({
-        where: { status: 'PENDING' },
+        where: { status: 'PENDING', userId: excludeUsers },
         include: {
           user: { select: { id: true, name: true, email: true, phone: true } },
           items: { include: { package: { select: { name: true, price: true } } } },
@@ -49,8 +55,9 @@ export async function GET() {
         orderBy: { createdAt: 'desc' },
       }),
 
-      // 3 & 5 & 6. All purchases for trial conversion, inactive users, and upsell analysis
+      // 3 & 5 & 6. All purchases (exclude test users)
       prisma.purchase.findMany({
+        where: { userId: excludeUsers },
         include: {
           user: { select: { id: true, name: true, email: true, phone: true } },
           package: { select: { name: true, price: true, classCount: true } },
@@ -62,6 +69,7 @@ export async function GET() {
       prisma.purchase.findMany({
         where: {
           package: { name: { contains: 'Prueba', mode: 'insensitive' } },
+          userId: excludeUsers,
         },
         select: { userId: true },
       }),
@@ -72,6 +80,7 @@ export async function GET() {
           status: 'ACTIVE',
           classesRemaining: { lte: 2, gt: 0 },
           expiresAt: { gt: now },
+          userId: excludeUsers,
         },
         include: {
           user: { select: { id: true, name: true, email: true, phone: true } },
@@ -80,7 +89,7 @@ export async function GET() {
         orderBy: { classesRemaining: 'asc' },
       }),
 
-      // 7 & 9. Classes for demand and occupancy analysis (last 30 days + upcoming)
+      // 7 & 9. Classes for demand and occupancy analysis
       prisma.class.findMany({
         where: {
           isCancelled: false,
@@ -98,11 +107,12 @@ export async function GET() {
         orderBy: { dateTime: 'desc' },
       }),
 
-      // 8. No-show reservations (last 30 days)
+      // 8. No-show reservations (exclude test users)
       prisma.reservation.findMany({
         where: {
           status: 'NO_SHOW',
           createdAt: { gte: thirtyDaysAgo },
+          userId: excludeUsers,
         },
         include: {
           user: { select: { id: true, name: true, email: true, phone: true } },
@@ -113,7 +123,21 @@ export async function GET() {
           },
         },
       }),
+
+      // All users with currently active packages (for hasActivePackage indicator)
+      prisma.purchase.findMany({
+        where: {
+          status: 'ACTIVE',
+          expiresAt: { gt: now },
+          userId: excludeUsers,
+        },
+        select: { userId: true },
+        distinct: ['userId'],
+      }),
     ])
+
+    // Set of user IDs with an active package right now
+    const activePackageUserIds = new Set(activePackagePurchases.map((p) => p.userId))
 
     // --- Process data ---
 
@@ -123,6 +147,7 @@ export async function GET() {
       userName: p.user.name,
       userEmail: p.user.email,
       userPhone: p.user.phone,
+      hasActivePackage: activePackageUserIds.has(p.user.id),
       packageName: p.package.name,
       packagePrice: p.package.price,
       classesRemaining: p.classesRemaining,
@@ -136,6 +161,7 @@ export async function GET() {
       userName: o.user.name,
       userEmail: o.user.email,
       userPhone: o.user.phone,
+      hasActivePackage: activePackageUserIds.has(o.user.id),
       packageName: o.items.map((i) => i.package.name).join(', ') || 'Desconocido',
       amount: o.total,
       attemptDate: o.createdAt.toISOString(),
@@ -162,6 +188,7 @@ export async function GET() {
         userName: p.user.name,
         userEmail: p.user.email,
         userPhone: p.user.phone,
+        hasActivePackage: activePackageUserIds.has(p.user.id),
         trialDate: p.createdAt.toISOString(),
         daysSinceTrial: Math.floor((now.getTime() - p.createdAt.getTime()) / (1000 * 60 * 60 * 24)),
         trialPackage: p.package.name,
@@ -173,6 +200,7 @@ export async function GET() {
       userName: p.user.name,
       userEmail: p.user.email,
       userPhone: p.user.phone,
+      hasActivePackage: activePackageUserIds.has(p.user.id),
       packageName: p.package.name,
       classesRemaining: p.classesRemaining,
       totalClasses: p.package.classCount,
@@ -200,6 +228,7 @@ export async function GET() {
         userName: data.user.name,
         userEmail: data.user.email,
         userPhone: data.user.phone,
+        hasActivePackage: activePackageUserIds.has(userId),
         lastPackage: data.packageName,
         lastPurchaseDate: data.date.toISOString(),
         daysSinceLastPurchase: Math.floor((now.getTime() - data.date.getTime()) / (1000 * 60 * 60 * 24)),
@@ -231,6 +260,7 @@ export async function GET() {
         userName: data.user.name,
         userEmail: data.user.email,
         userPhone: data.user.phone,
+        hasActivePackage: activePackageUserIds.has(userId),
         purchaseCount: data.count,
         totalSpent: data.totalSpent,
         maxPackageSize: data.maxClassCount,
@@ -271,6 +301,7 @@ export async function GET() {
         userName: data.user.name,
         userEmail: data.user.email,
         userPhone: data.user.phone,
+        hasActivePackage: activePackageUserIds.has(userId),
         noShowCount: data.count,
         lastClass: data.lastClass,
       }))

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { prisma } from '@/lib/prisma'
+import { EXCLUDED_USER_IDS } from '@/lib/constants'
 import {
   getStartOfTodaySV,
   getEndOfTodaySV,
@@ -79,63 +80,70 @@ async function getDashboardData() {
     recentSalesRaw,
     todayClasses,
   ] = await Promise.all([
-    // Monthly revenue from paid orders
+    // Monthly revenue from paid orders (exclude test users)
     prisma.order.aggregate({
       where: {
         status: 'PAID',
         paidAt: { gte: monthStartUTC },
+        userId: { notIn: EXCLUDED_USER_IDS },
       },
       _sum: { total: true },
     }),
 
-    // Total users
-    prisma.user.count(),
-
-    // New users this month
+    // Total users (exclude test users)
     prisma.user.count({
-      where: { createdAt: { gte: monthStartUTC } },
+      where: { id: { notIn: EXCLUDED_USER_IDS } },
     }),
 
-    // Today's reservations
+    // New users this month (exclude test users)
+    prisma.user.count({
+      where: { createdAt: { gte: monthStartUTC }, id: { notIn: EXCLUDED_USER_IDS } },
+    }),
+
+    // Today's reservations (exclude test users)
     prisma.reservation.count({
       where: {
         status: { in: ['CONFIRMED', 'ATTENDED'] },
+        userId: { notIn: EXCLUDED_USER_IDS },
         class: {
           dateTime: { gte: todayStartUTC, lte: todayEndUTC },
         },
       },
     }),
 
-    // This week's reservations
+    // This week's reservations (exclude test users)
     prisma.reservation.count({
       where: {
         status: { in: ['CONFIRMED', 'ATTENDED'] },
+        userId: { notIn: EXCLUDED_USER_IDS },
         class: {
           dateTime: { gte: weekStartUTC, lte: todayEndUTC },
         },
       },
     }),
 
-    // Active packages (purchases with remaining classes)
+    // Active packages (exclude test users)
     prisma.purchase.count({
       where: {
         status: 'ACTIVE',
         classesRemaining: { gt: 0 },
         expiresAt: { gt: now },
+        userId: { notIn: EXCLUDED_USER_IDS },
       },
     }),
 
-    // Distinct users with at least one active (non-expired) package
+    // Distinct users with at least one active package (exclude test users)
     prisma.purchase.findMany({
       where: {
         status: 'ACTIVE',
         expiresAt: { gt: now },
+        userId: { notIn: EXCLUDED_USER_IDS },
       },
       select: { userId: true },
       distinct: ['userId'],
     }),
 
-    // Packages expiring within the next 7 days (America/El_Salvador)
+    // Packages expiring within 7 days (exclude test users)
     prisma.purchase.findMany({
       where: {
         status: 'ACTIVE',
@@ -143,26 +151,28 @@ async function getDashboardData() {
           gt: now,
           lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
         },
+        userId: { notIn: EXCLUDED_USER_IDS },
       },
       select: { userId: true },
       distinct: ['userId'],
     }),
 
-    // Popular classes this month (by reservation count per discipline)
+    // Popular classes this month (exclude test users)
     prisma.reservation.groupBy({
       by: ['classId'],
       where: {
         status: { in: ['CONFIRMED', 'ATTENDED'] },
         createdAt: { gte: monthStartUTC },
+        userId: { notIn: EXCLUDED_USER_IDS },
       },
       _count: true,
       orderBy: { _count: { classId: 'desc' } },
       take: 20,
     }),
 
-    // Recent sales (last 5 paid orders)
+    // Recent sales (exclude test users)
     prisma.order.findMany({
-      where: { status: 'PAID' },
+      where: { status: 'PAID', userId: { notIn: EXCLUDED_USER_IDS } },
       orderBy: { paidAt: 'desc' },
       take: 5,
       include: {
