@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, ScanLine, UserCheck, Clock, User, Users,
-  Check, X, Loader2, AlertCircle,
+  Check, X, Loader2, AlertCircle, Trash2,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -69,6 +69,9 @@ export default function ClassAttendancePage() {
   const [scanResult, setScanResult] = React.useState<ScanResult | null>(null)
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [lastCheckedIn, setLastCheckedIn] = React.useState<{ name: string; discipline: string } | null>(null)
+  const [cancelTarget, setCancelTarget] = React.useState<ReservationData | null>(null)
+  const [isCancelling, setIsCancelling] = React.useState(false)
+  const [cancelMessage, setCancelMessage] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const fetchClassData = React.useCallback(async () => {
     try {
@@ -140,6 +143,35 @@ export default function ClassAttendancePage() {
       }
     } catch (error) {
       console.error('Error manual check-in:', error)
+    }
+  }
+
+  const handleCancelReservation = async () => {
+    if (!cancelTarget) return
+    setIsCancelling(true)
+    setCancelMessage(null)
+
+    try {
+      const response = await fetch('/api/admin/attendance/cancel-reservation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservationId: cancelTarget.id }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setCancelMessage({ type: 'success', text: data.message })
+        setCancelTarget(null)
+        await fetchClassData()
+        setTimeout(() => setCancelMessage(null), 5000)
+      } else {
+        setCancelMessage({ type: 'error', text: data.error || 'Error al cancelar' })
+      }
+    } catch {
+      setCancelMessage({ type: 'error', text: 'Error de conexion' })
+    } finally {
+      setIsCancelling(false)
     }
   }
 
@@ -328,6 +360,13 @@ export default function ClassAttendancePage() {
                         Check-in
                       </button>
                     )}
+                    <button
+                      onClick={() => setCancelTarget(reservation)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      title="Cancelar reserva y devolver clase"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -335,6 +374,53 @@ export default function ClassAttendancePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Cancel success/error message */}
+      {cancelMessage && (
+        <div className={cn(
+          'p-4 rounded-xl flex items-center gap-3',
+          cancelMessage.type === 'success'
+            ? 'bg-green-50 border border-green-200 text-green-700'
+            : 'bg-red-50 border border-red-200 text-red-700'
+        )}>
+          {cancelMessage.type === 'success' ? (
+            <Check className="h-5 w-5 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          )}
+          {cancelMessage.text}
+        </div>
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      <Modal open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>
+        <ModalContent className="sm:max-w-md">
+          <ModalHeader>
+            <ModalTitle>Cancelar reserva</ModalTitle>
+          </ModalHeader>
+          <div className="px-6 pb-2 space-y-3">
+            <p className="text-gray-600">
+              Estas a punto de cancelar la reserva de <strong>{cancelTarget?.user.name}</strong> ({cancelTarget?.user.email}) en esta clase.
+            </p>
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+              Se le devolvera 1 clase a su paquete automaticamente.
+            </div>
+          </div>
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setCancelTarget(null)} disabled={isCancelling}>
+              No, mantener
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelReservation}
+              isLoading={isCancelling}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Cancelar reserva
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {/* QR Scanner Modal */}
       <Modal open={scannerOpen} onOpenChange={(open) => !open && setScannerOpen(false)}>
