@@ -21,6 +21,7 @@ import {
   ScanLine,
   Shapes,
   DollarSign,
+  Target,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +32,7 @@ const navigation = [
   { name: 'Disciplinas', href: '/admin/disciplinas', icon: Shapes },
   { name: 'Asistencias', href: '/admin/asistencias', icon: ScanLine },
   { name: 'Ventas', href: '/admin/ventas', icon: DollarSign },
+  { name: 'Oportunidades', href: '/admin/oportunidades', icon: Target },
   { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   { name: 'Instructores', href: '/admin/instructores', icon: UserCheck },
   { name: 'Promociones', href: '/admin/promociones', icon: Tag },
