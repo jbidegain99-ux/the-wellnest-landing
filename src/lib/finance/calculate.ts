@@ -36,7 +36,7 @@ export type FinancialConfig = {
   retencionRate?: number
 }
 
-export type PaymentMethod = 'PAYWAY' | 'MANUAL' | 'TRIAL' | 'OFFLINE'
+export type PaymentMethod = 'PAYWAY' | 'POS' | 'MANUAL' | 'TRIAL' | 'GIFT' | 'OFFLINE'
 
 export type PurchaseFinancials = {
   bruto: number
@@ -67,12 +67,21 @@ function round2(n: number): number {
 /**
  * Classifies a Purchase.paymentProviderId into a payment method.
  * Historical convention: providerId is a free-form string with prefixes.
+ *
+ *   - payway_*       → PAYWAY  (online checkout via Cuscatlán Botón de Pago)
+ *   - pos_*          → POS     (admin-assigned, paid at physical POS terminal)
+ *   - manual_payment → MANUAL  (admin-assigned, paid by transfer/cash)
+ *   - trial_*        → TRIAL   (free trial class)
+ *   - gift_*         → GIFT    (admin-assigned courtesy / gift — no revenue)
+ *   - null / other   → OFFLINE (legacy / unknown — should not occur in new data)
  */
 export function classifyPayment(providerId: string | null): PaymentMethod {
   if (!providerId) return 'OFFLINE'
   if (providerId.startsWith('payway_')) return 'PAYWAY'
+  if (providerId.startsWith('pos_')) return 'POS'
   if (providerId === 'manual_payment') return 'MANUAL'
   if (providerId.startsWith('trial_')) return 'TRIAL'
+  if (providerId.startsWith('gift_')) return 'GIFT'
   return 'OFFLINE'
 }
 
@@ -81,6 +90,23 @@ export function calculateFinancials(
   config: FinancialConfig
 ): PurchaseFinancials {
   const bruto = round2(purchase.finalPrice)
+  const method = classifyPayment(purchase.paymentProviderId)
+
+  // GIFT: cortesía / regalo — no es una venta, no genera ingresos, no IVA,
+  // no comisión. Retorna ceros para que el aggregate lo excluya limpiamente.
+  if (method === 'GIFT') {
+    return {
+      bruto: 0,
+      baseImponible: 0,
+      iva: 0,
+      feeBase: 0,
+      feeIva: 0,
+      tdsFee: 0,
+      fee: 0,
+      retencion: 0,
+      neto: 0,
+    }
+  }
 
   // Modo B: values already persisted by webhook parser — trust them.
   if (
@@ -111,8 +137,12 @@ export function calculateFinancials(
     : bruto
   const iva = round2(bruto - baseImponible)
 
-  const method = classifyPayment(purchase.paymentProviderId)
-  const appliesGatewayFees = method === 'PAYWAY'
+  // Gateway commission applies to both PAYWAY (online) and POS (physical
+  // terminal) — both go through Cuscatlán at the same 2.95% + IVA rate.
+  // The 3DS fee ($0.16 + IVA per txn) applies ONLY to digital channels:
+  //   "Servicio de 3DS … únicamente para canales digitales" — contrato Cuscatlán.
+  const appliesGatewayFees = method === 'PAYWAY' || method === 'POS'
+  const appliesTdsFee = method === 'PAYWAY'
 
   let feeBase = 0
   let feeIva = 0
@@ -120,6 +150,8 @@ export function calculateFinancials(
   if (appliesGatewayFees) {
     feeBase = round2(baseImponible * config.gatewayFeeRate)
     feeIva = config.gatewayFeeHasIva ? round2(feeBase * config.ivaRate) : 0
+  }
+  if (appliesTdsFee) {
     const tdsRaw = config.tds3DsPerTransaction
     tdsFee = round2(config.tds3DsHasIva ? tdsRaw * (1 + config.ivaRate) : tdsRaw)
   }

@@ -104,7 +104,9 @@ export default function AdminUsuariosPage() {
   const [showAssignModal, setShowAssignModal] = React.useState(false)
   const [userToAssign, setUserToAssign] = React.useState<User | null>(null)
   const [selectedPackageId, setSelectedPackageId] = React.useState<string>('')
-  const [sendInvoice, setSendInvoice] = React.useState(false)
+  const [paymentSource, setPaymentSource] =
+    React.useState<'POS' | 'MANUAL_TRANSFER' | 'GIFT'>('POS')
+  const [sendInvoice, setSendInvoice] = React.useState(true)
   const [isAssigning, setIsAssigning] = React.useState(false)
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
@@ -221,7 +223,8 @@ export default function AdminUsuariosPage() {
   const openAssignModal = (user: User) => {
     setUserToAssign(user)
     setSelectedPackageId('')
-    setSendInvoice(false)
+    setPaymentSource('POS')
+    setSendInvoice(true)
     setShowAssignModal(true)
   }
 
@@ -235,7 +238,11 @@ export default function AdminUsuariosPage() {
       const response = await fetch(`/api/admin/users/${userToAssign.id}/assign-package`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageId: selectedPackageId, sendInvoice }),
+        body: JSON.stringify({
+          packageId: selectedPackageId,
+          paymentSource,
+          sendInvoice,
+        }),
       })
 
       const result = await response.json()
@@ -841,15 +848,64 @@ export default function AdminUsuariosPage() {
               </Select>
             </div>
 
-            {selectedPackageId && (
-              <>
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                  <p>Este paquete será asignado sin costo al usuario.</p>
-                </div>
+            {selectedPackageId && (() => {
+              const selectedPkg = packages.find((p) => p.id === selectedPackageId)
+              if (!selectedPkg) return null
+              const isGift = paymentSource === 'GIFT'
+              const hasPrice = selectedPkg.price > 0
 
-                {(() => {
-                  const selectedPkg = packages.find(p => p.id === selectedPackageId)
-                  return selectedPkg && selectedPkg.price > 0 ? (
+              return (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Fuente del pago
+                    </label>
+                    <Select
+                      value={paymentSource}
+                      onValueChange={(v) =>
+                        setPaymentSource(v as 'POS' | 'MANUAL_TRANSFER' | 'GIFT')
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="POS">
+                          Pago por POS (tarjeta en terminal)
+                        </SelectItem>
+                        <SelectItem value="MANUAL_TRANSFER">
+                          Transferencia / Efectivo
+                        </SelectItem>
+                        <SelectItem value="GIFT">Cortesía / Regalo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div
+                    className={
+                      'p-4 rounded-lg text-sm ' +
+                      (isGift
+                        ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                        : 'bg-emerald-50 border border-emerald-200 text-emerald-800')
+                    }
+                  >
+                    {isGift ? (
+                      <p>
+                        Cortesía sin costo. No se contabiliza como venta ni se
+                        genera factura.
+                      </p>
+                    ) : (
+                      <p>
+                        Monto a cobrar:{' '}
+                        <strong>${selectedPkg.price.toFixed(2)}</strong>
+                        {paymentSource === 'POS'
+                          ? ' — registrado como pago por POS.'
+                          : ' — registrado como transferencia/efectivo.'}
+                      </p>
+                    )}
+                  </div>
+
+                  {!isGift && hasPrice && (
                     <label className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer">
                       <input
                         type="checkbox"
@@ -860,17 +916,18 @@ export default function AdminUsuariosPage() {
                       <div className="text-sm">
                         <p className="font-medium text-blue-800 flex items-center gap-1.5">
                           <FileText className="h-4 w-4" />
-                          Enviar a facturación
+                          Generar factura electrónica
                         </p>
                         <p className="text-blue-600 mt-0.5">
-                          Genera factura electrónica por ${selectedPkg.price.toFixed(2)}
+                          Envía la venta al Facturador SV para crear el DTE
+                          por ${selectedPkg.price.toFixed(2)}.
                         </p>
                       </div>
                     </label>
-                  ) : null
-                })()}
-              </>
-            )}
+                  )}
+                </>
+              )
+            })()}
           </div>
 
           <ModalFooter>
@@ -886,7 +943,11 @@ export default function AdminUsuariosPage() {
               disabled={!selectedPackageId}
               isLoading={isAssigning}
             >
-              {sendInvoice ? 'Asignar y Facturar' : 'Asignar Paquete'}
+              {paymentSource === 'GIFT'
+                ? 'Asignar Cortesía'
+                : sendInvoice
+                ? 'Asignar y Facturar'
+                : 'Asignar Paquete'}
             </Button>
           </ModalFooter>
         </ModalContent>

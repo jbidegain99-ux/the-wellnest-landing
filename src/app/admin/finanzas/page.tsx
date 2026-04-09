@@ -180,31 +180,31 @@ export default async function FinanzasPage({
                 </tr>
               </thead>
               <tbody>
-                {(['PAYWAY', 'MANUAL', 'OFFLINE', 'TRIAL'] as const).map(
-                  (method) => {
-                    const m = totals.byMethod[method]
-                    if (m.count === 0) return null
-                    return (
-                      <tr key={method} className="border-b border-beige/50">
-                        <td className="py-2">
-                          <MethodLabel method={method} />
-                        </td>
-                        <td className="py-2 text-right tabular-nums">
-                          {m.count}
-                        </td>
-                        <td className="py-2 text-right tabular-nums">
-                          {formatPrice(m.bruto)}
-                        </td>
-                        <td className="py-2 text-right tabular-nums text-red-600">
-                          {m.fee > 0 ? `−${formatPrice(m.fee)}` : '—'}
-                        </td>
-                        <td className="py-2 text-right tabular-nums font-medium">
-                          {formatPrice(m.neto)}
-                        </td>
-                      </tr>
-                    )
-                  }
-                )}
+                {(['PAYWAY', 'POS', 'MANUAL'] as const).map((method) => {
+                  const m = totals.byMethod[method]
+                  // Skip buckets with no revenue — avoids showing $0 rows
+                  // (e.g. POS with only gifts, or empty methods this period).
+                  if (m.count === 0 || m.bruto === 0) return null
+                  return (
+                    <tr key={method} className="border-b border-beige/50">
+                      <td className="py-2">
+                        <MethodLabel method={method} />
+                      </td>
+                      <td className="py-2 text-right tabular-nums">
+                        {m.count}
+                      </td>
+                      <td className="py-2 text-right tabular-nums">
+                        {formatPrice(m.bruto)}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-red-600">
+                        {m.fee > 0 ? `−${formatPrice(m.fee)}` : '—'}
+                      </td>
+                      <td className="py-2 text-right tabular-nums font-medium">
+                        {formatPrice(m.neto)}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
               <tfoot>
                 <tr className="font-semibold">
@@ -347,26 +347,23 @@ function DiscountCard({
   )
 }
 
-function MethodLabel({ method }: { method: 'PAYWAY' | 'MANUAL' | 'OFFLINE' | 'TRIAL' }) {
-  const cfg: Record<typeof method, { label: string; className: string; icon: React.ReactNode }> = {
+type RevenueMethod = 'PAYWAY' | 'POS' | 'MANUAL'
+
+function MethodLabel({ method }: { method: RevenueMethod }) {
+  const cfg: Record<RevenueMethod, { label: string; className: string; icon: React.ReactNode }> = {
     PAYWAY: {
       label: 'Pago en línea',
       className: 'bg-blue-50 text-blue-700',
       icon: <CreditCard className="h-3.5 w-3.5" />,
     },
-    MANUAL: {
-      label: 'Manual / Admin',
-      className: 'bg-purple-50 text-purple-700',
-      icon: <DollarSign className="h-3.5 w-3.5" />,
-    },
-    OFFLINE: {
+    POS: {
       label: 'Pago por POS',
-      className: 'bg-gray-100 text-gray-600',
+      className: 'bg-indigo-50 text-indigo-700',
       icon: <CreditCard className="h-3.5 w-3.5" />,
     },
-    TRIAL: {
-      label: 'Trial / Gratis',
-      className: 'bg-amber-50 text-amber-700',
+    MANUAL: {
+      label: 'Transferencia / Efectivo',
+      className: 'bg-purple-50 text-purple-700',
       icon: <DollarSign className="h-3.5 w-3.5" />,
     },
   }

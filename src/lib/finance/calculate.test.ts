@@ -189,5 +189,67 @@ describe('classifyPayment', () => {
     expect(mod.classifyPayment('payway_abc')).toBe('PAYWAY')
     expect(mod.classifyPayment('manual_payment')).toBe('MANUAL')
     expect(mod.classifyPayment('trial_xyz')).toBe('TRIAL')
+    expect(mod.classifyPayment('pos_manual')).toBe('POS')
+    expect(mod.classifyPayment('pos_cuotas_6m')).toBe('POS')
+    expect(mod.classifyPayment('gift_manual')).toBe('GIFT')
+    expect(mod.classifyPayment('something_else')).toBe('OFFLINE')
+  })
+})
+
+describe('POS payments (physical terminal)', () => {
+  it('applies Cuscatlán commission (2.95% + IVA) but NOT the 3DS fee', () => {
+    // POS uses the same rate card as PAYWAY except 3DS is digital-only.
+    const result = calculateFinancials(
+      { finalPrice: 113, paymentProviderId: 'pos_manual' },
+      CUSCATLAN_CONFIG
+    )
+    expect(result.feeBase).toBeCloseTo(2.95, 2) // 100 * 0.0295
+    expect(result.feeIva).toBeCloseTo(0.38, 2) // 2.95 * 0.13
+    expect(result.tdsFee).toBe(0) // NO 3DS for POS
+    // Total fee: just commission + IVA on commission, no 3DS
+    expect(result.fee).toBeCloseTo(3.33, 2)
+  })
+
+  it('neto for POS is bruto minus commission only', () => {
+    const result = calculateFinancials(
+      { finalPrice: 49.99, paymentProviderId: 'pos_manual' },
+      CUSCATLAN_CONFIG
+    )
+    // base = 49.99 / 1.13 = 44.24
+    // fee  = 44.24 * 0.0295 * 1.13 ≈ 1.47
+    // neto = 49.99 - 1.47 ≈ 48.52
+    expect(result.neto).toBeCloseTo(48.52, 1)
+  })
+
+  it('POS still extracts IVA from included price', () => {
+    const result = calculateFinancials(
+      { finalPrice: 113, paymentProviderId: 'pos_manual' },
+      CUSCATLAN_CONFIG
+    )
+    expect(result.iva).toBe(13)
+    expect(result.baseImponible).toBe(100)
+  })
+})
+
+describe('GIFT purchases (courtesies)', () => {
+  it('returns all zeros regardless of finalPrice', () => {
+    const result = calculateFinancials(
+      { finalPrice: 49.99, paymentProviderId: 'gift_manual' },
+      CUSCATLAN_CONFIG
+    )
+    expect(result.bruto).toBe(0)
+    expect(result.iva).toBe(0)
+    expect(result.fee).toBe(0)
+    expect(result.neto).toBe(0)
+    expect(result.baseImponible).toBe(0)
+  })
+
+  it('zeros out even if finalPrice is non-zero (data safety)', () => {
+    const result = calculateFinancials(
+      { finalPrice: 999, paymentProviderId: 'gift_manual' },
+      CUSCATLAN_CONFIG
+    )
+    expect(result.bruto).toBe(0)
+    expect(result.neto).toBe(0)
   })
 })

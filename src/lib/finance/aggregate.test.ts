@@ -55,6 +55,53 @@ describe('aggregatePurchases', () => {
     expect(result.byMethod.TRIAL.count).toBe(1)
     expect(result.byMethod.TRIAL.bruto).toBe(0)
   })
+
+  it('counts POS purchases in financial totals with no 3DS fee', () => {
+    const purchases = [
+      { id: 'pos1', finalPrice: 49.99, paymentProviderId: 'pos_manual', createdAt: new Date('2026-04-08T15:00:00Z') },
+    ]
+    const result = aggregatePurchases(purchases, CFG)
+    expect(result.count).toBe(1)
+    expect(result.byMethod.POS.count).toBe(1)
+    expect(result.byMethod.POS.bruto).toBe(49.99)
+    // tdsFee total should be 0 because the only txn is POS, not PAYWAY
+    expect(result.tdsFee).toBe(0)
+    // Commission still applies (2.95% + IVA on base imponible)
+    expect(result.feeBase).toBeGreaterThan(0)
+  })
+
+  it('excludes GIFT and TRIAL from financial totals but keeps them in byMethod', () => {
+    const purchases = [
+      { id: 'pay1', finalPrice: 113, paymentProviderId: 'payway_1', createdAt: new Date('2026-04-01T15:00:00Z') },
+      { id: 'gift1', finalPrice: 49.99, paymentProviderId: 'gift_manual', createdAt: new Date('2026-04-02T15:00:00Z') },
+      { id: 'gift2', finalPrice: 15, paymentProviderId: 'gift_manual', createdAt: new Date('2026-04-03T15:00:00Z') },
+      { id: 'trial1', finalPrice: 0, paymentProviderId: 'trial_abc', createdAt: new Date('2026-04-04T15:00:00Z') },
+    ]
+    const result = aggregatePurchases(purchases, CFG)
+
+    // Financial totals: only the 1 PAYWAY counts
+    expect(result.count).toBe(1)
+    expect(result.bruto).toBe(113)
+
+    // byMethod: all 4 buckets populated
+    expect(result.byMethod.PAYWAY.count).toBe(1)
+    expect(result.byMethod.GIFT.count).toBe(2)
+    expect(result.byMethod.TRIAL.count).toBe(1)
+
+    // GIFT bruto is 0 even though finalPrice was >0, because
+    // calculateFinancials zeros it out for GIFT.
+    expect(result.byMethod.GIFT.bruto).toBe(0)
+  })
+
+  it('POS + PAYWAY both count toward financial totals', () => {
+    const purchases = [
+      { id: 'p1', finalPrice: 113, paymentProviderId: 'payway_1', createdAt: new Date('2026-04-01T15:00:00Z') },
+      { id: 'p2', finalPrice: 49.99, paymentProviderId: 'pos_manual', createdAt: new Date('2026-04-02T15:00:00Z') },
+    ]
+    const result = aggregatePurchases(purchases, CFG)
+    expect(result.count).toBe(2)
+    expect(result.bruto).toBeCloseTo(113 + 49.99, 2)
+  })
 })
 
 describe('groupByDaySV', () => {

@@ -74,8 +74,10 @@ function emptyAggregate(): AggregateTotals {
     ivaToPayMinistry: 0,
     byMethod: {
       PAYWAY: emptyMethodTotals(),
+      POS: emptyMethodTotals(),
       MANUAL: emptyMethodTotals(),
       TRIAL: emptyMethodTotals(),
+      GIFT: emptyMethodTotals(),
       OFFLINE: emptyMethodTotals(),
     },
   }
@@ -85,11 +87,37 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
+/**
+ * Non-revenue payment methods — these are tracked in `byMethod` for
+ * operational visibility but do NOT contribute to the financial totals
+ * (count, bruto, iva, fee, neto). Trial classes and gift courtesies
+ * don't represent money and inflate the totals if counted.
+ */
+const NON_REVENUE_METHODS: ReadonlyArray<PaymentMethod> = ['TRIAL', 'GIFT']
+
+function isRevenueMethod(method: PaymentMethod): boolean {
+  return !NON_REVENUE_METHODS.includes(method)
+}
+
 function accumulate(
   agg: AggregateTotals,
   purchase: RawPurchase,
   computed: PurchaseFinancials
 ) {
+  const method = classifyPayment(purchase.paymentProviderId)
+
+  // Always track in byMethod so the breakdown table can show
+  // trial / gift counts for operational visibility.
+  const m = agg.byMethod[method]
+  m.count += 1
+  m.bruto += computed.bruto
+  m.iva += computed.iva
+  m.fee += computed.fee
+  m.neto += computed.neto
+
+  // Only add to the financial totals if this method represents revenue.
+  if (!isRevenueMethod(method)) return
+
   agg.count += 1
   agg.bruto += computed.bruto
   agg.baseImponible += computed.baseImponible
@@ -100,14 +128,6 @@ function accumulate(
   agg.fee += computed.fee
   agg.retencion += computed.retencion
   agg.neto += computed.neto
-
-  const method = classifyPayment(purchase.paymentProviderId)
-  const m = agg.byMethod[method]
-  m.count += 1
-  m.bruto += computed.bruto
-  m.iva += computed.iva
-  m.fee += computed.fee
-  m.neto += computed.neto
 }
 
 function finalizeRounding(agg: AggregateTotals): AggregateTotals {
