@@ -1,6 +1,13 @@
 # Local CLI tools — never runtime code
 scripts/
 
+# Test files — dev-only, never runtime code. Also: the combined trace
+# graph of *.test.ts + vitest.config.ts triggers a micromatch RangeError
+# in Next.js 14.0.4's "Collecting build traces" phase.
+**/*.test.ts
+**/*.test.tsx
+vitest.config.ts
+
 # Audit/report artifacts — not needed at runtime
 tasks/reports/
 *.json.bak
