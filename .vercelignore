@@ -1,0 +1,17 @@
+# Local CLI tools — never runtime code
+scripts/
+
+# Audit/report artifacts — not needed at runtime
+tasks/reports/
+*.json.bak
+backup_*.json
+backup_*.sql
+audit_*.json
+audit_*.csv
+audit-*.json
+audit-*.csv
+
+# Root-level audit markdown reports
+AUDIT_REPORT_*.md
+AUDITORIA_*.md
+HALLAZGO_*.md
