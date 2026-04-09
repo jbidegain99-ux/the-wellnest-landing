@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Package, Calendar, AlertCircle, ArrowRight, Loader2, CheckCircle2, X, Users } from 'lucide-react'
+import { Package, Calendar, AlertCircle, ArrowRight, Loader2, CheckCircle2, X, Users, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -24,6 +24,7 @@ interface Purchase {
   expiresAt: string
   purchasedAt: string
   status: string
+  isPrivate?: boolean
   isShared?: boolean
   isChild?: boolean
   sharedByName?: string | null
@@ -153,6 +154,31 @@ function PaquetesContent() {
           </Button>
         </Link>
       </div>
+
+      {/* Private Flow CTA — shown when user has at least one active private package */}
+      {activePurchases.some((p) => p.isPrivate) && (
+        <Link
+          href="/perfil/sesion-privada"
+          className="block rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/5 to-beige p-5 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">
+                  Tienes una sesión privada disponible
+                </p>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  Solicita tu sesión 1:1 con disciplina, instructor y horario a medida.
+                </p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-primary flex-shrink-0" />
+          </div>
+        </Link>
+      )}
 
       {/* Active Packages */}
       <section>

@@ -23,6 +23,7 @@ import {
   DollarSign,
   Target,
   Landmark,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +35,7 @@ const navigation = [
   { name: 'Asistencias', href: '/admin/asistencias', icon: ScanLine },
   { name: 'Ventas', href: '/admin/ventas', icon: DollarSign },
   { name: 'Finanzas', href: '/admin/finanzas', icon: Landmark },
+  { name: 'Sesiones Privadas', href: '/admin/sesiones-privadas', icon: Sparkles },
   { name: 'Oportunidades', href: '/admin/oportunidades', icon: Target },
   { name: 'Usuarios', href: '/admin/usuarios', icon: Users },
   { name: 'Instructores', href: '/admin/instructores', icon: UserCheck },

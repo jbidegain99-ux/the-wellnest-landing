@@ -127,6 +127,7 @@ export async function GET() {
         expiresAt: p.expiresAt,
         purchasedAt: p.createdAt,
         status: p.status,
+        isPrivate: p.package.isPrivate,
         isShared,
         isChild,
         sharedByName: isChild && p.sharedFromId ? (originalOwners[p.sharedFromId] || null) : null,

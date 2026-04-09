@@ -20,8 +20,59 @@ const ERROR_CODES = {
   PACKAGE_EXPIRED: 'PACKAGE_EXPIRED',
   TIME_CONFLICT: 'TIME_CONFLICT',
   TRIAL_EXPIRED_FOR_DATE: 'TRIAL_EXPIRED_FOR_DATE',
+  DISCIPLINE_NOT_COVERED: 'DISCIPLINE_NOT_COVERED',
+  PRIVATE_PACKAGE_ONLY: 'PRIVATE_PACKAGE_ONLY',
   UNIQUE_CONSTRAINT: 'UNIQUE_CONSTRAINT',
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+}
+
+/**
+ * Validates a purchase is compatible with a class based on:
+ *   1. Package isPrivate flag — private packages can only reserve private classes
+ *      (which are created via the PrivateSessionRequest flow, not by user self-booking)
+ *   2. PackageDiscipline restrictions — if the package has disciplines explicitly
+ *      listed, the class discipline must be in that list
+ *
+ * Returns null when compatible; otherwise returns an error object to forward.
+ */
+async function validatePackageAllowsClass(
+  purchaseId: string,
+  classDisciplineId: string
+): Promise<{ error: string; code: string } | null> {
+  const pkg = await prisma.package.findFirst({
+    where: { purchases: { some: { id: purchaseId } } },
+    include: { disciplines: { select: { disciplineId: true } } },
+  })
+  if (!pkg) return null // should not happen — caller already has purchase
+
+  // Private packages can't self-book group classes
+  if (pkg.isPrivate) {
+    return {
+      error:
+        'Este paquete es para sesiones privadas (1:1). ' +
+        'Solicita tu sesión desde tu perfil para coordinar fecha y hora.',
+      code: ERROR_CODES.PRIVATE_PACKAGE_ONLY,
+    }
+  }
+
+  // Discipline restriction: if the package has any discipline explicitly
+  // listed, the class discipline MUST be in that list. Empty list = unrestricted.
+  if (pkg.disciplines.length > 0) {
+    const allowed = new Set(pkg.disciplines.map((d) => d.disciplineId))
+    if (!allowed.has(classDisciplineId)) {
+      const disciplineNames = await prisma.discipline.findMany({
+        where: { id: { in: Array.from(allowed) } },
+        select: { name: true },
+      })
+      const names = disciplineNames.map((d) => d.name).join(', ')
+      return {
+        error: `Este paquete solo cubre: ${names}. No puedes usarlo para esta clase.`,
+        code: ERROR_CODES.DISCIPLINE_NOT_COVERED,
+      }
+    }
+  }
+
+  return null
 }
 
 // Trial package restriction: classes from March 9, 2026 onward require a paid package
@@ -132,7 +183,7 @@ export async function POST(request: Request) {
     const classData = await prisma.class.findUnique({
       where: { id: classId },
       include: {
-        _count: { select: { reservations: { where: { status: 'CONFIRMED' } } } },
+        _count: { select: { reservations: { where: { status: { not: 'CANCELLED' } } } } },
         discipline: true,
         instructor: true,
       },
@@ -368,6 +419,19 @@ export async function POST(request: Request) {
           remaining: purchase.classesRemaining,
         })
 
+        // Package compatibility: isPrivate + discipline restrictions.
+        const reactivationPackageCheck = await validatePackageAllowsClass(
+          purchase.id,
+          classData.disciplineId
+        )
+        if (reactivationPackageCheck) {
+          console.log('[RESERVATIONS API] ERROR: Package not compatible with class (reactivation):', reactivationPackageCheck)
+          return NextResponse.json(
+            { error: reactivationPackageCheck.error, code: reactivationPackageCheck.code },
+            { status: 400 }
+          )
+        }
+
         // Trial package date restriction
         if (purchase.packageId === TRIAL_PACKAGE_ID && classDateTime >= TRIAL_CUTOFF_UTC) {
           console.log('[RESERVATIONS API] ERROR: Trial package blocked for post-cutoff class')
@@ -573,12 +637,22 @@ export async function POST(request: Request) {
         isValid: p.status === 'ACTIVE' && p.classesRemaining > 0 && p.expiresAt > now,
       })))
 
+      // Auto-select: prefer packages that:
+      //   1. Are not private (private packages use the PrivateSessionRequest flow)
+      //   2. Either have no discipline restrictions OR explicitly cover this class's discipline
       purchase = await prisma.purchase.findFirst({
         where: {
           userId,
           status: 'ACTIVE',
           classesRemaining: { gt: 0 },
           expiresAt: { gt: now },
+          package: {
+            isPrivate: false,
+            OR: [
+              { disciplines: { none: {} } }, // unrestricted
+              { disciplines: { some: { disciplineId: classData.disciplineId } } },
+            ],
+          },
         },
         orderBy: { expiresAt: 'asc' },
         include: { package: true },
@@ -627,6 +701,23 @@ export async function POST(request: Request) {
       expiresAt: purchase.expiresAt.toISOString(),
       afterReservation: purchase.classesRemaining - 1,
     })
+
+    // Package compatibility: isPrivate + discipline restrictions.
+    // This runs for both auto-select and explicit-purchase paths. The
+    // auto-select query already filters on these, but running the check
+    // here catches the explicit-purchase case where the user forced a
+    // specific purchase that isn't compatible with the class.
+    const packageCheck = await validatePackageAllowsClass(
+      purchase.id,
+      classData.disciplineId
+    )
+    if (packageCheck) {
+      console.log('[RESERVATIONS API] ERROR: Package not compatible with class:', packageCheck)
+      return NextResponse.json(
+        { error: packageCheck.error, code: packageCheck.code },
+        { status: 400 }
+      )
+    }
 
     // Trial package date restriction
     if (purchase.packageId === TRIAL_PACKAGE_ID && classDateTime >= TRIAL_CUTOFF_UTC) {

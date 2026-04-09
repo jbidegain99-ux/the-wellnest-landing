@@ -846,3 +846,161 @@ export function buildPasswordResetEmail(name: string, resetUrl: string): string 
 </body>
 </html>`
 }
+
+// ============================================================================
+// Private Session Request emails
+// ============================================================================
+
+function formatDateTimeShort(date: Date): string {
+  try {
+    return new Intl.DateTimeFormat('es-SV', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: 'America/El_Salvador',
+    }).format(date)
+  } catch {
+    return date.toISOString()
+  }
+}
+
+export interface AdminPrivateSessionNotificationData {
+  userName: string
+  userEmail: string
+  disciplineName: string
+  instructorName: string | null
+  slot1: Date
+  slot2: Date | null
+  slot3: Date | null
+  notes: string | null
+  requestId: string
+}
+
+export function buildAdminPrivateSessionNotification(data: AdminPrivateSessionNotificationData): string {
+  const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
+  const adminUrl = `${baseUrl}/admin/sesiones-privadas`
+
+  const slots = [data.slot1, data.slot2, data.slot3]
+    .filter((s): s is Date => s != null)
+    .map((s, i) => `<li style="margin:4px 0;">Opci&oacute;n ${i + 1}: ${formatDateTimeShort(s)}</li>`)
+    .join('')
+
+  const instructorRow = data.instructorName
+    ? `<p style="margin:6px 0;"><strong>Instructor preferido:</strong> ${data.instructorName}</p>`
+    : '<p style="margin:6px 0;color:#6B7280;"><em>Sin preferencia de instructor</em></p>'
+
+  const notesRow = data.notes
+    ? `<p style="margin:12px 0 6px;"><strong>Notas:</strong></p><p style="margin:0;color:#374151;white-space:pre-wrap;">${data.notes}</p>`
+    : ''
+
+  return `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Nueva solicitud de sesi&oacute;n privada</title></head>
+<body style="margin:0;padding:0;background:#F5F0EB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F0EB;">
+    <tr><td align="center" style="padding:40px 20px;">
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#fff;border-radius:12px;">
+        <tr><td style="padding:32px;">
+          <h1 style="color:#1F2937;margin:0 0 8px;font-size:20px;font-weight:600;">Nueva solicitud de sesi&oacute;n privada</h1>
+          <p style="color:#6B7280;margin:0 0 24px;font-size:14px;">Wellnest Studio</p>
+          <p style="margin:0 0 4px;"><strong>Cliente:</strong> ${data.userName}</p>
+          <p style="margin:0 0 16px;color:#6B7280;font-size:14px;">${data.userEmail}</p>
+          <p style="margin:6px 0;"><strong>Disciplina solicitada:</strong> ${data.disciplineName}</p>
+          ${instructorRow}
+          <p style="margin:16px 0 6px;"><strong>Ventanas de horario preferidas:</strong></p>
+          <ul style="margin:0 0 16px;padding-left:20px;color:#374151;">${slots}</ul>
+          ${notesRow}
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
+            <tr><td align="center">
+              <a href="${adminUrl}" style="display:inline-block;padding:12px 24px;background:#453C34;color:#fff;text-decoration:none;border-radius:8px;font-weight:500;">Revisar y confirmar</a>
+            </td></tr>
+          </table>
+          <p style="color:#9CA3AF;font-size:12px;margin:24px 0 0;text-align:center;">Request ID: ${data.requestId}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+export interface PrivateSessionConfirmationData {
+  userName: string | null
+  disciplineName: string
+  instructorName: string
+  dateTime: string
+  duration: number
+}
+
+export function buildPrivateSessionConfirmationEmail(data: PrivateSessionConfirmationData): string {
+  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+  const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
+  return `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Sesi&oacute;n privada confirmada</title></head>
+<body style="margin:0;padding:0;background:#F5F0EB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F0EB;">
+    <tr><td align="center" style="padding:40px 20px;">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#fff;border-radius:12px;">
+        <tr><td style="padding:32px;">
+          <h1 style="color:#1F2937;margin:0 0 8px;font-size:22px;font-weight:600;text-align:center;">&iexcl;Tu sesi&oacute;n privada est&aacute; lista!</h1>
+          <p style="color:#6B7280;margin:0 0 28px;font-size:14px;text-align:center;">Wellnest</p>
+          <p style="color:#374151;font-size:16px;font-weight:500;margin:0 0 16px;">${greeting},</p>
+          <p style="color:#6B7280;margin:0 0 24px;font-size:15px;line-height:1.5;">Hemos confirmado tu sesi&oacute;n privada 1:1. Aqu&iacute; est&aacute;n los detalles:</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 24px;">
+            <tr><td style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:16px;">
+              <p style="margin:6px 0;font-size:14px;color:#374151;"><strong>Disciplina:</strong> ${data.disciplineName}</p>
+              <p style="margin:6px 0;font-size:14px;color:#374151;"><strong>Instructor:</strong> ${data.instructorName}</p>
+              <p style="margin:6px 0;font-size:14px;color:#374151;"><strong>Fecha y hora:</strong> ${data.dateTime}</p>
+              <p style="margin:6px 0;font-size:14px;color:#374151;"><strong>Duraci&oacute;n:</strong> ${data.duration} minutos</p>
+            </td></tr>
+          </table>
+          <p style="color:#6B7280;margin:16px 0;font-size:14px;line-height:1.5;">Recuerda llegar unos minutos antes. Si necesit&aacute;s reprogramar con al menos 8 horas de anticipaci&oacute;n, contactanos desde tu perfil.</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
+            <tr><td align="center">
+              <a href="${baseUrl}/perfil/reservas" style="display:inline-block;padding:12px 24px;background:#453C34;color:#fff;text-decoration:none;border-radius:8px;font-weight:500;">Ver mis reservas</a>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+export interface PrivateSessionRejectionData {
+  userName: string | null
+  reason: string | null
+}
+
+export function buildPrivateSessionRejectionEmail(data: PrivateSessionRejectionData): string {
+  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+  const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
+  const reasonBlock = data.reason
+    ? `<p style="color:#6B7280;margin:12px 0;font-size:14px;line-height:1.5;"><strong>Motivo:</strong> ${data.reason}</p>`
+    : ''
+  return `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Solicitud de sesi&oacute;n privada</title></head>
+<body style="margin:0;padding:0;background:#F5F0EB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F0EB;">
+    <tr><td align="center" style="padding:40px 20px;">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#fff;border-radius:12px;">
+        <tr><td style="padding:32px;">
+          <h1 style="color:#1F2937;margin:0 0 8px;font-size:20px;font-weight:600;text-align:center;">No pudimos confirmar tu sesi&oacute;n</h1>
+          <p style="color:#6B7280;margin:0 0 24px;font-size:14px;text-align:center;">Wellnest</p>
+          <p style="color:#374151;font-size:16px;font-weight:500;margin:0 0 16px;">${greeting},</p>
+          <p style="color:#6B7280;margin:0 0 16px;font-size:14px;line-height:1.5;">No pudimos confirmar ninguna de las opciones que nos enviaste para tu sesi&oacute;n privada.</p>
+          ${reasonBlock}
+          <p style="color:#6B7280;margin:16px 0;font-size:14px;line-height:1.5;">Tu paquete sigue activo y pod&eacute;s enviar una nueva solicitud con diferentes opciones desde tu perfil.</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
+            <tr><td align="center">
+              <a href="${baseUrl}/perfil/paquetes" style="display:inline-block;padding:12px 24px;background:#453C34;color:#fff;text-decoration:none;border-radius:8px;font-weight:500;">Ir a mi perfil</a>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}

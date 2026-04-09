@@ -29,17 +29,18 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  purchases        Purchase[]
-  reservations     Reservation[]
-  waitlist         Waitlist[]
-  paymentMethods   PaymentMethod[]
-  accounts         Account[]
-  sessions         Session[]
-  promoRedemptions PromoRedemption[]
-  refundRequests   RefundRequest[]
-  referralsGiven   Referral[] @relation("ReferrerRelation")
-  referralsUsed    Referral[] @relation("ReferredRelation")
-  orders           Order[]
+  purchases              Purchase[]
+  reservations           Reservation[]
+  waitlist               Waitlist[]
+  paymentMethods         PaymentMethod[]
+  accounts               Account[]
+  sessions               Session[]
+  promoRedemptions       PromoRedemption[]
+  refundRequests         RefundRequest[]
+  referralsGiven         Referral[] @relation("ReferrerRelation")
+  referralsUsed          Referral[] @relation("ReferredRelation")
+  orders                 Order[]
+  privateSessionRequests PrivateSessionRequest[]
 }
 
 model Account {
@@ -97,6 +98,7 @@ model Discipline {
   classes                Class[]  @relation("PrimaryDiscipline")
   complementaryClasses   Class[]  @relation("ComplementaryDiscipline")
   packages PackageDiscipline[]
+  privateSessionRequests PrivateSessionRequest[] @relation("PrivateSessionDiscipline")
 }
 
 // Instructor
@@ -114,7 +116,8 @@ model Instructor {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
-  classes Class[]
+  classes                Class[]
+  privateSessionRequests PrivateSessionRequest[] @relation("PrivateSessionInstructor")
 }
 
 // Paquete de clases
@@ -140,6 +143,7 @@ model Package {
   isActive         Boolean  @default(true)
   singlePurchaseOnly Boolean @default(false)
   isFeatured       Boolean  @default(false)
+  isPrivate        Boolean  @default(false)  // true = private 1:1 sessions, booked via PrivateSessionRequest
   order            Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -176,10 +180,11 @@ model Purchase {
   paymentProviderId String?  @map("stripePaymentId")
   createdAt        DateTime       @default(now())
 
-  reservations     Reservation[]
-  promoRedemptions PromoRedemption[]
-  refundRequests   RefundRequest[]
-  referrals        Referral[]
+  reservations           Reservation[]
+  promoRedemptions       PromoRedemption[]
+  refundRequests         RefundRequest[]
+  referrals              Referral[]
+  privateSessionRequests PrivateSessionRequest[]
   // Campos de paquete compartido
   sharedGroupId    String?   // ID que agrupa purchases compartidos
   sharedFromId     String?   // ID del Purchase original (null = es el original)
@@ -203,6 +208,56 @@ enum PurchaseStatus {
   ACTIVE
   EXPIRED
   DEPLETED
+}
+
+// Solicitud de sesión privada (1:1) para paquetes con isPrivate=true.
+// Flow:
+//   1. Usuario compra un paquete Private Flow
+//   2. Usuario envía una PrivateSessionRequest con preferencias (disciplina,
+//      instructor opcional, 1-3 ventanas de fecha/hora, notas)
+//   3. Admin recibe email, revisa, y confirma creando una Class privada
+//      (isPrivate=true, maxCapacity=1) + Reservation atómicamente
+//   4. Usuario recibe email con la confirmación
+model PrivateSessionRequest {
+  id                    String                @id @default(cuid())
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String
+  purchase              Purchase              @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchaseId            String
+
+  // Preferencias del usuario
+  preferredDisciplineId String
+  preferredDiscipline   Discipline            @relation("PrivateSessionDiscipline", fields: [preferredDisciplineId], references: [id])
+  preferredInstructorId String?
+  preferredInstructor   Instructor?           @relation("PrivateSessionInstructor", fields: [preferredInstructorId], references: [id])
+  preferredSlot1        DateTime              // Primera opción (requerida)
+  preferredSlot2        DateTime?             // Segunda opción (opcional)
+  preferredSlot3        DateTime?             // Tercera opción (opcional)
+  notes                 String?               @db.Text
+
+  // Estado + confirmación
+  status                PrivateSessionStatus  @default(PENDING)
+  adminNotes            String?               @db.Text
+
+  confirmedClassId      String?               @unique
+  confirmedClass        Class?                @relation("ConfirmedPrivateSession", fields: [confirmedClassId], references: [id])
+  confirmedAt           DateTime?
+  confirmedBy           String?               // admin user ID
+  rejectedReason        String?
+
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([status])
+  @@index([userId])
+  @@index([purchaseId])
+}
+
+enum PrivateSessionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
 }
 
 // Purchases excluidas de los reportes financieros (no afecta clases ni reservas)
@@ -235,11 +290,13 @@ model Class {
   isRecurring               Boolean     @default(false)
   recurringPattern          String?     // weekly, biweekly, etc.
   isCancelled               Boolean     @default(false)
+  isPrivate                 Boolean     @default(false) // true = private 1:1, hidden from public calendar
   classType                 String?     // Subtítulo categórico (ej: "clase de prueba", "Pilates - Core")
   notes                     String?
 
-  reservations Reservation[]
-  waitlist     Waitlist[]
+  reservations            Reservation[]
+  waitlist                Waitlist[]
+  privateSessionRequest   PrivateSessionRequest? @relation("ConfirmedPrivateSession")
 }
 
 // Reservación
