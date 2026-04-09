@@ -12,8 +12,21 @@ import { CheckCircle2, Loader2 } from 'lucide-react'
  *
  * The page then uses client-side navigation to redirect to the protected
  * packages page, which ensures cookies are sent correctly.
+ *
+ * Next.js 14.2+ requires any component using `useSearchParams()` to be
+ * wrapped in a <Suspense> boundary so the rest of the route can prerender
+ * while the searchParams resolve on the client. We split the logic into
+ * an inner component and wrap it here.
  */
 export default function PaymentSuccessPage() {
+  return (
+    <React.Suspense fallback={<PaymentSuccessShell />}>
+      <PaymentSuccessContent />
+    </React.Suspense>
+  )
+}
+
+function PaymentSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orderId = searchParams.get('oid')
@@ -27,6 +40,10 @@ export default function PaymentSuccessPage() {
     return () => clearTimeout(timer)
   }, [router])
 
+  return <PaymentSuccessShell orderId={orderId} />
+}
+
+function PaymentSuccessShell({ orderId }: { orderId?: string | null }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-beige p-4">
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
