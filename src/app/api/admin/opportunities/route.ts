@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { getNowInSV } from '@/lib/utils/timezone'
 import { EXCLUDED_USER_IDS } from '@/lib/constants'
+import { getExcludedPurchaseIds } from '@/lib/excluded-purchases'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,8 @@ export async function GET() {
 
     // Exclusion filter for test/internal users
     const excludeUsers = { notIn: EXCLUDED_USER_IDS }
+    // Financial exclusions (fake duplicates, trueques, etc.) — only used for $$ aggregations
+    const excludedPurchaseIds = await getExcludedPurchaseIds()
 
     const [
       expiringPackages,
@@ -55,9 +58,14 @@ export async function GET() {
         orderBy: { createdAt: 'desc' },
       }),
 
-      // 3 & 5 & 6. All purchases (exclude test users)
+      // 3 & 5 & 6. All purchases (exclude test users + financial exclusions)
+      // Used for inactive users / upsell totalSpent — excluding fake/barter purchases
+      // is correct because they don't represent real money spent.
       prisma.purchase.findMany({
-        where: { userId: excludeUsers },
+        where: {
+          userId: excludeUsers,
+          ...(excludedPurchaseIds.length > 0 && { id: { notIn: excludedPurchaseIds } }),
+        },
         include: {
           user: { select: { id: true, name: true, email: true, phone: true } },
           package: { select: { name: true, price: true, classCount: true } },

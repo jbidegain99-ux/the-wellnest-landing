@@ -205,6 +205,20 @@ enum PurchaseStatus {
   DEPLETED
 }
 
+// Purchases excluidas de los reportes financieros (no afecta clases ni reservas)
+// Casos de uso: paquetes fake creados por flujo de compartir mal hecho, trueques,
+// ventas registradas pero nunca cobradas, etc.
+model ExcludedPurchase {
+  id          String   @id @default(cuid())
+  purchaseId  String   @unique
+  reason      String   // FAKE_DUPLICATE_SHARED_PACKAGE, BARTER_TRADE, NEVER_PAID, etc.
+  notes       String?
+  excludedBy  String?  // userId del admin que la excluyó (opcional)
+  excludedAt  DateTime @default(now())
+
+  @@index([reason])
+}
+
 // Clase programada
 model Class {
   id                        String      @id @default(cuid())

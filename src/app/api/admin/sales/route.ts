@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { EXCLUDED_USER_IDS } from '@/lib/constants'
+import { getExcludedPurchaseIds } from '@/lib/excluded-purchases'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,10 +27,12 @@ export async function GET(request: Request) {
 
     const skip = page * limit
 
-    // Build where clause for purchases (exclude test users)
+    // Build where clause for purchases (exclude test users + financial exclusions)
+    const excludedPurchaseIds = await getExcludedPurchaseIds()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: Record<string, any> = {
       userId: { notIn: EXCLUDED_USER_IDS },
+      ...(excludedPurchaseIds.length > 0 && { id: { notIn: excludedPurchaseIds } }),
     }
 
     // Search by user email/name or package name
