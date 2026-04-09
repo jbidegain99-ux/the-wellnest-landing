@@ -4,7 +4,6 @@ import {
   Landmark,
   Receipt,
   CreditCard,
-  Info,
   ArrowDownRight,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -93,13 +92,9 @@ export default async function FinanzasPage({
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl lg:text-4xl font-semibold text-foreground">
-            Finanzas — Ingresos Reales
+            Finanzas
           </h1>
-          <p className="text-gray-600 mt-2 max-w-2xl">
-            Desglose de ventas brutas, descuentos de pasarela (Banco Cuscatlán)
-            e IVA para calcular el dinero que realmente llega al banco.
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-400 mt-2">
             Rango: {range.start.toLocaleDateString('es-SV')} —{' '}
             {range.end.toLocaleDateString('es-SV')} ({PERIOD_LABELS[period]})
           </p>
@@ -127,21 +122,6 @@ export default async function FinanzasPage({
         </nav>
       </div>
 
-      {/* Banner: estimaciones */}
-      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
-        <Info className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-amber-900">
-          <p className="font-medium">Números estimados (Modo A)</p>
-          <p className="text-amber-800 mt-1">
-            Las comisiones se calculan con las tarifas del contrato Cuscatlán
-            ({(config.gatewayFeeRate * 100).toFixed(2)}% + IVA + $
-            {config.tds3DsPerTransaction.toFixed(2)} 3DS por transacción). Los
-            valores reales por transacción estarán disponibles cuando se
-            implemente el parser de webhooks (Fase 2).
-          </p>
-        </div>
-      </div>
-
       {/* Summary cards — Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <MetricCard
@@ -160,7 +140,7 @@ export default async function FinanzasPage({
         />
         <MetricCard
           icon={<Receipt className="h-5 w-5 text-slate-600" />}
-          label="IVA a pagar al Ministerio"
+          label="IVA"
           value={formatPrice(totals.ivaToPayMinistry)}
           hint="Débito ventas − crédito comisiones"
           tone="neutral"
@@ -168,12 +148,8 @@ export default async function FinanzasPage({
       </div>
 
       {/* Discount cards — Row 2 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <DiscountCard
-          label="IVA ventas (débito)"
-          value={totals.iva}
-          detail="Incluido en el precio"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <DiscountCard label="IVA ventas (débito)" value={totals.iva} />
         <DiscountCard
           label="Comisión Cuscatlán"
           value={totals.feeBase + totals.feeIva}
@@ -182,12 +158,7 @@ export default async function FinanzasPage({
         <DiscountCard
           label="3DS"
           value={totals.tdsFee}
-          detail={`$${config.tds3DsPerTransaction.toFixed(2)} + IVA / txn`}
-        />
-        <DiscountCard
-          label="Retención"
-          value={totals.retencion}
-          detail={config.retencionEnabled ? 'Habilitada' : 'No aplica'}
+          detail={`$${config.tds3DsPerTransaction.toFixed(2)} + IVA / transacción`}
         />
       </div>
 
@@ -273,7 +244,7 @@ export default async function FinanzasPage({
                 <thead>
                   <tr className="text-left text-gray-500 border-b border-beige">
                     <th className="py-2">Fecha</th>
-                    <th className="py-2 text-right">Txn</th>
+                    <th className="py-2 text-right">Transacciones</th>
                     <th className="py-2 text-right">Bruto</th>
                     <th className="py-2 text-right">IVA</th>
                     <th className="py-2 text-right">Comisiones</th>
@@ -354,7 +325,7 @@ function DiscountCard({
 }: {
   label: string
   value: number
-  detail: string
+  detail?: string
 }) {
   return (
     <Card>
@@ -370,7 +341,7 @@ function DiscountCard({
         <p className="font-serif text-xl font-semibold text-slate-700 tabular-nums">
           {value > 0 ? `−${formatPrice(value)}` : formatPrice(0)}
         </p>
-        <p className="text-xs text-gray-500 mt-1">{detail}</p>
+        {detail && <p className="text-xs text-gray-500 mt-1">{detail}</p>}
       </CardContent>
     </Card>
   )
@@ -379,7 +350,7 @@ function DiscountCard({
 function MethodLabel({ method }: { method: 'PAYWAY' | 'MANUAL' | 'OFFLINE' | 'TRIAL' }) {
   const cfg: Record<typeof method, { label: string; className: string; icon: React.ReactNode }> = {
     PAYWAY: {
-      label: 'PayWay / Cuscatlán',
+      label: 'Pago en línea',
       className: 'bg-blue-50 text-blue-700',
       icon: <CreditCard className="h-3.5 w-3.5" />,
     },
@@ -389,9 +360,9 @@ function MethodLabel({ method }: { method: 'PAYWAY' | 'MANUAL' | 'OFFLINE' | 'TR
       icon: <DollarSign className="h-3.5 w-3.5" />,
     },
     OFFLINE: {
-      label: 'Offline',
+      label: 'Pago por POS',
       className: 'bg-gray-100 text-gray-600',
-      icon: <DollarSign className="h-3.5 w-3.5" />,
+      icon: <CreditCard className="h-3.5 w-3.5" />,
     },
     TRIAL: {
       label: 'Trial / Gratis',
