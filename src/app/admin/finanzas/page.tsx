@@ -1,3 +1,4 @@
+import React from 'react'
 import Link from 'next/link'
 import {
   DollarSign,
@@ -21,7 +22,21 @@ import {
   groupByDaySV,
   type RawPurchase,
 } from '@/lib/finance/aggregate'
+import { classifyPayment, type PaymentMethod } from '@/lib/finance/calculate'
 import { getCurrentFinancialConfig } from '@/lib/finance/config'
+import { formatInTimeZone } from 'date-fns-tz'
+
+const TZ = 'America/El_Salvador'
+
+type DetailRow = {
+  id: string
+  userName: string
+  userEmail: string
+  method: PaymentMethod
+  amount: number
+}
+
+const DETAIL_METHODS: ReadonlyArray<PaymentMethod> = ['POS', 'MANUAL', 'GIFT']
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +70,7 @@ async function getFinanzasData(period: Period) {
       finalPrice: true,
       paymentProviderId: true,
       createdAt: true,
+      user: { select: { name: true, email: true } },
     },
   })
 
@@ -66,9 +82,26 @@ async function getFinanzasData(period: Period) {
     createdAt: p.createdAt,
   }))
 
+  const detailsByDay = new Map<string, DetailRow[]>()
+  for (const p of purchases) {
+    const method = classifyPayment(p.paymentProviderId)
+    if (!DETAIL_METHODS.includes(method)) continue
+    const day = formatInTimeZone(p.createdAt, TZ, 'yyyy-MM-dd')
+    const list = detailsByDay.get(day) ?? []
+    list.push({
+      id: p.id,
+      userName: p.user?.name ?? '—',
+      userEmail: p.user?.email ?? '',
+      method,
+      amount: p.finalPrice,
+    })
+    detailsByDay.set(day, list)
+  }
+
   return {
     totals: aggregatePurchases(rows, config),
     daily: groupByDaySV(rows, config),
+    detailsByDay,
     range: { start, end },
     config,
   }
@@ -84,7 +117,7 @@ export default async function FinanzasPage({
     ? rawPeriod
     : 'month'
 
-  const { totals, daily, range, config } = await getFinanzasData(period)
+  const { totals, daily, detailsByDay, range, config } = await getFinanzasData(period)
 
   return (
     <div className="space-y-6">
@@ -252,26 +285,61 @@ export default async function FinanzasPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {daily.map((d) => (
-                    <tr key={d.day} className="border-b border-beige/50">
-                      <td className="py-2 font-medium">{d.day}</td>
-                      <td className="py-2 text-right tabular-nums">
-                        {d.count}
-                      </td>
-                      <td className="py-2 text-right tabular-nums">
-                        {formatPrice(d.bruto)}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-slate-600">
-                        {formatPrice(d.iva)}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-red-600">
-                        {d.fee > 0 ? `−${formatPrice(d.fee)}` : '—'}
-                      </td>
-                      <td className="py-2 text-right tabular-nums font-medium text-emerald-700">
-                        {formatPrice(d.neto)}
-                      </td>
-                    </tr>
-                  ))}
+                  {daily.map((d) => {
+                    const details = detailsByDay.get(d.day) ?? []
+                    return (
+                      <React.Fragment key={d.day}>
+                        <tr className="border-b border-beige/50">
+                          <td className="py-2 font-medium">{d.day}</td>
+                          <td className="py-2 text-right tabular-nums">
+                            {d.count}
+                          </td>
+                          <td className="py-2 text-right tabular-nums">
+                            {formatPrice(d.bruto)}
+                          </td>
+                          <td className="py-2 text-right tabular-nums text-slate-600">
+                            {formatPrice(d.iva)}
+                          </td>
+                          <td className="py-2 text-right tabular-nums text-red-600">
+                            {d.fee > 0 ? `−${formatPrice(d.fee)}` : '—'}
+                          </td>
+                          <td className="py-2 text-right tabular-nums font-medium text-emerald-700">
+                            {formatPrice(d.neto)}
+                          </td>
+                        </tr>
+                        {details.length > 0 && (
+                          <tr className="border-b border-beige/50 bg-beige/20">
+                            <td colSpan={6} className="py-2 px-3">
+                              <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">
+                                POS / Transferencia / Cortesías
+                              </p>
+                              <ul className="space-y-1">
+                                {details.map((row) => (
+                                  <li
+                                    key={row.id}
+                                    className="flex items-center justify-between gap-3 text-xs"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <DetailMethodBadge method={row.method} />
+                                      <span className="truncate text-gray-800">
+                                        {row.userName}
+                                      </span>
+                                      <span className="truncate text-gray-400">
+                                        {row.userEmail}
+                                      </span>
+                                    </div>
+                                    <span className="tabular-nums text-gray-700">
+                                      {formatPrice(row.amount)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -344,6 +412,25 @@ function DiscountCard({
         {detail && <p className="text-xs text-gray-500 mt-1">{detail}</p>}
       </CardContent>
     </Card>
+  )
+}
+
+function DetailMethodBadge({ method }: { method: PaymentMethod }) {
+  const cfg: Partial<Record<PaymentMethod, { label: string; className: string }>> = {
+    POS: { label: 'POS', className: 'bg-indigo-50 text-indigo-700' },
+    MANUAL: { label: 'Transferencia', className: 'bg-purple-50 text-purple-700' },
+    GIFT: { label: 'Cortesía', className: 'bg-amber-50 text-amber-700' },
+  }
+  const c = cfg[method] ?? { label: method, className: 'bg-gray-100 text-gray-700' }
+  return (
+    <span
+      className={
+        'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ' +
+        c.className
+      }
+    >
+      {c.label}
+    </span>
   )
 }
 
