@@ -34,9 +34,20 @@ type DetailRow = {
   userEmail: string
   method: PaymentMethod
   amount: number
+  packageName: string
+  disciplines: string[]
+  createdAt: Date
+}
+
+type DisciplineStats = {
+  name: string
+  revenue: number
+  orders: number
+  customers: number
 }
 
 const DETAIL_METHODS: ReadonlyArray<PaymentMethod> = ['POS', 'MANUAL', 'GIFT']
+const NON_REVENUE_METHODS: ReadonlyArray<PaymentMethod> = ['TRIAL', 'GIFT']
 
 export const dynamic = 'force-dynamic'
 
@@ -67,10 +78,19 @@ async function getFinanzasData(period: Period) {
     },
     select: {
       id: true,
+      userId: true,
       finalPrice: true,
       paymentProviderId: true,
       createdAt: true,
       user: { select: { name: true, email: true } },
+      package: {
+        select: {
+          name: true,
+          disciplines: {
+            select: { discipline: { select: { name: true } } },
+          },
+        },
+      },
     },
   })
 
@@ -83,25 +103,63 @@ async function getFinanzasData(period: Period) {
   }))
 
   const detailsByDay = new Map<string, DetailRow[]>()
+  const disciplineMap = new Map<
+    string,
+    { revenue: number; orders: number; customerIds: Set<string> }
+  >()
+
   for (const p of purchases) {
     const method = classifyPayment(p.paymentProviderId)
-    if (!DETAIL_METHODS.includes(method)) continue
-    const day = formatInTimeZone(p.createdAt, TZ, 'yyyy-MM-dd')
-    const list = detailsByDay.get(day) ?? []
-    list.push({
-      id: p.id,
-      userName: p.user?.name ?? '—',
-      userEmail: p.user?.email ?? '',
-      method,
-      amount: p.finalPrice,
-    })
-    detailsByDay.set(day, list)
+    const disciplines = p.package?.disciplines.map((d) => d.discipline.name) ?? []
+    const packageName = p.package?.name ?? '—'
+
+    if (DETAIL_METHODS.includes(method)) {
+      const day = formatInTimeZone(p.createdAt, TZ, 'yyyy-MM-dd')
+      const list = detailsByDay.get(day) ?? []
+      list.push({
+        id: p.id,
+        userName: p.user?.name ?? '—',
+        userEmail: p.user?.email ?? '',
+        method,
+        amount: p.finalPrice,
+        packageName,
+        disciplines,
+        createdAt: p.createdAt,
+      })
+      detailsByDay.set(day, list)
+    }
+
+    // Discipline distribution — revenue-generating purchases only,
+    // split equally when a package spans multiple disciplines.
+    if (!NON_REVENUE_METHODS.includes(method) && disciplines.length > 0) {
+      const share = p.finalPrice / disciplines.length
+      for (const name of disciplines) {
+        let s = disciplineMap.get(name)
+        if (!s) {
+          s = { revenue: 0, orders: 0, customerIds: new Set() }
+          disciplineMap.set(name, s)
+        }
+        s.revenue += share
+        s.orders += 1
+        s.customerIds.add(p.userId)
+      }
+    }
   }
+
+  const disciplines: DisciplineStats[] = Array.from(disciplineMap.entries())
+    .map(([name, s]) => ({
+      name,
+      revenue: Math.round(s.revenue * 100) / 100,
+      orders: s.orders,
+      customers: s.customerIds.size,
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
 
   return {
     totals: aggregatePurchases(rows, config),
     daily: groupByDaySV(rows, config),
     detailsByDay,
+    disciplines,
     range: { start, end },
     config,
   }
@@ -117,7 +175,8 @@ export default async function FinanzasPage({
     ? rawPeriod
     : 'month'
 
-  const { totals, daily, detailsByDay, range, config } = await getFinanzasData(period)
+  const { totals, daily, detailsByDay, disciplines, range, config } =
+    await getFinanzasData(period)
 
   return (
     <div className="space-y-6">
@@ -208,6 +267,7 @@ export default async function FinanzasPage({
                   <th className="py-2">Método</th>
                   <th className="py-2 text-right">Transacciones</th>
                   <th className="py-2 text-right">Bruto</th>
+                  <th className="py-2 text-right">% bruto</th>
                   <th className="py-2 text-right">Comisión</th>
                   <th className="py-2 text-right">Neto</th>
                 </tr>
@@ -215,9 +275,8 @@ export default async function FinanzasPage({
               <tbody>
                 {(['PAYWAY', 'POS', 'MANUAL'] as const).map((method) => {
                   const m = totals.byMethod[method]
-                  // Skip buckets with no revenue — avoids showing $0 rows
-                  // (e.g. POS with only gifts, or empty methods this period).
                   if (m.count === 0 || m.bruto === 0) return null
+                  const pct = totals.bruto > 0 ? (m.bruto / totals.bruto) * 100 : 0
                   return (
                     <tr key={method} className="border-b border-beige/50">
                       <td className="py-2">
@@ -228,6 +287,9 @@ export default async function FinanzasPage({
                       </td>
                       <td className="py-2 text-right tabular-nums">
                         {formatPrice(m.bruto)}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-gray-600">
+                        {pct.toFixed(1)}%
                       </td>
                       <td className="py-2 text-right tabular-nums text-red-600">
                         {m.fee > 0 ? `−${formatPrice(m.fee)}` : '—'}
@@ -248,6 +310,9 @@ export default async function FinanzasPage({
                   <td className="py-3 text-right tabular-nums">
                     {formatPrice(totals.bruto)}
                   </td>
+                  <td className="py-3 text-right tabular-nums text-gray-600">
+                    100%
+                  </td>
                   <td className="py-3 text-right tabular-nums text-red-600">
                     −{formatPrice(totals.fee)}
                   </td>
@@ -258,6 +323,26 @@ export default async function FinanzasPage({
               </tfoot>
             </table>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Discipline distribution */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Distribución por disciplina</CardTitle>
+          <p className="text-xs text-gray-500 mt-1">
+            Ingresos atribuidos equitativamente cuando un paquete cubre varias disciplinas.
+            Excluye cortesías y trials.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {disciplines.length === 0 ? (
+            <p className="text-sm text-gray-500 py-8 text-center">
+              Sin ventas por disciplina en el rango.
+            </p>
+          ) : (
+            <DisciplineTable disciplines={disciplines} />
+          )}
         </CardContent>
       </Card>
 
@@ -313,23 +398,46 @@ export default async function FinanzasPage({
                               <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">
                                 POS / Transferencia / Cortesías
                               </p>
-                              <ul className="space-y-1">
+                              <ul className="space-y-1.5">
                                 {details.map((row) => (
                                   <li
                                     key={row.id}
-                                    className="flex items-center justify-between gap-3 text-xs"
+                                    className="flex items-start justify-between gap-3 text-xs"
                                   >
-                                    <div className="flex items-center gap-2 min-w-0">
+                                    <div className="flex items-start gap-2 min-w-0 flex-1">
                                       <DetailMethodBadge method={row.method} />
-                                      <span className="truncate text-gray-800">
-                                        {row.userName}
-                                      </span>
-                                      <span className="truncate text-gray-400">
-                                        {row.userEmail}
-                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="truncate text-gray-800 font-medium">
+                                            {row.userName}
+                                          </span>
+                                          <span className="truncate text-gray-400">
+                                            {row.userEmail}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[11px] text-gray-500 mt-0.5">
+                                          <span className="truncate">
+                                            {row.packageName}
+                                          </span>
+                                          {row.disciplines.length > 0 && (
+                                            <>
+                                              <span>·</span>
+                                              <span className="truncate">
+                                                {row.disciplines.join(', ')}
+                                              </span>
+                                            </>
+                                          )}
+                                          <span>·</span>
+                                          <span className="tabular-nums">
+                                            {formatInTimeZone(row.createdAt, TZ, 'HH:mm')}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <span className="tabular-nums text-gray-700">
-                                      {formatPrice(row.amount)}
+                                    <span className="tabular-nums text-gray-700 whitespace-nowrap">
+                                      {row.method === 'GIFT'
+                                        ? 'Cortesía'
+                                        : formatPrice(row.amount)}
                                     </span>
                                   </li>
                                 ))}
@@ -431,6 +539,84 @@ function DetailMethodBadge({ method }: { method: PaymentMethod }) {
     >
       {c.label}
     </span>
+  )
+}
+
+const DISCIPLINE_COLORS = [
+  '#639922',
+  '#8B7355',
+  '#A6B7A8',
+  '#D4A574',
+  '#6B8E7B',
+  '#C99A6B',
+]
+
+function DisciplineTable({ disciplines }: { disciplines: DisciplineStats[] }) {
+  const total = disciplines.reduce((sum, d) => sum + d.revenue, 0)
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-gray-500 border-b border-beige">
+            <th className="py-2 w-8">#</th>
+            <th className="py-2">Disciplina</th>
+            <th className="py-2 text-right">Ingresos</th>
+            <th className="py-2 text-right">Clientes</th>
+            <th className="py-2 text-right">Órdenes</th>
+            <th className="py-2 text-right w-[28%]">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {disciplines.map((d, i) => {
+            const pct = total > 0 ? (d.revenue / total) * 100 : 0
+            const color = DISCIPLINE_COLORS[i % DISCIPLINE_COLORS.length]
+            return (
+              <tr key={d.name} className="border-b border-beige/50">
+                <td className="py-2 text-gray-500 tabular-nums">{i + 1}</td>
+                <td className="py-2">
+                  <span className="inline-flex items-center gap-2">
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    {d.name}
+                  </span>
+                </td>
+                <td className="py-2 text-right tabular-nums font-medium">
+                  {formatPrice(d.revenue)}
+                </td>
+                <td className="py-2 text-right tabular-nums text-gray-600">
+                  {d.customers}
+                </td>
+                <td className="py-2 text-right tabular-nums text-gray-600">
+                  {d.orders}
+                </td>
+                <td className="py-2 pl-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-beige/60 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, backgroundColor: color }}
+                      />
+                    </div>
+                    <span className="tabular-nums text-xs text-gray-600 w-12 text-right">
+                      {pct.toFixed(1)}%
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="font-semibold">
+            <td className="py-3" colSpan={2}>Total</td>
+            <td className="py-3 text-right tabular-nums">{formatPrice(total)}</td>
+            <td className="py-3" colSpan={3} />
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   )
 }
 
