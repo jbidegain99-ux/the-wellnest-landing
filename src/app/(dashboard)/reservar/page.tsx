@@ -252,6 +252,9 @@ export default function ReservarPage() {
   const [selectedPurchase, setSelectedPurchase] = React.useState<SelectedPurchase | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [reservedClassIds, setReservedClassIds] = React.useState<Set<string>>(new Set())
+  const [waitlistEntries, setWaitlistEntries] = React.useState<
+    Map<string, { id: string; position: number }>
+  >(new Map())
 
   // Filter and navigation
   const [selectedDiscipline, setSelectedDiscipline] = React.useState('all')
@@ -321,6 +324,22 @@ export default function ReservarPage() {
     }
   }, [])
 
+  const fetchWaitlistEntries = React.useCallback(async () => {
+    try {
+      const response = await fetch('/api/waitlist')
+      if (response.ok) {
+        const data = await response.json()
+        const map = new Map<string, { id: string; position: number }>()
+        for (const item of data.items as Array<{ id: string; classId: string; position: number }>) {
+          map.set(item.classId, { id: item.id, position: item.position })
+        }
+        setWaitlistEntries(map)
+      }
+    } catch (error) {
+      console.error('Error fetching waitlist:', error)
+    }
+  }, [])
+
   // Fetch disciplines on mount
   React.useEffect(() => {
     const fetchDisciplines = async () => {
@@ -337,7 +356,8 @@ export default function ReservarPage() {
     fetchDisciplines()
     fetchActivePurchase()
     fetchUserReservations()
-  }, [fetchActivePurchase, fetchUserReservations])
+    fetchWaitlistEntries()
+  }, [fetchActivePurchase, fetchUserReservations, fetchWaitlistEntries])
 
   // Re-fetch purchase data when tab becomes visible (sync across tabs)
   React.useEffect(() => {
@@ -345,11 +365,12 @@ export default function ReservarPage() {
       if (document.visibilityState === 'visible') {
         fetchActivePurchase()
         fetchUserReservations()
+        fetchWaitlistEntries()
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [fetchActivePurchase, fetchUserReservations])
+  }, [fetchActivePurchase, fetchUserReservations, fetchWaitlistEntries])
 
   // Fetch specific purchase if packageId is in URL
   React.useEffect(() => {
