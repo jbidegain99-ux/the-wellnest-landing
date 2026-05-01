@@ -73,13 +73,32 @@ export async function POST(request: Request) {
     // Check if class exists
     const classInfo = await prisma.class.findUnique({
       where: { id: classId },
-      include: { discipline: true },
+      include: {
+        discipline: true,
+        _count: {
+          select: { reservations: { where: { status: 'CONFIRMED' } } },
+        },
+      },
     })
 
     if (!classInfo) {
       return NextResponse.json(
         { error: 'Clase no encontrada' },
         { status: 404 }
+      )
+    }
+
+    if (new Date(classInfo.dateTime) < new Date()) {
+      return NextResponse.json(
+        { error: 'No puedes unirte a la lista de espera de una clase que ya pasó.' },
+        { status: 400 }
+      )
+    }
+
+    if (classInfo._count.reservations < classInfo.maxCapacity) {
+      return NextResponse.json(
+        { error: 'Esta clase aún tiene cupos disponibles. Reserva directamente.' },
+        { status: 400 }
       )
     }
 
