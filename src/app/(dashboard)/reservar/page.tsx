@@ -290,6 +290,9 @@ export default function ReservarPage() {
   const [bookingError, setBookingError] = React.useState<string | null>(null)
   const [isWaitlistSubmitting, setIsWaitlistSubmitting] = React.useState(false)
   const [waitlistMessage, setWaitlistMessage] = React.useState<string | null>(null)
+  const [errorReturnState, setErrorReturnState] = React.useState<
+    'confirm' | 'waitlist-confirm' | 'waitlist-info'
+  >('confirm')
 
   // Guest invitation state
   const [bringGuest, setBringGuest] = React.useState(false)
@@ -612,11 +615,13 @@ export default function ReservarPage() {
         }
         setModalState('success')
       } else {
+        setErrorReturnState('confirm')
         setBookingError(data.error || 'Error al crear la reserva')
         setModalState('error')
       }
     } catch (error) {
       console.error('Error booking class:', error)
+      setErrorReturnState('confirm')
       setBookingError('Error de conexión. Por favor intenta de nuevo.')
       setModalState('error')
     } finally {
@@ -642,11 +647,13 @@ export default function ReservarPage() {
         await fetchWaitlistEntries()
         setModalState('waitlist-success')
       } else {
+        setErrorReturnState('waitlist-confirm')
         setBookingError(data.error || 'Error al unirse a la lista de espera')
         setModalState('error')
       }
     } catch (error) {
       console.error('Error joining waitlist:', error)
+      setErrorReturnState('waitlist-confirm')
       setBookingError('Error de conexión. Por favor intenta de nuevo.')
       setModalState('error')
     } finally {
@@ -675,11 +682,13 @@ export default function ReservarPage() {
         closeModal()
       } else {
         const data = await response.json()
+        setErrorReturnState('waitlist-info')
         setBookingError(data.error || 'Error al salir de la lista de espera')
         setModalState('error')
       }
     } catch (error) {
       console.error('Error leaving waitlist:', error)
+      setErrorReturnState('waitlist-info')
       setBookingError('Error de conexión. Por favor intenta de nuevo.')
       setModalState('error')
     } finally {
@@ -1024,7 +1033,7 @@ export default function ReservarPage() {
                 <Button variant="ghost" onClick={closeModal}>
                   Cerrar
                 </Button>
-                <Button onClick={() => setModalState('confirm')}>
+                <Button onClick={() => setModalState(errorReturnState)}>
                   Intentar de nuevo
                 </Button>
               </ModalFooter>
