@@ -78,7 +78,14 @@ interface SelectedPurchase {
 }
 
 // Modal states - separate state for each modal type to prevent conflicts
-type ModalState = 'closed' | 'confirm' | 'success' | 'error'
+type ModalState =
+  | 'closed'
+  | 'confirm'
+  | 'success'
+  | 'error'
+  | 'waitlist-confirm'
+  | 'waitlist-success'
+  | 'waitlist-info'
 
 const disciplineColors: Record<string, string> = {
   yoga: 'bg-[#9CAF88]',
@@ -281,6 +288,8 @@ export default function ReservarPage() {
   const [selectedClass, setSelectedClass] = React.useState<ClassData | null>(null)
   const [isBooking, setIsBooking] = React.useState(false)
   const [bookingError, setBookingError] = React.useState<string | null>(null)
+  const [isWaitlistSubmitting, setIsWaitlistSubmitting] = React.useState(false)
+  const [waitlistMessage, setWaitlistMessage] = React.useState<string | null>(null)
 
   // Guest invitation state
   const [bringGuest, setBringGuest] = React.useState(false)
@@ -524,10 +533,17 @@ export default function ReservarPage() {
   const handleSelectClass = (cls: ClassData) => {
     const reservationCount = cls._count?.reservations ?? cls.currentCount
     const isFull = reservationCount >= cls.maxCapacity
+    const isOnWaitlist = waitlistEntries.has(cls.id)
 
-    if (!isFull) {
-      setSelectedClass(cls)
-      setBookingError(null)
+    setSelectedClass(cls)
+    setBookingError(null)
+    setWaitlistMessage(null)
+
+    if (isOnWaitlist) {
+      setModalState('waitlist-info')
+    } else if (isFull) {
+      setModalState('waitlist-confirm')
+    } else {
       setModalState('confirm')
     }
   }
@@ -608,6 +624,69 @@ export default function ReservarPage() {
     }
   }
 
+  const handleJoinWaitlist = async () => {
+    if (!selectedClass) return
+    setIsWaitlistSubmitting(true)
+    setWaitlistMessage(null)
+
+    try {
+      const response = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classId: selectedClass.id }),
+      })
+      const data = await response.json()
+
+      if (response.ok) {
+        setWaitlistMessage(data.message ?? `Te has unido en posición #${data.entry?.position ?? '?'}.`)
+        await fetchWaitlistEntries()
+        setModalState('waitlist-success')
+      } else {
+        setBookingError(data.error || 'Error al unirse a la lista de espera')
+        setModalState('error')
+      }
+    } catch (error) {
+      console.error('Error joining waitlist:', error)
+      setBookingError('Error de conexión. Por favor intenta de nuevo.')
+      setModalState('error')
+    } finally {
+      setIsWaitlistSubmitting(false)
+    }
+  }
+
+  const handleLeaveWaitlist = async () => {
+    if (!selectedClass) return
+    const entry = waitlistEntries.get(selectedClass.id)
+    if (!entry) {
+      closeModal()
+      return
+    }
+
+    setIsWaitlistSubmitting(true)
+    try {
+      const response = await fetch('/api/waitlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waitlistId: entry.id }),
+      })
+
+      if (response.ok) {
+        await fetchWaitlistEntries()
+        closeModal()
+      } else {
+        const data = await response.json()
+        setBookingError(data.error || 'Error al salir de la lista de espera')
+        setModalState('error')
+      }
+    } catch (error) {
+      console.error('Error leaving waitlist:', error)
+      setBookingError('Error de conexión. Por favor intenta de nuevo.')
+      setModalState('error')
+    } finally {
+      setIsWaitlistSubmitting(false)
+    }
+  }
+
   // Single close handler that completely resets modal state
   const closeModal = React.useCallback(() => {
     setModalState('closed')
@@ -618,6 +697,7 @@ export default function ReservarPage() {
       setBringGuest(false)
       setGuestEmail('')
       setGuestName('')
+      setWaitlistMessage(null)
     }, 150)
   }, [])
 
@@ -1108,6 +1188,176 @@ export default function ReservarPage() {
               </ModalFooter>
             </>
           )}
+
+          {/* Waitlist confirm */}
+          {modalState === 'waitlist-confirm' && selectedClass && (() => {
+            const hasNoActivePackage =
+              !activePurchase?.hasActivePackage ||
+              (activePurchase?.classesRemaining ?? 0) <= 0
+
+            return (
+              <>
+                <ModalHeader>
+                  <ModalTitle>Esta clase está llena</ModalTitle>
+                  <ModalDescription>
+                    Únete a la lista de espera y te asignaremos automáticamente el primer cupo que se libere.
+                  </ModalDescription>
+                </ModalHeader>
+
+                <div className="space-y-4">
+                  <div
+                    className={cn(
+                      'p-4 rounded-xl text-white',
+                      disciplineColors[selectedClass.discipline.slug] || 'bg-primary'
+                    )}
+                  >
+                    <p className="font-serif text-xl font-semibold">
+                      {selectedClass.discipline.name}
+                      {selectedClass.complementaryDiscipline && ` + ${selectedClass.complementaryDiscipline.name}`}
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Fecha</span>
+                      <span className="font-medium">{formatClassDate(selectedClass.dateTime)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Hora</span>
+                      <span className="font-medium">{formatClassTime(selectedClass.dateTime)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Instructor</span>
+                      <span className="font-medium">{selectedClass.instructor.name}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
+                    Te enviaremos un correo electrónico si se libera un cupo y eres asignada.
+                  </div>
+
+                  {hasNoActivePackage && (
+                    <div className="p-3 bg-amber-100 border border-amber-300 rounded-lg text-sm text-amber-900 space-y-2">
+                      <p>
+                        <strong>Atención:</strong> Sin un paquete activo con clases disponibles,
+                        NO podrás ser asignada cuando se libere un cupo.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => router.push('/paquetes')}
+                        className="underline font-medium"
+                      >
+                        Comprar un paquete
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <ModalFooter>
+                  <Button variant="ghost" onClick={closeModal} disabled={isWaitlistSubmitting}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleJoinWaitlist} isLoading={isWaitlistSubmitting}>
+                    Unirme a la lista
+                  </Button>
+                </ModalFooter>
+              </>
+            )
+          })()}
+
+          {/* Waitlist success */}
+          {modalState === 'waitlist-success' && (
+            <>
+              <div className="text-center py-6">
+                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                  <Clock className="h-8 w-8 text-amber-700" />
+                </div>
+                <h3 className="font-serif text-2xl font-semibold text-foreground mb-2">
+                  ¡En lista de espera!
+                </h3>
+                <p className="text-gray-600">
+                  {waitlistMessage ?? 'Te has unido a la lista de espera.'}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Te avisaremos por correo si se libera un cupo.
+                </p>
+              </div>
+              <ModalFooter>
+                <Button onClick={closeModal} className="w-full">
+                  Entendido
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+
+          {/* Waitlist info (already on waitlist) */}
+          {modalState === 'waitlist-info' && selectedClass && (() => {
+            const entry = waitlistEntries.get(selectedClass.id)
+            return (
+              <>
+                <ModalHeader>
+                  <ModalTitle>Estás en la lista de espera</ModalTitle>
+                  <ModalDescription>
+                    Te asignaremos automáticamente el primer cupo que se libere.
+                  </ModalDescription>
+                </ModalHeader>
+
+                <div className="space-y-4">
+                  <div
+                    className={cn(
+                      'p-4 rounded-xl text-white',
+                      disciplineColors[selectedClass.discipline.slug] || 'bg-primary'
+                    )}
+                  >
+                    <p className="font-serif text-xl font-semibold">
+                      {selectedClass.discipline.name}
+                      {selectedClass.complementaryDiscipline && ` + ${selectedClass.complementaryDiscipline.name}`}
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                    <p className="text-sm text-gray-600">Tu posición</p>
+                    <p className="text-3xl font-serif font-semibold text-amber-900 mt-1">
+                      #{entry?.position ?? '?'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Fecha</span>
+                      <span className="font-medium">{formatClassDate(selectedClass.dateTime)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Hora</span>
+                      <span className="font-medium">{formatClassTime(selectedClass.dateTime)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Instructor</span>
+                      <span className="font-medium">{selectedClass.instructor.name}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-beige rounded-lg text-sm text-gray-600">
+                    Te enviaremos un correo electrónico si se libera un cupo y eres asignada.
+                  </div>
+                </div>
+
+                <ModalFooter>
+                  <Button variant="ghost" onClick={closeModal} disabled={isWaitlistSubmitting}>
+                    Cerrar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={handleLeaveWaitlist}
+                    isLoading={isWaitlistSubmitting}
+                    className="text-[var(--color-error)]"
+                  >
+                    Salir de la lista
+                  </Button>
+                </ModalFooter>
+              </>
+            )
+          })()}
         </ModalContent>
       </Modal>
     </div>
