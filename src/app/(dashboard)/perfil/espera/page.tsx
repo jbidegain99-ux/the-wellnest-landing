@@ -173,18 +173,13 @@ export default function ListaEsperaPage() {
         </div>
       )}
 
-      {/* Info note - Updated for auto-assignment, no notifications */}
-      <div className="p-4 bg-white rounded-xl border border-beige text-sm text-gray-600 space-y-2">
+      {/* Info note */}
+      <div className="p-4 bg-white rounded-xl border border-beige text-sm text-gray-600">
         <p>
-          <strong>Importante:</strong> Actualmente no enviamos notificaciones por correo
-          electrónico. Te recomendamos revisar esta página regularmente para verificar si
-          se liberó un cupo.
-        </p>
-        <p>
-          <strong>Asignación automática:</strong> Cuando alguien cancela su reserva, el
-          primer lugar de la lista de espera será asignado automáticamente si tiene clases
-          disponibles en su paquete. El cupo se descontará de tu paquete activo más próximo
-          a vencer.
+          <strong>Importante:</strong> Cuando alguien cancela su reserva, el primer lugar
+          de la lista de espera es asignado automáticamente si tiene clases disponibles
+          en su paquete. Te enviaremos un correo electrónico avisándote cuando esto ocurra.
+          El cupo se descontará de tu paquete activo más próximo a vencer.
         </p>
       </div>
     </div>
