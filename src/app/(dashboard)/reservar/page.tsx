@@ -680,6 +680,11 @@ export default function ReservarPage() {
       if (response.ok) {
         await fetchWaitlistEntries()
         closeModal()
+      } else if (response.status === 404) {
+        // Entry was already removed (auto-assigned while modal was open) — refresh and close
+        await fetchWaitlistEntries()
+        await fetchUserReservations()
+        closeModal()
       } else {
         const data = await response.json()
         setErrorReturnState('waitlist-info')
@@ -707,6 +712,7 @@ export default function ReservarPage() {
       setGuestEmail('')
       setGuestName('')
       setWaitlistMessage(null)
+      setIsWaitlistSubmitting(false)
     }, 150)
   }, [])
 
