@@ -96,6 +96,7 @@ function MobileDaySection({
   isToday: today,
   weekDays,
   reservedClassIds,
+  waitlistEntries,
   activePurchase,
   now,
   onClassClick,
@@ -105,6 +106,7 @@ function MobileDaySection({
   isToday: boolean
   weekDays: string[]
   reservedClassIds: Set<string>
+  waitlistEntries: Map<string, { id: string; position: number }>
   activePurchase: ActivePurchase | null
   now: Date
   onClassClick: (cls: ClassData) => void
@@ -160,10 +162,12 @@ function MobileDaySection({
               const isFull = reservationCount >= cls.maxCapacity
               const spotsLeft = cls.maxCapacity - reservationCount
               const alreadyReserved = reservedClassIds.has(cls.id)
+              const waitlistEntry = waitlistEntries.get(cls.id)
+              const isOnWaitlist = !!waitlistEntry
               const isTrialUser = activePurchase?.packageId === TRIAL_PACKAGE_ID
               const isBlockedForTrial = isTrialUser && new Date(cls.dateTime) >= TRIAL_CUTOFF_UTC
               const isPast = new Date(cls.dateTime) < now
-              const isDisabled = isFull || alreadyReserved || isBlockedForTrial || isPast
+              const isDisabled = alreadyReserved || isBlockedForTrial || isPast
 
               return (
                 <button
@@ -207,7 +211,9 @@ function MobileDaySection({
                       isPast ? 'bg-stone-100 text-stone-400' :
                       alreadyReserved ? 'bg-primary/10 text-primary' :
                       isBlockedForTrial ? 'bg-yellow-50 text-yellow-700' :
-                      isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
+                      isOnWaitlist ? 'bg-amber-100 text-amber-900' :
+                      isFull ? 'bg-amber-50 text-amber-700' :
+                      'bg-green-50 text-green-700'
                     )}>
                       {isPast ? (
                         <span className="text-xs font-medium text-center italic">Clase finalizada</span>
@@ -218,12 +224,20 @@ function MobileDaySection({
                         </>
                       ) : isBlockedForTrial ? (
                         <span className="text-[10px] font-medium text-center leading-tight">Solo paquete pagado</span>
+                      ) : isOnWaitlist ? (
+                        <>
+                          <Clock className="h-4 w-4 mb-1" />
+                          <span className="text-xs font-medium text-center">En lista #{waitlistEntry.position}</span>
+                        </>
+                      ) : isFull ? (
+                        <>
+                          <Users className="h-4 w-4 mb-1" />
+                          <span className="text-xs font-medium text-center">Lleno</span>
+                        </>
                       ) : (
                         <>
                           <Users className="h-4 w-4 mb-1" />
-                          <span className="text-xs font-medium text-center">
-                            {isFull ? 'Lleno' : `${spotsLeft} cupos`}
-                          </span>
+                          <span className="text-xs font-medium text-center">{spotsLeft} cupos</span>
                         </>
                       )}
                     </div>
@@ -728,6 +742,7 @@ export default function ReservarPage() {
                   isToday={today}
                   weekDays={weekDays}
                   reservedClassIds={reservedClassIds}
+                  waitlistEntries={waitlistEntries}
                   activePurchase={activePurchase}
                   now={now}
                   onClassClick={handleSelectClass}
@@ -783,17 +798,29 @@ export default function ReservarPage() {
                         const isFull = reservationCount >= cls.maxCapacity
                         const spotsLeft = cls.maxCapacity - reservationCount
                         const alreadyReserved = reservedClassIds.has(cls.id)
+                        const waitlistEntry = waitlistEntries.get(cls.id)
+                        const isOnWaitlist = !!waitlistEntry
                         const isTrialUser = activePurchase?.packageId === TRIAL_PACKAGE_ID
                         const isBlockedForTrial = isTrialUser && new Date(cls.dateTime) >= TRIAL_CUTOFF_UTC
                         const isPast = new Date(cls.dateTime) < now
-                        const isDisabled = isFull || alreadyReserved || isBlockedForTrial || isPast
+                        const isDisabled = alreadyReserved || isBlockedForTrial || isPast
 
                         return (
                           <button
                             key={cls.id}
                             onClick={() => handleSelectClass(cls)}
                             disabled={isDisabled}
-                            title={isPast ? 'Clase finalizada' : isBlockedForTrial ? 'Tu paquete de prueba solo aplica hasta el 7 de marzo' : undefined}
+                            title={
+                              isPast
+                                ? 'Clase finalizada'
+                                : isBlockedForTrial
+                                  ? 'Tu paquete de prueba solo aplica hasta el 7 de marzo'
+                                  : isOnWaitlist
+                                    ? `Estás en lista de espera (posición #${waitlistEntry.position})`
+                                    : isFull
+                                      ? 'Clase llena — toca para unirte a la lista de espera'
+                                      : undefined
+                            }
                             className={cn(
                               'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
                               disciplineColors[cls.discipline.slug] || 'bg-primary',
@@ -801,7 +828,11 @@ export default function ReservarPage() {
                                 ? 'opacity-40 cursor-not-allowed'
                                 : isDisabled
                                   ? 'opacity-40 cursor-not-allowed'
-                                  : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
+                                  : isOnWaitlist
+                                    ? 'ring-2 ring-amber-400 hover:scale-[1.02] hover:shadow-md cursor-pointer'
+                                    : isFull
+                                      ? 'opacity-80 hover:opacity-100 hover:scale-[1.02] hover:shadow-md cursor-pointer'
+                                      : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
                             )}
                           >
                             <p className="font-medium">
@@ -826,10 +857,20 @@ export default function ReservarPage() {
                                 </>
                               ) : isBlockedForTrial ? (
                                 <span className="text-[10px]">Solo paquete pagado</span>
+                              ) : isOnWaitlist ? (
+                                <>
+                                  <Clock className="h-3 w-3" />
+                                  En lista #{waitlistEntry.position}
+                                </>
+                              ) : isFull ? (
+                                <>
+                                  <Users className="h-3 w-3" />
+                                  Lleno · únete
+                                </>
                               ) : (
                                 <>
                                   <Users className="h-3 w-3" />
-                                  {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                                  {spotsLeft} cupos
                                 </>
                               )}
                             </p>
