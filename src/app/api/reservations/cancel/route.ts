@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
+import {
+  buildWaitlistAssignedEmail,
+  formatDateTimeShort,
+  sendEmail,
+} from '@/lib/emailService'
 
 export async function POST(request: Request) {
   console.log('[CANCEL API] ========== CANCEL REQUEST START ==========')
@@ -99,7 +104,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if class is in the future (at least 8 hours)
+    // Check if class is in the future (at least 4 hours)
     const classDateTime = new Date(reservation.class.dateTime)
     const now = new Date()
     const hoursUntilClass = (classDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
@@ -109,8 +114,8 @@ export async function POST(request: Request) {
       classLocalTime: classDateTime.toLocaleString('es-SV'),
       currentTime: now.toISOString(),
       hoursUntilClass: hoursUntilClass.toFixed(2),
-      minimumHours: 8,
-      canCancel: hoursUntilClass >= 8,
+      minimumHours: 4,
+      canCancel: hoursUntilClass >= 4,
     })
 
     if (classDateTime <= now) {
@@ -121,10 +126,10 @@ export async function POST(request: Request) {
       )
     }
 
-    if (hoursUntilClass < 8) {
+    if (hoursUntilClass < 4) {
       console.log('[CANCEL API] ERROR: Too close to class time')
       return NextResponse.json(
-        { error: `No puedes cancelar una reserva con menos de 8 horas de anticipación. La clase es en ${hoursUntilClass.toFixed(1)} horas.` },
+        { error: `No puedes cancelar una reserva con menos de 4 horas de anticipación. La clase es en ${hoursUntilClass.toFixed(1)} horas.` },
         { status: 400 }
       )
     }
@@ -266,6 +271,34 @@ export async function POST(request: Request) {
         }
 
         console.log('[CANCEL API] Waitlist user auto-assigned:', waitlistAssignment)
+
+        // Send email notification to the auto-assigned user (non-blocking)
+        try {
+          const purchaseWithPkg = await prisma.purchase.findUnique({
+            where: { id: purchaseToUse.id },
+            include: { package: true },
+          })
+
+          if (firstInWaitlist.user.email && purchaseWithPkg) {
+            await sendEmail({
+              to: firstInWaitlist.user.email,
+              subject: '¡Se liberó un cupo! Tu reserva está confirmada — Wellnest',
+              html: buildWaitlistAssignedEmail({
+                userName: firstInWaitlist.user.name,
+                disciplineName: reservation.class.discipline.name,
+                instructorName: reservation.class.instructor.name,
+                dateTime: formatDateTimeShort(reservation.class.dateTime),
+                duration: reservation.class.duration,
+                packageName: purchaseWithPkg.package.name,
+                classesRemaining: purchaseWithPkg.classesRemaining,
+                profileUrl: `${process.env.NEXTAUTH_URL || 'https://wellneststudio.net'}/perfil/reservas`,
+              }),
+            })
+            console.log('[CANCEL API] Waitlist email sent to:', firstInWaitlist.user.email)
+          }
+        } catch (emailErr) {
+          console.error('[CANCEL API] Failed to send waitlist email (non-blocking):', emailErr)
+        }
       } catch (waitlistError) {
         console.error('[CANCEL API] Failed to auto-assign waitlist user:', waitlistError)
         // Non-blocking - the cancellation was successful, just couldn't auto-assign
