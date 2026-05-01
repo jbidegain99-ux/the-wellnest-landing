@@ -276,6 +276,7 @@ export default function ReservarPage() {
   const [waitlistEntries, setWaitlistEntries] = React.useState<
     Map<string, { id: string; position: number }>
   >(new Map())
+  const [waitlistLoaded, setWaitlistLoaded] = React.useState(false)
 
   // Filter and navigation
   const [selectedDiscipline, setSelectedDiscipline] = React.useState('all')
@@ -363,6 +364,8 @@ export default function ReservarPage() {
       }
     } catch (error) {
       console.error('Error fetching waitlist:', error)
+    } finally {
+      setWaitlistLoaded(true)
     }
   }, [])
 
@@ -457,30 +460,34 @@ export default function ReservarPage() {
   // Track if we've already processed the classIdFromUrl to prevent reopening
   const [classIdProcessed, setClassIdProcessed] = React.useState(false)
 
-  // Auto-select class from URL and open confirmation modal
+  // Auto-select class from URL and open the appropriate modal.
+  // Waits for waitlistLoaded so we can correctly distinguish waitlist-info from waitlist-confirm.
   React.useEffect(() => {
-    if (!classIdFromUrl || classIdProcessed) return
+    if (!classIdFromUrl || classIdProcessed || !waitlistLoaded) return
 
     const fetchAndSelectClass = async () => {
       try {
-        // Fetch the specific class by ID
         const response = await fetch(`/api/classes/${classIdFromUrl}`)
         if (!response.ok) return
 
         const classData: ClassData = await response.json()
 
-        // Navigate to the week containing this class
         const classDate = new Date(classData.dateTime)
         const classWeekStart = startOfWeek(classDate, { weekStartsOn: 1 })
         setCurrentWeekStart(classWeekStart)
 
-        // Check if the class is full
         const reservationCount = classData._count?.reservations ?? classData.currentCount
         const isFull = reservationCount >= classData.maxCapacity
+        const isOnWaitlist = waitlistEntries.has(classData.id)
 
-        if (!isFull) {
-          setSelectedClass(classData)
-          setBookingError(null)
+        setSelectedClass(classData)
+        setBookingError(null)
+
+        if (isOnWaitlist) {
+          setModalState('waitlist-info')
+        } else if (isFull) {
+          setModalState('waitlist-confirm')
+        } else {
           setModalState('confirm')
         }
 
@@ -491,7 +498,7 @@ export default function ReservarPage() {
     }
 
     fetchAndSelectClass()
-  }, [classIdFromUrl, classIdProcessed])
+  }, [classIdFromUrl, classIdProcessed, waitlistLoaded, waitlistEntries])
 
   const goToPreviousWeek = () => {
     setCurrentWeekStart(addDays(currentWeekStart, -7))

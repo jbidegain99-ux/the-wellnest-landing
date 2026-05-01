@@ -76,7 +76,7 @@ function MobileClassCard({
   const isFull = reservationCount >= cls.maxCapacity
   const spotsLeft = cls.maxCapacity - reservationCount
   const isPast = new Date(cls.dateTime) < now
-  const isDisabled = isFull || isPast
+  const isDisabled = isPast
 
   return (
     <button
@@ -88,9 +88,7 @@ function MobileClassCard({
         disciplineBorderColors[cls.discipline.slug] || 'border-l-primary',
         isPast
           ? 'opacity-50 cursor-not-allowed'
-          : isFull
-            ? 'opacity-60 cursor-not-allowed'
-            : 'hover:shadow-md active:scale-[0.98] cursor-pointer'
+          : 'hover:shadow-md active:scale-[0.98] cursor-pointer'
       )}
     >
       <div className="flex items-start justify-between gap-3 min-w-0">
@@ -151,7 +149,7 @@ function MobileClassCard({
           'flex-shrink-0 flex flex-col items-center justify-center',
           'px-3 py-2 rounded-lg min-w-[70px]',
           isPast ? 'bg-stone-100 text-stone-400' :
-          isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
+          isFull ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
         )}>
           {isPast ? (
             <span className="text-xs font-medium text-center italic">Clase finalizada</span>
@@ -406,21 +404,23 @@ export default function HorariosPage() {
     const isFull = reservationCount >= cls.maxCapacity
     const isPast = new Date(cls.dateTime) < now
 
-    if (isFull || isPast) return
+    if (isPast) return
 
-    // Not logged in - show login modal
+    // Not logged in - show login modal (works for both reserve and waitlist)
     if (!session) {
       setShowLoginModal(true)
       return
     }
 
-    // Logged in but no active package - show package modal
-    if (!activePurchase?.hasActivePackage || activePurchase.classesRemaining <= 0) {
+    // For non-full classes, require an active package to proceed.
+    // Full classes go to /reservar where the waitlist-confirm modal handles
+    // the no-package case with a warning (per spec).
+    if (!isFull && (!activePurchase?.hasActivePackage || activePurchase.classesRemaining <= 0)) {
       setShowNoPackageModal(true)
       return
     }
 
-    // Logged in with active package - redirect to reservar with class preselected
+    // Logged in - redirect to /reservar (handles confirm, waitlist-confirm, waitlist-info).
     router.push(`/reservar?classId=${cls.id}`)
   }
 
@@ -554,20 +554,21 @@ export default function HorariosPage() {
                             const isFull = reservationCount >= cls.maxCapacity
                             const spotsLeft = cls.maxCapacity - reservationCount
                             const isPast = new Date(cls.dateTime) < now
-                            const isDisabled = isFull || isPast
+                            const isDisabled = isPast
 
                             return (
                               <button
                                 key={cls.id}
                                 onClick={() => handleClassClick(cls)}
                                 disabled={isDisabled}
+                                title={isFull ? 'Clase llena — toca para unirte a la lista de espera' : undefined}
                                 className={cn(
                                   'w-full p-2 rounded-lg text-white text-xs text-left transition-all',
                                   disciplineColors[cls.discipline.slug] || 'bg-primary',
                                   isPast
                                     ? 'opacity-40 cursor-not-allowed'
                                     : isFull
-                                      ? 'opacity-50 cursor-not-allowed'
+                                      ? 'opacity-80 hover:opacity-100 hover:scale-[1.02] hover:shadow-md cursor-pointer'
                                       : 'hover:scale-[1.02] hover:shadow-md cursor-pointer'
                                 )}
                               >
