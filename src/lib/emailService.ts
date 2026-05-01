@@ -530,6 +530,146 @@ export function buildReservationConfirmationEmail(data: ReservationConfirmationD
 </html>`
 }
 
+export interface WaitlistAssignedEmailData {
+  userName: string | null
+  disciplineName: string
+  instructorName: string
+  dateTime: string
+  duration: number
+  packageName: string
+  classesRemaining: number
+  profileUrl: string
+}
+
+export function buildWaitlistAssignedEmail(data: WaitlistAssignedEmailData): string {
+  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>&iexcl;Se liber&oacute; un cupo! - Wellnest</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F5F0EB; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', system-ui, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #F5F0EB;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width: 480px; width: 100%; background-color: #FFFFFF; border-radius: 12px;">
+          <tr>
+            <td style="padding: 32px;">
+
+              <h1 style="color: #1F2937; margin: 0 0 8px; font-size: 20px; font-weight: 600; line-height: 1.2; text-align: center;">&iexcl;Se liber&oacute; un cupo!</h1>
+              <p style="color: #6B7280; margin: 0 0 32px; font-size: 16px; line-height: 1.5; text-align: center;">Wellnest</p>
+
+              <p style="color: #374151; font-size: 16px; font-weight: 500; margin: 0 0 8px; line-height: 1.4;">${greeting}</p>
+              <p style="color: #6B7280; margin: 0 0 24px; font-size: 14px; line-height: 1.5;">
+                Estabas en la lista de espera y se liber&oacute; un cupo. Hemos confirmado tu reserva autom&aacute;ticamente y descontado 1 clase de tu paquete.
+              </p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Clase:</strong> ${data.disciplineName}
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Instructor:</strong> ${data.instructorName}
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Fecha y hora:</strong> ${data.dateTime}
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Duraci&oacute;n:</strong> ${data.duration} minutos
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <p style="margin: 0; font-size: 13px; color: #6B7280; line-height: 1.4;">
+                            <strong style="color: #374151;">Ubicaci&oacute;n:</strong> Wellnest Studio
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F0F5F1; border: 1px solid #D4E5D7; border-radius: 8px; padding: 16px;">
+                    <p style="margin: 0; font-size: 13px; color: #374151; line-height: 1.5;">
+                      Se descont&oacute; 1 clase de tu paquete <strong>${data.packageName}</strong>. Te quedan <strong>${data.classesRemaining}</strong> clases disponibles.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="background-color: #86A889; border-radius: 8px;">
+                          <a href="${data.profileUrl}"
+                             target="_blank"
+                             style="display: inline-block; background-color: #86A889; color: #FFFFFF; padding: 12px 32px; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px; line-height: 1.4;">
+                            Ver mis reservas
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+                <tr>
+                  <td style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 16px;">
+                    <p style="margin: 0; font-size: 12px; color: #6B7280; line-height: 1.4;">
+                      Si no puedes asistir, recuerda cancelar con al menos <strong>4 horas</strong> de anticipaci&oacute;n desde tu perfil para que la clase regrese a tu paquete.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 32px;">
+                <tr>
+                  <td style="border-top: 1px solid #E5E7EB; padding-top: 16px; text-align: center;">
+                    <p style="margin: 0; font-size: 12px; color: #9CA3AF;">
+                      Wellnest &copy; 2026 &bull; contact@wellneststudio.net
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
 export interface TrialPackageEmailData {
   userName: string | null
   packageName: string
@@ -851,7 +991,7 @@ export function buildPasswordResetEmail(name: string, resetUrl: string): string 
 // Private Session Request emails
 // ============================================================================
 
-function formatDateTimeShort(date: Date): string {
+export function formatDateTimeShort(date: Date): string {
   try {
     return new Intl.DateTimeFormat('es-SV', {
       weekday: 'short',
