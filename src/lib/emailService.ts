@@ -1,7 +1,14 @@
+export interface EmailAttachment {
+  filename: string
+  contentBase64: string
+  contentType?: string
+}
+
 interface SendEmailOptions {
-  to: string
+  to: string | string[]
   subject: string
   html: string
+  attachments?: EmailAttachment[]
 }
 
 interface SendEmailResult {
@@ -68,11 +75,19 @@ async function getAccessToken(): Promise<string> {
   return cachedToken
 }
 
-export async function sendEmail({ to, subject, html }: SendEmailOptions): Promise<SendEmailResult> {
+export async function sendEmail({ to, subject, html, attachments }: SendEmailOptions): Promise<SendEmailResult> {
   try {
-    console.log(`[EMAIL] Sending to ${to} via Microsoft Graph...`)
+    const recipients = Array.isArray(to) ? to : [to]
+    console.log(`[EMAIL] Sending to ${recipients.join(', ')} via Microsoft Graph...`)
 
     const token = await getAccessToken()
+
+    const graphAttachments = attachments?.map(a => ({
+      '@odata.type': '#microsoft.graph.fileAttachment',
+      name: a.filename,
+      contentType: a.contentType ?? 'application/octet-stream',
+      contentBytes: a.contentBase64,
+    }))
 
     const res = await fetch(
       `https://graph.microsoft.com/v1.0/users/${EMAIL_FROM}/sendMail`,
@@ -86,7 +101,8 @@ export async function sendEmail({ to, subject, html }: SendEmailOptions): Promis
           message: {
             subject,
             body: { contentType: 'HTML', content: html },
-            toRecipients: [{ emailAddress: { address: to } }],
+            toRecipients: recipients.map(addr => ({ emailAddress: { address: addr } })),
+            ...(graphAttachments && graphAttachments.length > 0 && { attachments: graphAttachments }),
           },
           saveToSentItems: true,
         }),
@@ -99,7 +115,7 @@ export async function sendEmail({ to, subject, html }: SendEmailOptions): Promis
       return { success: false, error: `Graph API ${res.status}: ${errorText}` }
     }
 
-    console.log(`[EMAIL] Sent successfully to ${to}`)
+    console.log(`[EMAIL] Sent successfully to ${Array.isArray(to) ? to.join(', ') : to}`)
     return { success: true }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err))
