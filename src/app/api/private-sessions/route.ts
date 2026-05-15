@@ -14,15 +14,20 @@ import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
 
-const createRequestSchema = z.object({
-  purchaseId: z.string().min(1),
-  preferredDisciplineId: z.string().min(1, 'Selecciona una disciplina'),
-  preferredInstructorId: z.string().optional().nullable(),
-  preferredSlot1: z.string().datetime({ message: 'Primera opción de fecha/hora requerida' }),
-  preferredSlot2: z.string().datetime().optional().nullable(),
-  preferredSlot3: z.string().datetime().optional().nullable(),
-  notes: z.string().max(2000).optional().nullable(),
-})
+const createRequestSchema = z
+  .object({
+    purchaseId: z.string().min(1),
+    preferredDisciplineId: z.string().min(1, 'Selecciona una disciplina'),
+    preferredInstructorId: z.string().optional().nullable(),
+    preferredSlot1: z.string().datetime({ message: 'Primera fecha/hora requerida' }),
+    preferredSlot2: z.string().datetime({ message: 'Segunda fecha/hora requerida' }),
+    preferredSlot3: z.string().datetime({ message: 'Tercera fecha/hora requerida' }),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .refine(
+    (d) => new Set([d.preferredSlot1, d.preferredSlot2, d.preferredSlot3]).size === 3,
+    { message: 'Las 3 fechas deben ser distintas', path: ['preferredSlot2'] }
+  )
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -75,14 +80,14 @@ export async function POST(request: Request) {
         id: data.purchaseId,
         userId,
         status: 'ACTIVE',
-        classesRemaining: { gt: 0 },
+        classesRemaining: { gte: 3 },
         expiresAt: { gt: now },
       },
       include: { package: true },
     })
     if (!purchase) {
       return NextResponse.json(
-        { error: 'Paquete no válido, vencido o sin clases disponibles' },
+        { error: 'Paquete no válido, vencido o sin las 3 sesiones disponibles' },
         { status: 400 }
       )
     }
@@ -110,23 +115,11 @@ export async function POST(request: Request) {
 
     // Validate slot dates are in the future
     const slot1 = new Date(data.preferredSlot1)
-    const slot2 = data.preferredSlot2 ? new Date(data.preferredSlot2) : null
-    const slot3 = data.preferredSlot3 ? new Date(data.preferredSlot3) : null
-    if (slot1 <= now) {
+    const slot2 = new Date(data.preferredSlot2)
+    const slot3 = new Date(data.preferredSlot3)
+    if (slot1 <= now || slot2 <= now || slot3 <= now) {
       return NextResponse.json(
-        { error: 'La primera fecha debe ser a futuro' },
-        { status: 400 }
-      )
-    }
-    if (slot2 && slot2 <= now) {
-      return NextResponse.json(
-        { error: 'La segunda fecha debe ser a futuro' },
-        { status: 400 }
-      )
-    }
-    if (slot3 && slot3 <= now) {
-      return NextResponse.json(
-        { error: 'La tercera fecha debe ser a futuro' },
+        { error: 'Las 3 fechas deben ser a futuro' },
         { status: 400 }
       )
     }
@@ -199,18 +192,9 @@ async function notifyAdminsOfNewRequest(requestId: string) {
   })
   if (!req) return
 
-  // Notification target: ADMIN_NOTIFICATION_EMAIL env var, or all ADMIN users
-  const envEmail = process.env.ADMIN_NOTIFICATION_EMAIL
-  const recipients: string[] = []
-  if (envEmail) {
-    recipients.push(envEmail)
-  } else {
-    const admins = await prisma.user.findMany({
-      where: { role: 'ADMIN' },
-      select: { email: true },
-    })
-    recipients.push(...admins.map((a) => a.email))
-  }
+  // Notificación: sólo a Adriana López (override opcional por env var)
+  const ADMIN_NOTIFICATION_EMAIL = 'contact@wellneststudio.net'
+  const recipients = [process.env.ADMIN_NOTIFICATION_EMAIL || ADMIN_NOTIFICATION_EMAIL]
 
   if (recipients.length === 0) {
     console.warn('[PRIVATE_SESSIONS] No admin email recipients found for notification')
