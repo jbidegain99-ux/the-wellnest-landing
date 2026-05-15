@@ -141,7 +141,6 @@ async function main() {
     price: 45.0,
     validityDays: 30,
     bulletsTop: [
-      '3 clases privadas',
       'Atención 1:1',
       'Experiencia personalizada',
     ],
