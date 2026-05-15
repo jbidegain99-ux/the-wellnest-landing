@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Edit2, Trash2, Loader2, Check, AlertCircle } from 'lucide-react'
+import { Plus, Edit2, Trash2, Loader2, Check, AlertCircle, FileText, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -14,7 +14,20 @@ import {
   ModalTitle,
   ModalFooter,
 } from '@/components/ui/Modal'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select'
 import { formatPrice } from '@/lib/utils'
+
+interface SearchedUser {
+  id: string
+  name: string | null
+  email: string
+}
 
 interface Package {
   id: string
@@ -40,6 +53,19 @@ export default function AdminPaquetesPage() {
   const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null)
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+
+  // Nueva Orden modal state — assign a package to a student
+  const [showOrderModal, setShowOrderModal] = React.useState(false)
+  const [orderUserSearch, setOrderUserSearch] = React.useState('')
+  const [orderUserResults, setOrderUserResults] = React.useState<SearchedUser[]>([])
+  const [orderSelectedUser, setOrderSelectedUser] = React.useState<SearchedUser | null>(null)
+  const [isSearchingOrderUsers, setIsSearchingOrderUsers] = React.useState(false)
+  const [orderPackageId, setOrderPackageId] = React.useState('')
+  const [orderExpiresAt, setOrderExpiresAt] = React.useState('')
+  const [orderPaymentSource, setOrderPaymentSource] = React.useState<'POS' | 'MANUAL_TRANSFER' | 'GIFT'>('POS')
+  const [orderSendInvoice, setOrderSendInvoice] = React.useState(true)
+  const [isAssigning, setIsAssigning] = React.useState(false)
+  const orderSearchTimeoutRef = React.useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Fetch packages from database
   const fetchPackages = React.useCallback(async () => {
@@ -83,6 +109,114 @@ export default function AdminPaquetesPage() {
   const handleCreate = () => {
     setEditingPackage(null)
     setIsModalOpen(true)
+  }
+
+  const resetOrderForm = () => {
+    setOrderUserSearch('')
+    setOrderUserResults([])
+    setOrderSelectedUser(null)
+    setOrderPackageId('')
+    setOrderExpiresAt('')
+    setOrderPaymentSource('POS')
+    setOrderSendInvoice(true)
+  }
+
+  const openOrderModal = () => {
+    resetOrderForm()
+    setShowOrderModal(true)
+  }
+
+  const handleOrderUserSearch = (value: string) => {
+    setOrderUserSearch(value)
+    setOrderSelectedUser(null)
+    if (orderSearchTimeoutRef.current) clearTimeout(orderSearchTimeoutRef.current)
+    if (!value.trim()) {
+      setOrderUserResults([])
+      return
+    }
+    orderSearchTimeoutRef.current = setTimeout(async () => {
+      setIsSearchingOrderUsers(true)
+      try {
+        const response = await fetch(`/api/admin/users?search=${encodeURIComponent(value)}&limit=5`)
+        if (response.ok) {
+          const data = await response.json()
+          setOrderUserResults(
+            data.users.map((u: { id: string; name: string | null; email: string }) => ({
+              id: u.id,
+              name: u.name,
+              email: u.email,
+            }))
+          )
+        }
+      } catch {
+        // silent
+      } finally {
+        setIsSearchingOrderUsers(false)
+      }
+    }, 300)
+  }
+
+  const selectOrderUser = (user: SearchedUser) => {
+    setOrderSelectedUser(user)
+    setOrderUserSearch(user.name || user.email)
+    setOrderUserResults([])
+  }
+
+  // When selected package changes, pre-fill expiration with today + validityDays
+  React.useEffect(() => {
+    if (!orderPackageId) {
+      setOrderExpiresAt('')
+      return
+    }
+    const pkg = packages.find((p) => p.id === orderPackageId)
+    if (!pkg) return
+    const d = new Date()
+    d.setDate(d.getDate() + pkg.validityDays)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    setOrderExpiresAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`)
+  }, [orderPackageId, packages])
+
+  const handleCreateOrder = async () => {
+    if (!orderSelectedUser || !orderPackageId) return
+    setIsAssigning(true)
+    setErrorMessage(null)
+    try {
+      const body: {
+        packageId: string
+        paymentSource: 'POS' | 'MANUAL_TRANSFER' | 'GIFT'
+        sendInvoice: boolean
+        expiresAt?: string
+      } = {
+        packageId: orderPackageId,
+        paymentSource: orderPaymentSource,
+        sendInvoice: orderSendInvoice,
+      }
+      if (orderExpiresAt) {
+        // Interpret the date as end-of-day in El Salvador (UTC-6)
+        body.expiresAt = new Date(`${orderExpiresAt}T23:59:00-06:00`).toISOString()
+      }
+      const response = await fetch(
+        `/api/admin/users/${orderSelectedUser.id}/assign-package`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      )
+      const result = await response.json()
+      if (!response.ok) {
+        showError(result.error || 'Error al crear la orden')
+        return
+      }
+      showSuccess(result.message || 'Orden creada correctamente')
+      setShowOrderModal(false)
+      resetOrderForm()
+    } catch (error) {
+      console.error('Error creating order:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsAssigning(false)
+    }
   }
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -220,10 +354,16 @@ export default function AdminPaquetesPage() {
             Administra los paquetes de clases
           </p>
         </div>
-        <Button onClick={handleCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Paquete
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={openOrderModal}>
+            <ShoppingBag className="h-4 w-4 mr-2" />
+            Nueva Orden
+          </Button>
+          <Button variant="outline" onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Paquete
+          </Button>
+        </div>
       </div>
 
       {/* Success/Error Messages */}
@@ -441,6 +581,206 @@ export default function AdminPaquetesPage() {
               </Button>
             </ModalFooter>
           </form>
+        </ModalContent>
+      </Modal>
+
+      {/* Nueva Orden Modal — assign package to student */}
+      <Modal open={showOrderModal} onOpenChange={(open) => !isAssigning && setShowOrderModal(open)}>
+        <ModalContent className="max-w-lg">
+          <ModalHeader>
+            <ModalTitle>Nueva Orden</ModalTitle>
+          </ModalHeader>
+
+          <div className="py-4 space-y-4">
+            {/* Estudiante */}
+            <div className="relative">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Estudiante
+              </label>
+              <Input
+                placeholder="Busca por nombre o correo"
+                value={orderUserSearch}
+                onChange={(e) => handleOrderUserSearch(e.target.value)}
+                autoComplete="off"
+              />
+              {(orderUserResults.length > 0 || isSearchingOrderUsers) && !orderSelectedUser && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-beige rounded-lg shadow-md max-h-60 overflow-y-auto">
+                  {isSearchingOrderUsers ? (
+                    <div className="px-3 py-2 text-sm text-gray-500 flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Buscando...
+                    </div>
+                  ) : (
+                    orderUserResults.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => selectOrderUser(u)}
+                        className="w-full text-left px-3 py-2 hover:bg-beige transition-colors"
+                      >
+                        <p className="font-medium text-sm text-foreground">
+                          {u.name || 'Sin nombre'}
+                        </p>
+                        <p className="text-xs text-gray-500">{u.email}</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+              {orderSelectedUser && (
+                <div className="mt-2 p-3 bg-beige rounded-lg flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm text-foreground">
+                      {orderSelectedUser.name || 'Sin nombre'}
+                    </p>
+                    <p className="text-xs text-gray-500">{orderSelectedUser.email}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setOrderSelectedUser(null)
+                      setOrderUserSearch('')
+                    }}
+                  >
+                    Cambiar
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Paquete */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Paquete
+              </label>
+              <Select value={orderPackageId} onValueChange={setOrderPackageId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un paquete" />
+                </SelectTrigger>
+                <SelectContent>
+                  {packages
+                    .filter((p) => p.isActive)
+                    .map((pkg) => (
+                      <SelectItem key={pkg.id} value={pkg.id}>
+                        {pkg.name} ({pkg.classCount === 999 ? 'ilimitadas' : `${pkg.classCount} clases`})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Vencimiento */}
+            {orderPackageId && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Vencimiento
+                </label>
+                <Input
+                  type="date"
+                  value={orderExpiresAt}
+                  onChange={(e) => setOrderExpiresAt(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Por defecto: {packages.find((p) => p.id === orderPackageId)?.validityDays} días desde hoy. Puedes ajustarla.
+                </p>
+              </div>
+            )}
+
+            {/* Fuente del pago */}
+            {orderPackageId && (() => {
+              const selectedPkg = packages.find((p) => p.id === orderPackageId)
+              if (!selectedPkg) return null
+              const isGift = orderPaymentSource === 'GIFT'
+              const hasPrice = selectedPkg.price > 0
+              return (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Fuente del pago
+                    </label>
+                    <Select
+                      value={orderPaymentSource}
+                      onValueChange={(v) =>
+                        setOrderPaymentSource(v as 'POS' | 'MANUAL_TRANSFER' | 'GIFT')
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="POS">Pago por POS (tarjeta en terminal)</SelectItem>
+                        <SelectItem value="MANUAL_TRANSFER">Transferencia / Efectivo</SelectItem>
+                        <SelectItem value="GIFT">Cortesía / Regalo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div
+                    className={
+                      'p-4 rounded-lg text-sm ' +
+                      (isGift
+                        ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                        : 'bg-emerald-50 border border-emerald-200 text-emerald-800')
+                    }
+                  >
+                    {isGift ? (
+                      <p>Cortesía sin costo. No se contabiliza como venta ni se genera factura.</p>
+                    ) : (
+                      <p>
+                        Monto a cobrar: <strong>${selectedPkg.price.toFixed(2)}</strong>
+                        {orderPaymentSource === 'POS'
+                          ? ' — registrado como pago por POS.'
+                          : ' — registrado como transferencia/efectivo.'}
+                      </p>
+                    )}
+                  </div>
+
+                  {!isGift && hasPrice && (
+                    <label className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={orderSendInvoice}
+                        onChange={(e) => setOrderSendInvoice(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <div className="text-sm">
+                        <p className="font-medium text-blue-800 flex items-center gap-1.5">
+                          <FileText className="h-4 w-4" />
+                          Generar factura electrónica
+                        </p>
+                        <p className="text-blue-600 mt-0.5">
+                          Envía la venta al Facturador SV para crear el DTE por ${selectedPkg.price.toFixed(2)}.
+                        </p>
+                      </div>
+                    </label>
+                  )}
+                </>
+              )
+            })()}
+          </div>
+
+          <ModalFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowOrderModal(false)}
+              disabled={isAssigning}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateOrder}
+              disabled={!orderSelectedUser || !orderPackageId}
+              isLoading={isAssigning}
+            >
+              {orderPaymentSource === 'GIFT'
+                ? 'Crear Cortesía'
+                : orderSendInvoice
+                ? 'Crear Orden y Facturar'
+                : 'Crear Orden'}
+            </Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
 

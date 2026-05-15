@@ -25,6 +25,7 @@ const assignPackageSchema = z.object({
   classCount: z.number().optional(), // If not provided, use package default
   paymentSource: PaymentSourceEnum,
   sendInvoice: z.boolean().optional().default(true), // Generate DTE via Facturador SV
+  expiresAt: z.string().datetime().optional(), // ISO datetime, defaults to now + pkg.validityDays
 })
 
 /**
@@ -65,7 +66,7 @@ export async function POST(
       )
     }
 
-    const { packageId, classCount, paymentSource, sendInvoice } = validation.data
+    const { packageId, classCount, paymentSource, sendInvoice, expiresAt: expiresAtInput } = validation.data
 
     // Verify user exists
     const user = await prisma.user.findUnique({
@@ -99,9 +100,20 @@ export async function POST(
     // Invoicing only applies to revenue-generating sources with a price
     const shouldInvoice = sendInvoice && isRevenue && pkg.price > 0
 
-    // Calculate expiration date
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + pkg.validityDays)
+    // Calculate expiration date — use admin-provided override or default to now + validityDays
+    let expiresAt: Date
+    if (expiresAtInput) {
+      expiresAt = new Date(expiresAtInput)
+      if (expiresAt.getTime() <= Date.now()) {
+        return NextResponse.json(
+          { error: 'La fecha de vencimiento debe ser a futuro' },
+          { status: 400 }
+        )
+      }
+    } else {
+      expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + pkg.validityDays)
+    }
 
     // Create the purchase (assign package to user)
     const purchase = await prisma.purchase.create({

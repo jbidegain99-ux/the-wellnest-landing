@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   LogOut,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +28,7 @@ interface NavBadges {
 const navigation = [
   { name: 'Mi Perfil', href: '/perfil', icon: User, badgeKey: null },
   { name: 'Mis Paquetes', href: '/perfil/paquetes', icon: Package, badgeKey: 'activePaquetes' as const },
+  { name: 'Sesión Privada', href: '/perfil/sesion-privada', icon: Sparkles, badgeKey: null },
   { name: 'Próximas Reservas', href: '/perfil/reservas', icon: Calendar, badgeKey: 'proximasReservas' as const },
   { name: 'Lista de Espera', href: '/perfil/espera', icon: Clock, badgeKey: 'listaEspera' as const },
   { name: 'Historial', href: '/perfil/historial', icon: History, badgeKey: null },

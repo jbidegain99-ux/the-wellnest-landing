@@ -29,6 +29,7 @@ export async function GET(request: Request) {
 
     const where: Prisma.ClassWhereInput = {
       isCancelled: false,
+      isPrivate: false,
     }
 
     if (disciplineId) {
@@ -84,11 +85,11 @@ export async function GET(request: Request) {
         discipline: true,
         complementaryDiscipline: true,
         instructor: true,
-        // Only count CONFIRMED reservations (not cancelled)
+        // Count active reservations (exclude cancelled)
         _count: {
           select: {
             reservations: {
-              where: { status: 'CONFIRMED' },
+              where: { status: { not: 'CANCELLED' } },
             },
           },
         },
