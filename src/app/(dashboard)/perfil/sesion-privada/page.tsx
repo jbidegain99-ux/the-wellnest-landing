@@ -225,9 +225,9 @@ export default function SesionPrivadaPage() {
           Sesión Privada
         </h1>
         <p className="text-gray-600 mt-2">
-          Coordina tu sesión 1:1 personalizada. Elige la disciplina, tu instructor
-          preferido (opcional) y hasta 3 ventanas de fecha/hora que te funcionen.
-          Nosotros te confirmamos por correo.
+          Coordina tus 3 sesiones 1:1 personalizadas. Elige la disciplina, tu
+          instructor preferido (opcional) y las 3 fechas y horas en las que querés
+          tomarlas. La admin las revisa y confirma por correo.
         </p>
       </div>
 
