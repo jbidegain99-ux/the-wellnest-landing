@@ -6,9 +6,6 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
-  Clock,
-  User,
-  Calendar,
   Phone,
   Mail,
 } from 'lucide-react'
@@ -248,7 +245,11 @@ export default function AdminSesionesPrivadasPage() {
                       </p>
                     </div>
                     <div className="text-sm pt-2">
-                      <p className="font-medium mb-1">Ventanas preferidas:</p>
+                      <p className="font-medium mb-1">
+                        {r.preferredSlot2 && r.preferredSlot3
+                          ? '3 sesiones solicitadas:'
+                          : 'Ventana preferida:'}
+                      </p>
                       <ul className="text-gray-700 space-y-0.5 list-disc list-inside text-xs">
                         <li>{formatDateTime(r.preferredSlot1)}</li>
                         {r.preferredSlot2 && <li>{formatDateTime(r.preferredSlot2)}</li>}

@@ -353,11 +353,15 @@ export default function SesionPrivadaPage() {
               <Clock className="h-4 w-4 text-primary" />
               {activeRequest.status === 'PENDING'
                 ? 'Ya tienes una solicitud pendiente'
+                : activeRequest.confirmedClasses.length > 1
+                ? 'Tus sesiones están confirmadas'
                 : 'Tu sesión está confirmada'}
             </p>
             <p>
               {activeRequest.status === 'PENDING'
-                ? 'Estamos coordinando tu sesión privada. Cuando la confirmemos o rechacemos podrás enviar una nueva solicitud usando este paquete.'
+                ? 'Estamos coordinando tus sesiones privadas. Cuando las confirmemos o rechacemos podrás enviar una nueva solicitud usando este paquete.'
+                : activeRequest.confirmedClasses.length > 1
+                ? 'Revisa los detalles arriba. Cuando tomes tus sesiones podrás solicitar otras si compras un nuevo paquete Private Flow.'
                 : 'Revisa los detalles arriba. Cuando tomes esta sesión podrás solicitar otra si compras un nuevo paquete Private Flow.'}
             </p>
           </CardContent>
