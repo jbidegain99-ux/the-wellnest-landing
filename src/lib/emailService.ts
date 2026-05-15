@@ -1040,10 +1040,14 @@ export function buildAdminPrivateSessionNotification(data: AdminPrivateSessionNo
   const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
   const adminUrl = `${baseUrl}/admin/sesiones-privadas`
 
-  const slots = [data.slot1, data.slot2, data.slot3]
-    .filter((s): s is Date => s != null)
-    .map((s, i) => `<li style="margin:4px 0;">Opci&oacute;n ${i + 1}: ${formatDateTimeShort(s)}</li>`)
+  const slotLines = [data.slot1, data.slot2, data.slot3]
+    .map((s, i) => s ? `<li style="margin:4px 0;">Sesi&oacute;n ${i + 1}: ${formatDateTimeShort(s)}</li>` : null)
+    .filter((line): line is string => line != null)
     .join('')
+
+  const sectionTitle = data.slot2 && data.slot3
+    ? 'Sesiones agendadas:'
+    : 'Sesi&oacute;n solicitada:'
 
   const instructorRow = data.instructorName
     ? `<p style="margin:6px 0;"><strong>Instructor preferido:</strong> ${data.instructorName}</p>`
@@ -1066,8 +1070,8 @@ export function buildAdminPrivateSessionNotification(data: AdminPrivateSessionNo
           <p style="margin:0 0 16px;color:#6B7280;font-size:14px;">${data.userEmail}</p>
           <p style="margin:6px 0;"><strong>Disciplina solicitada:</strong> ${data.disciplineName}</p>
           ${instructorRow}
-          <p style="margin:16px 0 6px;"><strong>Ventanas de horario preferidas:</strong></p>
-          <ul style="margin:0 0 16px;padding-left:20px;color:#374151;">${slots}</ul>
+          <p style="margin:16px 0 6px;"><strong>${sectionTitle}</strong></p>
+          <ul style="margin:0 0 16px;padding-left:20px;color:#374151;">${slotLines}</ul>
           ${notesRow}
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
             <tr><td align="center">
@@ -1082,35 +1086,55 @@ export function buildAdminPrivateSessionNotification(data: AdminPrivateSessionNo
 </body></html>`
 }
 
-export interface PrivateSessionConfirmationData {
-  userName: string | null
+export interface PrivateSessionConfirmationSession {
+  dateTime: string
   disciplineName: string
   instructorName: string
-  dateTime: string
   duration: number
+}
+
+export interface PrivateSessionConfirmationData {
+  userName: string | null
+  sessions: PrivateSessionConfirmationSession[]
 }
 
 export function buildPrivateSessionConfirmationEmail(data: PrivateSessionConfirmationData): string {
   const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
   const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
+
+  const sessionsBlock = data.sessions
+    .map(
+      (s, i) => `<tr><td style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin-bottom:8px;">
+            <p style="margin:0 0 8px;font-weight:600;color:#1F2937;">Sesi&oacute;n ${i + 1}</p>
+            <p style="margin:4px 0;font-size:14px;color:#374151;"><strong>Disciplina:</strong> ${s.disciplineName}</p>
+            <p style="margin:4px 0;font-size:14px;color:#374151;"><strong>Instructor:</strong> ${s.instructorName}</p>
+            <p style="margin:4px 0;font-size:14px;color:#374151;"><strong>Fecha y hora:</strong> ${s.dateTime}</p>
+            <p style="margin:4px 0;font-size:14px;color:#374151;"><strong>Duraci&oacute;n:</strong> ${s.duration} minutos</p>
+          </td></tr><tr><td style="height:8px;"></td></tr>`
+    )
+    .join('')
+
+  const heading = data.sessions.length > 1
+    ? '&iexcl;Tus sesiones privadas est&aacute;n listas!'
+    : '&iexcl;Tu sesi&oacute;n privada est&aacute; lista!'
+
+  const intro = data.sessions.length > 1
+    ? `Hemos confirmado tus ${data.sessions.length} sesiones privadas 1:1. Aqu&iacute; est&aacute;n los detalles:`
+    : 'Hemos confirmado tu sesi&oacute;n privada 1:1. Aqu&iacute; est&aacute;n los detalles:'
+
   return `<!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><title>Sesi&oacute;n privada confirmada</title></head>
+<html lang="es"><head><meta charset="utf-8"><title>Sesiones privadas confirmadas</title></head>
 <body style="margin:0;padding:0;background:#F5F0EB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F0EB;">
     <tr><td align="center" style="padding:40px 20px;">
       <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#fff;border-radius:12px;">
         <tr><td style="padding:32px;">
-          <h1 style="color:#1F2937;margin:0 0 8px;font-size:22px;font-weight:600;text-align:center;">&iexcl;Tu sesi&oacute;n privada est&aacute; lista!</h1>
+          <h1 style="color:#1F2937;margin:0 0 8px;font-size:22px;font-weight:600;text-align:center;">${heading}</h1>
           <p style="color:#6B7280;margin:0 0 28px;font-size:14px;text-align:center;">Wellnest</p>
           <p style="color:#374151;font-size:16px;font-weight:500;margin:0 0 16px;">${greeting},</p>
-          <p style="color:#6B7280;margin:0 0 24px;font-size:15px;line-height:1.5;">Hemos confirmado tu sesi&oacute;n privada 1:1. Aqu&iacute; est&aacute;n los detalles:</p>
+          <p style="color:#6B7280;margin:0 0 24px;font-size:15px;line-height:1.5;">${intro}</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 24px;">
-            <tr><td style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:16px;">
-              <p style="margin:6px 0;font-size:14px;color:#374151;"><strong>Disciplina:</strong> ${data.disciplineName}</p>
-              <p style="margin:6px 0;font-size:14px;color:#374151;"><strong>Instructor:</strong> ${data.instructorName}</p>
-              <p style="margin:6px 0;font-size:14px;color:#374151;"><strong>Fecha y hora:</strong> ${data.dateTime}</p>
-              <p style="margin:6px 0;font-size:14px;color:#374151;"><strong>Duraci&oacute;n:</strong> ${data.duration} minutos</p>
-            </td></tr>
+            ${sessionsBlock}
           </table>
           <p style="color:#6B7280;margin:16px 0;font-size:14px;line-height:1.5;">Recuerda llegar unos minutos antes. Si necesit&aacute;s reprogramar con al menos 8 horas de anticipaci&oacute;n, contactanos desde tu perfil.</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
