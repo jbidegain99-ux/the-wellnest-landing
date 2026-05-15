@@ -144,6 +144,8 @@ model Package {
   singlePurchaseOnly Boolean @default(false)
   isFeatured       Boolean  @default(false)
   isPrivate        Boolean  @default(false)  // true = private 1:1 sessions, booked via PrivateSessionRequest
+  isHidden         Boolean  @default(false)  // oculto del listing público; permitido como child de un bundle
+  bundleChildSlugs String[] @default([])     // si no vacío, este paquete es un bundle que genera N child Purchases al comprarse
   order            Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -201,7 +203,12 @@ model Purchase {
   invoiceSentAt     DateTime? // Cuándo se envió al facturador
   invoiceCompletedAt DateTime? // Cuándo se completó la factura
 
+  // Bundle metadata: si esta Purchase fue generada por la compra de un Package bundle
+  bundleParentPackageId String?  // FK lógico al Package bundle padre (Trinity Flow, etc.)
+  bundleGroupId         String?  // cuid generado por compra del bundle, agrupa siblings (los 3 children de Trinity Flow)
+
   @@index([sharedGroupId])
+  @@index([bundleGroupId])
 }
 
 enum PurchaseStatus {
