@@ -25,7 +25,7 @@ const packageColors = [
 
 async function getPackages() {
   const packages = await prisma.package.findMany({
-    where: { isActive: true },
+    where: { isActive: true, isHidden: false },
     orderBy: { order: 'asc' },
     select: {
       id: true,
