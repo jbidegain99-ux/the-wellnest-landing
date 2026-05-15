@@ -1,22 +1,36 @@
 /**
  * Admin endpoint to confirm or reject a private session request.
  *
- * PATCH body:
- *   action: "confirm" | "reject"
+ * PATCH body shape depends on the action AND on whether the request is
+ * "legacy" (1 session, preferredSlot2 or preferredSlot3 null) or "new"
+ * (3 sessions, all 3 slots set).
  *
- * confirm additional fields:
- *   instructorId, disciplineId, dateTime (ISO), duration (min, default 60),
- *   adminNotes (optional)
+ * action: "confirm" | "reject"
  *
- * reject additional fields:
- *   rejectedReason (optional)
+ * Confirm — legacy (1 session):
+ *   { action: "confirm", instructorId, disciplineId, dateTime (ISO),
+ *     duration (min, default 60), adminNotes? }
  *
- * On confirm:
- *   - Creates a new Class (isPrivate=true, maxCapacity=1)
- *   - Creates a Reservation linking the user + class + purchase
- *   - Decrements purchase.classesRemaining (atomically)
- *   - Sets request status=CONFIRMED, confirmedClassId, confirmedAt, confirmedBy
- *   - Fires confirmation email to user
+ * Confirm — new (3 sessions):
+ *   { action: "confirm", disciplineId, adminNotes?,
+ *     sessions: [{ dateTime (ISO), instructorId, duration (min, default 60) }] x3 }
+ *
+ * Reject:
+ *   { action: "reject", rejectedReason?, adminNotes? }
+ *
+ * On confirm (legacy):
+ *   - Creates 1 Class (isPrivate=true, maxCapacity=1, privateSessionRequestId=req.id)
+ *   - Creates 1 Reservation linking user + class + purchase
+ *   - Decrements purchase.classesRemaining by 1 (sets DEPLETED if 0)
+ *   - Sets request status=CONFIRMED, confirmedClassId (legacy tag), confirmedAt, confirmedBy
+ *
+ * On confirm (new, 3 sessions):
+ *   - Creates 3 Class + 3 Reservation atomically (each with privateSessionRequestId)
+ *   - Decrements purchase.classesRemaining by 3 (sets DEPLETED if 0)
+ *   - Sets request status=CONFIRMED, confirmedAt, confirmedBy. The 3 classes are
+ *     discoverable via the confirmedClasses relation.
+ *
+ * Both flows fire a confirmation email listing the session(s) to the user.
  */
 
 import { NextResponse } from 'next/server'
