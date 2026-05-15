@@ -29,6 +29,65 @@ interface Purchase {
   isChild?: boolean
   sharedByName?: string | null
   sharedWith?: SharedWith[]
+  // Bundle metadata
+  bundleGroupId?: string | null
+  bundleParentPackageId?: string | null
+  bundleParentName?: string | null
+  bundleParentClassCount?: number | null
+  disciplineName?: string | null
+}
+
+interface BundleGroup {
+  kind: 'bundle'
+  groupId: string
+  parentName: string
+  parentClassCount: number
+  expiresAt: string
+  children: Array<{
+    purchaseId: string
+    disciplineName: string
+    remaining: number
+    total: number
+  }>
+}
+
+interface SinglePurchase {
+  kind: 'single'
+  purchase: Purchase
+}
+
+type GroupedItem = BundleGroup | SinglePurchase
+
+function groupActivePurchases(purchases: Purchase[]): GroupedItem[] {
+  const grouped: GroupedItem[] = []
+  const bundleMap = new Map<string, BundleGroup>()
+
+  for (const p of purchases) {
+    if (p.bundleGroupId && p.bundleParentName) {
+      let bundle = bundleMap.get(p.bundleGroupId)
+      if (!bundle) {
+        bundle = {
+          kind: 'bundle',
+          groupId: p.bundleGroupId,
+          parentName: p.bundleParentName,
+          parentClassCount: p.bundleParentClassCount ?? 0,
+          expiresAt: p.expiresAt,
+          children: [],
+        }
+        bundleMap.set(p.bundleGroupId, bundle)
+        grouped.push(bundle)
+      }
+      bundle.children.push({
+        purchaseId: p.id,
+        disciplineName: p.disciplineName ?? p.packageName,
+        remaining: p.classesRemaining,
+        total: p.classesTotal,
+      })
+    } else {
+      grouped.push({ kind: 'single', purchase: p })
+    }
+  }
+  return grouped
 }
 
 interface PurchasesData {
@@ -203,7 +262,84 @@ function PaquetesContent() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {activePurchases.map((purchase) => {
+            {groupActivePurchases(activePurchases).map((item) => {
+              if (item.kind === 'bundle') {
+                const expiresDate = new Date(item.expiresAt)
+                const daysRemaining = getDaysRemaining(expiresDate)
+                const totalRemaining = item.children.reduce((s, c) => s + c.remaining, 0)
+                const isLowClasses = totalRemaining <= 2
+                const isExpiringSoon = daysRemaining <= 7
+                return (
+                  <Card key={item.groupId} className="overflow-hidden">
+                    <div className="h-2 bg-primary" />
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <CardTitle>{item.parentName}</CardTitle>
+                        <Badge variant="success">Activo</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        {item.children.map((c) => (
+                          <div key={c.purchaseId}>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-700">{c.disciplineName}</span>
+                              <span className="font-medium">
+                                {c.remaining} / {c.total}
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-beige rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary rounded-full transition-all"
+                                style={{ width: `${(c.remaining / c.total) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex justify-between text-sm pt-2 border-t border-beige">
+                        <span className="text-gray-600">Total clases restantes</span>
+                        <span className="font-medium">
+                          {totalRemaining} de {item.parentClassCount}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        <span className="text-gray-600">
+                          Vence el {formatDate(expiresDate)}
+                        </span>
+                        {isExpiringSoon && (
+                          <Badge variant="warning">{daysRemaining} días</Badge>
+                        )}
+                      </div>
+
+                      {(isLowClasses || isExpiringSoon) && (
+                        <div className="flex items-start gap-2 p-3 bg-[var(--color-warning)]/10 rounded-lg text-sm">
+                          <AlertCircle className="h-4 w-4 text-[var(--color-warning)] mt-0.5" />
+                          <span className="text-gray-700">
+                            {isLowClasses && isExpiringSoon
+                              ? 'Pocas clases y poco tiempo restante'
+                              : isLowClasses
+                              ? 'Te quedan pocas clases'
+                              : 'Tu paquete vence pronto'}
+                          </span>
+                        </div>
+                      )}
+
+                      <Link href="/reservar">
+                        <Button variant="outline" className="w-full">
+                          Reservar Clase
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                )
+              }
+
+              const purchase = item.purchase
               const expiresDate = new Date(purchase.expiresAt)
               const daysRemaining = getDaysRemaining(expiresDate)
               const isLowClasses = purchase.classesRemaining <= 2
@@ -237,7 +373,6 @@ function PaquetesContent() {
                     )}
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Classes progress */}
                     <div>
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-gray-600">Clases restantes</span>
@@ -255,7 +390,6 @@ function PaquetesContent() {
                       </div>
                     </div>
 
-                    {/* Expiry */}
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-gray-500" />
                       <span className="text-gray-600">
@@ -266,7 +400,6 @@ function PaquetesContent() {
                       )}
                     </div>
 
-                    {/* Warnings */}
                     {(isLowClasses || isExpiringSoon) && (
                       <div className="flex items-start gap-2 p-3 bg-[var(--color-warning)]/10 rounded-lg text-sm">
                         <AlertCircle className="h-4 w-4 text-[var(--color-warning)] mt-0.5" />
