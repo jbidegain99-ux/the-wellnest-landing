@@ -126,22 +126,22 @@ async function main() {
   console.log()
 
   // ──────────────────────────────────────────────────────────────────
-  // 2. Private Flow — $45, 1 clase privada 1:1
+  // 2. Private Flow — $45, 3 clases privadas 1:1
   // ──────────────────────────────────────────────────────────────────
   const privateFlow = await upsertPackage({
     slug: 'private-flow',
-    name: 'Private Flow (1 clase)',
-    subtitle: 'Una sesión personalizada para ti',
-    shortDescription: 'Una sesión personalizada para ti',
+    name: 'Private Flow (3 clases)',
+    subtitle: 'Tres sesiones personalizadas para ti',
+    shortDescription: 'Tres sesiones personalizadas para ti',
     fullDescription:
-      'Una sesión diseñada según tus necesidades, ritmo y objetivos. Ideal para ' +
+      'Tres sesiones diseñadas según tus necesidades, ritmo y objetivos. Ideal para ' +
       'profundizar en tu práctica, recibir guía cercana y vivir un espacio de ' +
       'movimiento totalmente adaptado a ti.',
-    classCount: 1,
+    classCount: 3,
     price: 45.0,
     validityDays: 30,
     bulletsTop: [
-      '1 clase privada',
+      '3 clases privadas',
       'Atención 1:1',
       'Experiencia personalizada',
     ],
@@ -151,7 +151,7 @@ async function main() {
       'Reserva fácil desde la app',
       'Reprograma con 8 horas de anticipación',
     ],
-    order: -1, // Segundo en la lista pública (después de Ease In)
+    order: -1,
     isPrivate: true,
   })
   // Private Flow no tiene restricción de disciplina: el usuario elige al
