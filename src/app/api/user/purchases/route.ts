@@ -21,11 +21,13 @@ export async function GET() {
 
     // Get all purchases for the user, ordered by status and expiration
     const purchases = await prisma.purchase.findMany({
-      where: {
-        userId,
-      },
+      where: { userId },
       include: {
-        package: true,
+        package: {
+          include: {
+            disciplines: { include: { discipline: true } },
+          },
+        },
         reservations: {
           include: {
             class: {
@@ -35,16 +37,26 @@ export async function GET() {
               },
             },
           },
-          orderBy: {
-            createdAt: 'desc',
-          },
+          orderBy: { createdAt: 'desc' },
         },
       },
       orderBy: [
-        { status: 'asc' }, // ACTIVE first
+        { status: 'asc' },
         { expiresAt: 'asc' },
       ],
     })
+
+    // Resolve bundle parent Packages (used to render group title and bullets)
+    const parentIds = Array.from(new Set(
+      purchases.map((p) => p.bundleParentPackageId).filter(Boolean) as string[]
+    ))
+    const parentPackages = parentIds.length > 0
+      ? await prisma.package.findMany({
+          where: { id: { in: parentIds } },
+          select: { id: true, name: true, classCount: true, validityDays: true },
+        })
+      : []
+    const parentById = new Map(parentPackages.map((p) => [p.id, p]))
 
     // Separate active and expired/used purchases
     const now = new Date()
@@ -132,6 +144,15 @@ export async function GET() {
         isChild,
         sharedByName: isChild && p.sharedFromId ? (originalOwners[p.sharedFromId] || null) : null,
         sharedWith: isShared && p.sharedGroupId ? (sharedInfo[p.sharedGroupId] || []) : [],
+        bundleGroupId: p.bundleGroupId,
+        bundleParentPackageId: p.bundleParentPackageId,
+        bundleParentName: p.bundleParentPackageId
+          ? parentById.get(p.bundleParentPackageId)?.name ?? null
+          : null,
+        bundleParentClassCount: p.bundleParentPackageId
+          ? parentById.get(p.bundleParentPackageId)?.classCount ?? null
+          : null,
+        disciplineName: p.package.disciplines[0]?.discipline.name ?? null,
         ...(includeReservations
           ? {
               reservations: p.reservations.map((r) => ({
