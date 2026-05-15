@@ -112,9 +112,54 @@ describe('markOrderPaidAndCreatePurchase — bundle packages', () => {
     const packageIds = calls.map((d) => d.packageId).sort()
     expect(packageIds).toEqual(['pkg-pilates', 'pkg-pole', 'pkg-yoga'])
 
+    // classesRemaining comes from each child's classCount (2), not from the parent
     for (const data of calls) {
       expect(data.classesRemaining).toBe(2)
     }
+  })
+
+  it('throws when a bundle child slug cannot be resolved in the database', async () => {
+    const orderId = 'order-bundle-missing'
+
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: orderId,
+      userId: 'user-1',
+      status: 'PENDING',
+      discountCode: null,
+      discountCodeId: null,
+      discountCodeRef: null,
+      items: [
+        {
+          id: 'item-1',
+          packageId: 'pkg-trinity',
+          quantity: 1,
+          unitPrice: 60,
+          package: {
+            id: 'pkg-trinity',
+            name: 'Trinity Flow',
+            slug: 'trinity-flow-6',
+            classCount: 6,
+            validityDays: 30,
+            singlePurchaseOnly: false,
+            isHidden: false,
+            bundleChildSlugs: ['trinity-pole-2', 'trinity-pilates-2', 'trinity-yoga-2'],
+          },
+        },
+      ],
+    })
+
+    // findMany returns only 2 of the 3 expected children — yoga is missing
+    txMock.package.findMany.mockResolvedValue([
+      { id: 'pkg-pole', slug: 'trinity-pole-2', name: 'P', classCount: 2, validityDays: 30 },
+      { id: 'pkg-pilates', slug: 'trinity-pilates-2', name: 'P', classCount: 2, validityDays: 30 },
+    ])
+
+    const result = await markOrderPaidAndCreatePurchase({ orderId, provider: 'PAYWAY' })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('trinity-yoga-2')
+    expect(txMock.purchase.create).not.toHaveBeenCalled()
+    expect(txMock.order.update).not.toHaveBeenCalled()
   })
 
   it('uses the parent validityDays for child expiresAt, ignoring child validityDays', async () => {
