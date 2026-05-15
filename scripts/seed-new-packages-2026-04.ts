@@ -134,7 +134,7 @@ async function main() {
     subtitle: 'Una sesión personalizada para ti',
     shortDescription: 'Una sesión personalizada para ti',
     fullDescription:
-      'Tres sesiones diseñadas según tus necesidades, ritmo y objetivos. Ideal para ' +
+      'Una sesión diseñada según tus necesidades, ritmo y objetivos. Ideal para ' +
       'profundizar en tu práctica, recibir guía cercana y vivir un espacio de ' +
       'movimiento totalmente adaptado a ti.',
     classCount: 3,
