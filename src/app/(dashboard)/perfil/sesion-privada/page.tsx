@@ -146,8 +146,16 @@ export default function SesionPrivadaPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!selectedPurchaseId || !selectedDisciplineId || !slot1) {
+    if (!selectedPurchaseId || !selectedDisciplineId) {
       setError('Completa los campos requeridos')
+      return
+    }
+    if (!slot1 || !slot2 || !slot3) {
+      setError('Debes elegir las 3 fechas y horas para tus 3 sesiones')
+      return
+    }
+    if (new Set([slot1, slot2, slot3]).size !== 3) {
+      setError('Las 3 fechas deben ser distintas')
       return
     }
     setIsSubmitting(true)
@@ -157,8 +165,8 @@ export default function SesionPrivadaPage() {
         preferredDisciplineId: selectedDisciplineId,
         preferredInstructorId: selectedInstructorId || null,
         preferredSlot1: new Date(slot1).toISOString(),
-        preferredSlot2: slot2 ? new Date(slot2).toISOString() : null,
-        preferredSlot3: slot3 ? new Date(slot3).toISOString() : null,
+        preferredSlot2: new Date(slot2).toISOString(),
+        preferredSlot3: new Date(slot3).toISOString(),
         notes: notes.trim() || null,
       }
       const res = await fetch('/api/private-sessions', {
@@ -425,14 +433,14 @@ export default function SesionPrivadaPage() {
 
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-foreground">
-                  Ventanas de horario preferidas
+                  Tus 3 sesiones
                 </label>
                 <p className="text-xs text-gray-500 -mt-2">
-                  Envíanos hasta 3 opciones; confirmaremos una por email.
+                  Estas serán las fechas y horas reales de tus 3 sesiones privadas. La admin las revisa y confirma.
                 </p>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">
-                    1ra opción <span className="text-red-500">*</span>
+                    Sesión 1 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="datetime-local"
@@ -445,7 +453,7 @@ export default function SesionPrivadaPage() {
                 </div>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">
-                    2da opción <span className="text-gray-400">(opcional)</span>
+                    Sesión 2 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="datetime-local"
@@ -453,11 +461,12 @@ export default function SesionPrivadaPage() {
                     onChange={(e) => setSlot2(e.target.value)}
                     min={minDateTime}
                     className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
                   />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">
-                    3ra opción <span className="text-gray-400">(opcional)</span>
+                    Sesión 3 <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="datetime-local"
@@ -465,6 +474,7 @@ export default function SesionPrivadaPage() {
                     onChange={(e) => setSlot3(e.target.value)}
                     min={minDateTime}
                     className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
                   />
                 </div>
               </div>
