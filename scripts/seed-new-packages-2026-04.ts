@@ -130,9 +130,9 @@ async function main() {
   // ──────────────────────────────────────────────────────────────────
   const privateFlow = await upsertPackage({
     slug: 'private-flow',
-    name: 'Private Flow (3 clases)',
-    subtitle: 'Tres sesiones personalizadas para ti',
-    shortDescription: 'Tres sesiones personalizadas para ti',
+    name: 'Private Flow',
+    subtitle: 'Una sesión personalizada para ti',
+    shortDescription: 'Una sesión personalizada para ti',
     fullDescription:
       'Tres sesiones diseñadas según tus necesidades, ritmo y objetivos. Ideal para ' +
       'profundizar en tu práctica, recibir guía cercana y vivir un espacio de ' +
