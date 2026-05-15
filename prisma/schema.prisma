@@ -246,8 +246,8 @@ model PrivateSessionRequest {
   status                PrivateSessionStatus  @default(PENDING)
   adminNotes            String?               @db.Text
 
-  confirmedClassId      String?               @unique
-  confirmedClass        Class?                @relation("ConfirmedPrivateSession", fields: [confirmedClassId], references: [id])
+  confirmedClassId      String?               // tag histórico legacy (1 sesión)
+  confirmedClasses      Class[]               @relation("PrivateSessionConfirmedClasses")
   confirmedAt           DateTime?
   confirmedBy           String?               // admin user ID
   rejectedReason        String?
@@ -303,7 +303,10 @@ model Class {
 
   reservations            Reservation[]
   waitlist                Waitlist[]
-  privateSessionRequest   PrivateSessionRequest? @relation("ConfirmedPrivateSession")
+  privateSessionRequestId String?
+  privateSessionRequest   PrivateSessionRequest? @relation("PrivateSessionConfirmedClasses", fields: [privateSessionRequestId], references: [id], onDelete: SetNull)
+
+  @@index([privateSessionRequestId])
 }
 
 // Reservación
