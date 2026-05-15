@@ -41,11 +41,12 @@ export async function GET() {
       purchase: { include: { package: { select: { name: true } } } },
       preferredDiscipline: { select: { name: true, slug: true } },
       preferredInstructor: { select: { name: true } },
-      confirmedClass: {
+      confirmedClasses: {
         include: {
           discipline: { select: { name: true } },
           instructor: { select: { name: true } },
         },
+        orderBy: { dateTime: 'asc' },
       },
     },
     orderBy: { createdAt: 'desc' },

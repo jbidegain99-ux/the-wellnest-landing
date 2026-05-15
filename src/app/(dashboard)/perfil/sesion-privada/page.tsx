@@ -46,12 +46,13 @@ interface PrivateSessionRequest {
   purchase: { id: string; package: { name: string } }
   preferredDiscipline: { name: string; slug: string }
   preferredInstructor: { name: string } | null
-  confirmedClass: {
+  confirmedClasses: {
+    id: string
     dateTime: string
     duration: number
     discipline: { name: string }
     instructor: { name: string }
-  } | null
+  }[]
 }
 
 function formatDateTime(iso: string): string {
@@ -264,23 +265,32 @@ export default function SesionPrivadaPage() {
                   </div>
                 </div>
 
-                {r.status === 'CONFIRMED' && r.confirmedClass && (
+                {r.status === 'CONFIRMED' && r.confirmedClasses.length > 0 && (
                   <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-md text-sm">
                     <p className="font-medium text-emerald-900 flex items-center gap-1.5">
-                      <CheckCircle2 className="h-4 w-4" /> Sesión confirmada
+                      <CheckCircle2 className="h-4 w-4" />
+                      {r.confirmedClasses.length === 1
+                        ? 'Sesión confirmada'
+                        : `${r.confirmedClasses.length} sesiones confirmadas`}
                     </p>
-                    <p className="text-emerald-800 mt-1">
-                      <Calendar className="h-3.5 w-3.5 inline mr-1" />
-                      {formatDateTime(r.confirmedClass.dateTime)}
-                    </p>
-                    <p className="text-emerald-800">
-                      <User className="h-3.5 w-3.5 inline mr-1" />
-                      {r.confirmedClass.instructor.name} · {r.confirmedClass.discipline.name}
-                    </p>
-                    <p className="text-emerald-800">
-                      <Clock className="h-3.5 w-3.5 inline mr-1" />
-                      {r.confirmedClass.duration} minutos
-                    </p>
+                    <ul className="mt-2 space-y-2">
+                      {r.confirmedClasses.map((c) => (
+                        <li key={c.id} className="space-y-0.5">
+                          <p className="text-emerald-800">
+                            <Calendar className="h-3.5 w-3.5 inline mr-1" />
+                            {formatDateTime(c.dateTime)}
+                          </p>
+                          <p className="text-emerald-800">
+                            <User className="h-3.5 w-3.5 inline mr-1" />
+                            {c.instructor.name} · {c.discipline.name}
+                          </p>
+                          <p className="text-emerald-800">
+                            <Clock className="h-3.5 w-3.5 inline mr-1" />
+                            {c.duration} minutos
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
