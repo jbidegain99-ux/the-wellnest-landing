@@ -35,11 +35,12 @@ export async function GET(request: Request) {
       },
       preferredDiscipline: { select: { id: true, name: true, slug: true } },
       preferredInstructor: { select: { id: true, name: true } },
-      confirmedClass: {
+      confirmedClasses: {
         include: {
           discipline: { select: { name: true } },
           instructor: { select: { name: true } },
         },
+        orderBy: { dateTime: 'asc' },
       },
     },
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
