@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Package, Calendar, AlertCircle, ArrowRight, Loader2, CheckCircle2, X, Users, Sparkles } from 'lucide-react'
+import { Package, Calendar, AlertCircle, ArrowRight, Loader2, CheckCircle2, X, Users, Sparkles, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -109,10 +109,17 @@ export default function PaquetesPage() {
   )
 }
 
+interface PrivateSessionRequestSummary {
+  id: string
+  status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED'
+  purchase: { id: string }
+}
+
 function PaquetesContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [data, setData] = React.useState<PurchasesData | null>(null)
+  const [privateRequests, setPrivateRequests] = React.useState<PrivateSessionRequestSummary[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [showSuccessToast, setShowSuccessToast] = React.useState(false)
@@ -132,14 +139,21 @@ function PaquetesContent() {
   }, [searchParams, router])
 
   React.useEffect(() => {
-    const fetchPurchases = async () => {
+    const fetchAll = async () => {
       try {
-        const response = await fetch('/api/user/purchases')
-        if (!response.ok) {
+        const [purchasesRes, requestsRes] = await Promise.all([
+          fetch('/api/user/purchases'),
+          fetch('/api/private-sessions'),
+        ])
+        if (!purchasesRes.ok) {
           throw new Error('Error al cargar los paquetes')
         }
-        const result = await response.json()
+        const result = await purchasesRes.json()
         setData(result)
+        if (requestsRes.ok) {
+          const r = await requestsRes.json()
+          setPrivateRequests(r.requests || [])
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error desconocido')
       } finally {
@@ -147,7 +161,7 @@ function PaquetesContent() {
       }
     }
 
-    fetchPurchases()
+    fetchAll()
   }, [])
 
   if (isLoading) {
@@ -214,30 +228,53 @@ function PaquetesContent() {
         </Link>
       </div>
 
-      {/* Private Flow CTA — shown when user has at least one active private package */}
-      {activePurchases.some((p) => p.isPrivate) && (
-        <Link
-          href="/perfil/sesion-privada"
-          className="block rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/5 to-beige p-5 hover:shadow-md transition-all"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="h-5 w-5 text-primary" />
+      {/* Private Flow CTA — shown when user has at least one active private package.
+          Banner content reflects whether a request is already in flight. */}
+      {(() => {
+        const privatePurchases = activePurchases.filter((p) => p.isPrivate)
+        if (privatePurchases.length === 0) return null
+
+        const activeRequest = privateRequests.find(
+          (r) =>
+            (r.status === 'PENDING' || r.status === 'CONFIRMED') &&
+            privatePurchases.some((p) => p.id === r.purchase.id)
+        )
+
+        const isPending = activeRequest?.status === 'PENDING'
+        const isConfirmed = activeRequest?.status === 'CONFIRMED'
+
+        const Icon = isPending ? Clock : Sparkles
+        const title = isPending
+          ? 'Solicitud pendiente'
+          : isConfirmed
+          ? 'Sesión privada confirmada'
+          : 'Tienes una sesión privada disponible'
+        const subtitle = isPending
+          ? 'Estamos coordinando tu sesión. Te avisaremos por correo cuando esté confirmada.'
+          : isConfirmed
+          ? 'Revisa los detalles de tu próxima sesión 1:1.'
+          : 'Solicita tu sesión 1:1 con disciplina, instructor y horario a medida.'
+
+        return (
+          <Link
+            href="/perfil/sesion-privada"
+            className="block rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/5 to-beige p-5 hover:shadow-md transition-all"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">{title}</p>
+                  <p className="text-sm text-gray-600 mt-0.5">{subtitle}</p>
+                </div>
               </div>
-              <div>
-                <p className="font-semibold text-foreground">
-                  Tienes una sesión privada disponible
-                </p>
-                <p className="text-sm text-gray-600 mt-0.5">
-                  Solicita tu sesión 1:1 con disciplina, instructor y horario a medida.
-                </p>
-              </div>
+              <ArrowRight className="h-5 w-5 text-primary flex-shrink-0" />
             </div>
-            <ArrowRight className="h-5 w-5 text-primary flex-shrink-0" />
-          </div>
-        </Link>
-      )}
+          </Link>
+        )
+      })()}
 
       {/* Active Packages */}
       <section>

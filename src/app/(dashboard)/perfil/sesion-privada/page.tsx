@@ -326,6 +326,26 @@ export default function SesionPrivadaPage() {
         </div>
       )}
 
+      {/* Explainer when the form is hidden because the user already has an
+          active request on every private package they own */}
+      {!showForm && !successMessage && privatePurchases.length > 0 && activeRequest && (
+        <Card>
+          <CardContent className="py-6 text-sm text-gray-700 space-y-2">
+            <p className="font-medium text-foreground flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              {activeRequest.status === 'PENDING'
+                ? 'Ya tienes una solicitud pendiente'
+                : 'Tu sesión está confirmada'}
+            </p>
+            <p>
+              {activeRequest.status === 'PENDING'
+                ? 'Estamos coordinando tu sesión privada. Cuando la confirmemos o rechacemos podrás enviar una nueva solicitud usando este paquete.'
+                : 'Revisa los detalles arriba. Cuando tomes esta sesión podrás solicitar otra si compras un nuevo paquete Private Flow.'}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Request form */}
       {showForm && (
         <Card>
