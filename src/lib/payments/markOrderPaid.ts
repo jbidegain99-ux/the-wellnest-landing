@@ -11,6 +11,7 @@ import { addDays } from 'date-fns'
 import type { PaymentProvider } from '@prisma/client'
 import { Prisma } from '@prisma/client'
 import { sendToFacturador } from '@/lib/facturador'
+import { randomUUID } from 'crypto'
 
 export interface MarkOrderPaidParams {
   orderId: string
@@ -134,6 +135,46 @@ export async function markOrderPaidAndCreatePurchase({
           const originalPrice = item.unitPrice
           const discountPercentage = order.discountCodeRef?.percentage ?? 0
           const finalPrice = originalPrice * (1 - discountPercentage / 100)
+
+          // Bundle branch: spawn one Purchase per child slug instead of a parent Purchase
+          if (item.package.bundleChildSlugs && item.package.bundleChildSlugs.length > 0) {
+            const bundleGroupId = randomUUID()
+            const children = await tx.package.findMany({
+              where: { slug: { in: item.package.bundleChildSlugs } },
+            })
+            if (children.length !== item.package.bundleChildSlugs.length) {
+              const found = children.map((c) => c.slug)
+              const missing = item.package.bundleChildSlugs.filter((s) => !found.includes(s))
+              throw new Error(`Bundle ${item.package.slug ?? item.package.id}: missing child packages: ${missing.join(', ')}`)
+            }
+            for (const child of children) {
+              const purchase = await tx.purchase.create({
+                data: {
+                  userId: order.userId,
+                  packageId: child.id,
+                  classesRemaining: child.classCount,
+                  expiresAt: addDays(new Date(), item.package.validityDays),
+                  originalPrice: 0,
+                  finalPrice: 0,
+                  discountCode: order.discountCode || null,
+                  status: 'ACTIVE',
+                  paymentProviderId: `${provider.toLowerCase()}_${orderId}_${item.id}_${i}_${child.slug}`,
+                  bundleParentPackageId: item.package.id,
+                  bundleGroupId,
+                },
+                include: { package: true },
+              })
+              purchases.push({
+                id: purchase.id,
+                packageId: purchase.packageId,
+                packageName: purchase.package.name,
+                classesRemaining: purchase.classesRemaining,
+                expiresAt: purchase.expiresAt,
+                finalPrice: purchase.finalPrice,
+              })
+            }
+            continue
+          }
 
           const purchase = await tx.purchase.create({
             data: {
