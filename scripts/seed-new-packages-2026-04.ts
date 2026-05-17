@@ -126,7 +126,7 @@ async function main() {
   console.log()
 
   // ──────────────────────────────────────────────────────────────────
-  // 2. Private Flow — $45, 3 clases privadas 1:1
+  // 2. Private Flow — $45, 1 clase privada 1:1
   // ──────────────────────────────────────────────────────────────────
   const privateFlow = await upsertPackage({
     slug: 'private-flow',
@@ -137,7 +137,7 @@ async function main() {
       'Una sesión diseñada según tus necesidades, ritmo y objetivos. Ideal para ' +
       'profundizar en tu práctica, recibir guía cercana y vivir un espacio de ' +
       'movimiento totalmente adaptado a ti.',
-    classCount: 3,
+    classCount: 1,
     price: 45.0,
     validityDays: 30,
     bulletsTop: [

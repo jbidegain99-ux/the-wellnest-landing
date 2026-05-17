@@ -14,20 +14,13 @@ import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
 
-const createRequestSchema = z
-  .object({
-    purchaseId: z.string().min(1),
-    preferredDisciplineId: z.string().min(1, 'Selecciona una disciplina'),
-    preferredInstructorId: z.string().optional().nullable(),
-    preferredSlot1: z.string().datetime({ message: 'Primera fecha/hora requerida' }),
-    preferredSlot2: z.string().datetime({ message: 'Segunda fecha/hora requerida' }),
-    preferredSlot3: z.string().datetime({ message: 'Tercera fecha/hora requerida' }),
-    notes: z.string().max(2000).optional().nullable(),
-  })
-  .refine(
-    (d) => new Set([d.preferredSlot1, d.preferredSlot2, d.preferredSlot3]).size === 3,
-    { message: 'Las 3 fechas deben ser distintas', path: ['preferredSlot2'] }
-  )
+const createRequestSchema = z.object({
+  purchaseId: z.string().min(1),
+  preferredDisciplineId: z.string().min(1, 'Selecciona una disciplina'),
+  preferredInstructorId: z.string().optional().nullable(),
+  preferredSlot1: z.string().datetime({ message: 'Fecha/hora requerida' }),
+  notes: z.string().max(2000).optional().nullable(),
+})
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -81,14 +74,14 @@ export async function POST(request: Request) {
         id: data.purchaseId,
         userId,
         status: 'ACTIVE',
-        classesRemaining: { gte: 3 },
+        classesRemaining: { gte: 1 },
         expiresAt: { gt: now },
       },
       include: { package: true },
     })
     if (!purchase) {
       return NextResponse.json(
-        { error: 'Paquete no válido, vencido o sin las 3 sesiones disponibles' },
+        { error: 'Paquete no válido, vencido o sin sesiones disponibles' },
         { status: 400 }
       )
     }
@@ -114,13 +107,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 400 })
     }
 
-    // Validate slot dates are in the future
+    // Validate slot date is in the future
     const slot1 = new Date(data.preferredSlot1)
-    const slot2 = new Date(data.preferredSlot2)
-    const slot3 = new Date(data.preferredSlot3)
-    if (slot1 <= now || slot2 <= now || slot3 <= now) {
+    if (slot1 <= now) {
       return NextResponse.json(
-        { error: 'Las 3 fechas deben ser a futuro' },
+        { error: 'La fecha debe ser a futuro' },
         { status: 400 }
       )
     }
@@ -149,8 +140,6 @@ export async function POST(request: Request) {
         preferredDisciplineId: data.preferredDisciplineId,
         preferredInstructorId: data.preferredInstructorId ?? null,
         preferredSlot1: slot1,
-        preferredSlot2: slot2,
-        preferredSlot3: slot3,
         notes: data.notes?.trim() || null,
         status: 'PENDING',
       },

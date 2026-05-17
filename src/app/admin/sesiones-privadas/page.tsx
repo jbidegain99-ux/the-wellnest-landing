@@ -245,11 +245,7 @@ export default function AdminSesionesPrivadasPage() {
                       </p>
                     </div>
                     <div className="text-sm pt-2">
-                      <p className="font-medium mb-1">
-                        {r.preferredSlot2 && r.preferredSlot3
-                          ? '3 sesiones solicitadas:'
-                          : 'Ventana preferida:'}
-                      </p>
+                      <p className="font-medium mb-1">Ventana preferida:</p>
                       <ul className="text-gray-700 space-y-0.5 list-disc list-inside text-xs">
                         <li>{formatDateTime(r.preferredSlot1)}</li>
                         {r.preferredSlot2 && <li>{formatDateTime(r.preferredSlot2)}</li>}
@@ -370,74 +366,32 @@ function ConfirmModal({
   onClose: () => void
   onConfirm: (payload: object) => Promise<void>
 }) {
-  const isLegacy =
-    request.preferredSlot2 === null || request.preferredSlot3 === null
-
-  // ───── Shared state (used by both branches) ─────
   const [disciplineId, setDisciplineId] = React.useState(request.preferredDiscipline.id)
   const [duration, setDuration] = React.useState(60)
   const [adminNotes, setAdminNotes] = React.useState('')
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
-  // ───── Legacy branch state ─────
   const initialSlot = React.useMemo(() => {
     const d = new Date(request.preferredSlot1)
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   }, [request.preferredSlot1])
-  const [legacyDateTime, setLegacyDateTime] = React.useState(initialSlot)
-  const [legacyInstructorId, setLegacyInstructorId] = React.useState(
+  const [dateTime, setDateTime] = React.useState(initialSlot)
+  const [instructorId, setInstructorId] = React.useState(
     request.preferredInstructor?.id || ''
   )
 
-  // ───── New branch state ─────
-  const fmtForInput = React.useCallback((iso: string) => {
-    const d = new Date(iso)
-    const pad = (n: number) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-  }, [])
-  const [sessions, setSessions] = React.useState(() => {
-    if (isLegacy) return [] as { dateTime: string; instructorId: string }[]
-    return [
-      { dateTime: fmtForInput(request.preferredSlot1), instructorId: request.preferredInstructor?.id || '' },
-      { dateTime: fmtForInput(request.preferredSlot2!), instructorId: request.preferredInstructor?.id || '' },
-      { dateTime: fmtForInput(request.preferredSlot3!), instructorId: request.preferredInstructor?.id || '' },
-    ]
-  })
-
-  async function handleLegacySubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!disciplineId || !legacyInstructorId || !legacyDateTime) return
+    if (!disciplineId || !instructorId || !dateTime) return
     setIsSubmitting(true)
     await onConfirm({
       action: 'confirm',
       disciplineId,
-      instructorId: legacyInstructorId,
-      dateTime: new Date(legacyDateTime).toISOString(),
+      instructorId,
+      dateTime: new Date(dateTime).toISOString(),
       duration,
       adminNotes: adminNotes.trim() || null,
-    })
-    setIsSubmitting(false)
-  }
-
-  async function handleNewSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!disciplineId || sessions.some((s) => !s.dateTime || !s.instructorId)) return
-    const isos = sessions.map((s) => new Date(s.dateTime).toISOString())
-    if (new Set(isos).size !== 3) {
-      alert('Las 3 fechas deben ser distintas')
-      return
-    }
-    setIsSubmitting(true)
-    await onConfirm({
-      action: 'confirm',
-      disciplineId,
-      adminNotes: adminNotes.trim() || null,
-      sessions: sessions.map((s, i) => ({
-        dateTime: isos[i],
-        instructorId: s.instructorId,
-        duration,
-      })),
     })
     setIsSubmitting(false)
   }
@@ -447,185 +401,91 @@ function ConfirmModal({
       <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-beige">
           <h2 className="font-serif text-xl font-semibold text-foreground">
-            {isLegacy ? 'Confirmar sesión privada' : 'Confirmar 3 sesiones privadas'}
+            Confirmar sesión privada
           </h2>
           <p className="text-sm text-gray-600 mt-1">
             {request.user.name || request.user.email}
           </p>
         </div>
 
-        {isLegacy ? (
-          <form onSubmit={handleLegacySubmit} className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Disciplina <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={disciplineId}
-                onChange={(e) => setDisciplineId(e.target.value)}
-                className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              >
-                {disciplines.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Instructor <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={legacyInstructorId}
-                onChange={(e) => setLegacyInstructorId(e.target.value)}
-                className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              >
-                <option value="">Selecciona un instructor</option>
-                {instructors.map((i) => (
-                  <option key={i.id} value={i.id}>{i.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Fecha y hora final <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="datetime-local"
-                value={legacyDateTime}
-                onChange={(e) => setLegacyDateTime(e.target.value)}
-                className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Duración (minutos)
-              </label>
-              <input
-                type="number"
-                min={15}
-                max={180}
-                step={15}
-                value={duration}
-                onChange={(e) => setDuration(parseInt(e.target.value, 10) || 60)}
-                className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Notas internas <span className="text-gray-400">(opcional)</span>
-              </label>
-              <textarea
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-              />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-                Cancelar
-              </Button>
-              <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting}>
-                Confirmar y enviar email
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleNewSubmit} className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Disciplina <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={disciplineId}
-                onChange={(e) => setDisciplineId(e.target.value)}
-                className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              >
-                {disciplines.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {sessions.map((s, i) => (
-              <div key={i} className="p-3 bg-beige/30 rounded-lg space-y-2">
-                <p className="text-sm font-medium text-foreground">Sesión {i + 1}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="datetime-local"
-                    value={s.dateTime}
-                    onChange={(e) =>
-                      setSessions((prev) =>
-                        prev.map((p, idx) =>
-                          idx === i ? { ...p, dateTime: e.target.value } : p
-                        )
-                      )
-                    }
-                    className="px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                    required
-                  />
-                  <select
-                    value={s.instructorId}
-                    onChange={(e) =>
-                      setSessions((prev) =>
-                        prev.map((p, idx) =>
-                          idx === i ? { ...p, instructorId: e.target.value } : p
-                        )
-                      )
-                    }
-                    className="px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                    required
-                  >
-                    <option value="">Instructor…</option>
-                    {instructors.map((inst) => (
-                      <option key={inst.id} value={inst.id}>{inst.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            ))}
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Duración (minutos, aplica a las 3)
-              </label>
-              <input
-                type="number"
-                min={15}
-                max={180}
-                step={15}
-                value={duration}
-                onChange={(e) => setDuration(parseInt(e.target.value, 10) || 60)}
-                className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Notas internas <span className="text-gray-400">(opcional)</span>
-              </label>
-              <textarea
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-                Cancelar
-              </Button>
-              <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting}>
-                Confirmar 3 sesiones
-              </Button>
-            </div>
-          </form>
-        )}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Disciplina <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={disciplineId}
+              onChange={(e) => setDisciplineId(e.target.value)}
+              className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              required
+            >
+              {disciplines.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Instructor <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={instructorId}
+              onChange={(e) => setInstructorId(e.target.value)}
+              className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              required
+            >
+              <option value="">Selecciona un instructor</option>
+              {instructors.map((i) => (
+                <option key={i.id} value={i.id}>{i.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Fecha y hora final <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={dateTime}
+              onChange={(e) => setDateTime(e.target.value)}
+              className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Duración (minutos)
+            </label>
+            <input
+              type="number"
+              min={15}
+              max={180}
+              step={15}
+              value={duration}
+              onChange={(e) => setDuration(parseInt(e.target.value, 10) || 60)}
+              className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Notas internas <span className="text-gray-400">(opcional)</span>
+            </label>
+            <textarea
+              value={adminNotes}
+              onChange={(e) => setAdminNotes(e.target.value)}
+              rows={2}
+              className="w-full px-3 py-2 border border-beige rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting}>
+              Confirmar y enviar email
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   )
