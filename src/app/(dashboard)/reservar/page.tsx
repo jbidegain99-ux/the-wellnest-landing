@@ -75,6 +75,18 @@ interface SelectedPurchase {
   packageName: string
   classesRemaining: number
   expiresAt: string
+  isShareable?: boolean
+  maxShares?: number
+}
+
+interface BookablePurchase {
+  purchaseId: string
+  packageId: string
+  packageName: string
+  classesRemaining: number
+  expiresAt: string
+  isShareable: boolean
+  maxShares: number
 }
 
 // Modal states - separate state for each modal type to prevent conflicts
@@ -271,6 +283,7 @@ export default function ReservarPage() {
   const [classes, setClasses] = React.useState<ClassData[]>([])
   const [activePurchase, setActivePurchase] = React.useState<ActivePurchase | null>(null)
   const [selectedPurchase, setSelectedPurchase] = React.useState<SelectedPurchase | null>(null)
+  const [bookablePurchases, setBookablePurchases] = React.useState<BookablePurchase[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [reservedClassIds, setReservedClassIds] = React.useState<Set<string>>(new Set())
   const [waitlistEntries, setWaitlistEntries] = React.useState<
@@ -540,7 +553,29 @@ export default function ReservarPage() {
     return format(date, 'EEEE, d MMMM')
   }
 
-  const handleSelectClass = (cls: ClassData) => {
+  const toSelectedPurchase = (b: BookablePurchase): SelectedPurchase => ({
+    id: b.purchaseId,
+    packageName: b.packageName,
+    classesRemaining: b.classesRemaining,
+    expiresAt: b.expiresAt,
+    isShareable: b.isShareable,
+    maxShares: b.maxShares,
+  })
+
+  const fetchBookablePurchases = async (classId: string): Promise<BookablePurchase[]> => {
+    try {
+      const response = await fetch(`/api/user/bookable-purchases?classId=${classId}`)
+      if (response.ok) {
+        const data = await response.json()
+        return (data.bookablePurchases ?? []) as BookablePurchase[]
+      }
+    } catch (error) {
+      console.error('Error fetching bookable purchases:', error)
+    }
+    return []
+  }
+
+  const handleSelectClass = async (cls: ClassData) => {
     const reservationCount = cls._count?.reservations ?? cls.currentCount
     const isFull = reservationCount >= cls.maxCapacity
     const isOnWaitlist = waitlistEntries.has(cls.id)
@@ -554,6 +589,21 @@ export default function ReservarPage() {
     } else if (isFull) {
       setModalState('waitlist-confirm')
     } else {
+      // Resolve which packages can book THIS class, then settle the selection.
+      const bookable = await fetchBookablePurchases(cls.id)
+      setBookablePurchases(bookable)
+
+      const keepCurrent = bookable.find((b) => b.purchaseId === selectedPurchase?.id)
+      const chosen = keepCurrent ?? bookable[0] ?? null
+      setSelectedPurchase(chosen ? toSelectedPurchase(chosen) : null)
+
+      // A non-shareable (or no) package can't carry a guest — reset guest state.
+      if (!chosen?.isShareable) {
+        setBringGuest(false)
+        setGuestEmail('')
+        setGuestName('')
+      }
+
       setModalState('confirm')
     }
   }
@@ -718,6 +768,7 @@ export default function ReservarPage() {
       setBringGuest(false)
       setGuestEmail('')
       setGuestName('')
+      setBookablePurchases([])
       setWaitlistMessage(null)
       setIsWaitlistSubmitting(false)
     }, 150)
