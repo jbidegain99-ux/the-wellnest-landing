@@ -516,6 +516,9 @@ export default function ReservarPage() {
           setModalState('waitlist-confirm')
         } else {
           setModalState('confirm')
+          // Deep-link path must resolve bookable packages too, otherwise
+          // bookableStatus stays 'idle' and the confirm button never enables.
+          await resolveBookablePurchases(classData.id)
         }
 
         setClassIdProcessed(true)
