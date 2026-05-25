@@ -314,6 +314,16 @@ export default function ReservarPage() {
   const [guestEmail, setGuestEmail] = React.useState('')
   const [guestName, setGuestName] = React.useState('')
 
+  // Whether the selected class + package allow bringing a guest (shareable package,
+  // ≥2 classes, ≥2 free seats). Single source so the confirm UI and the booking
+  // submit never desync. Recomputed each render from current selection.
+  const guestSpotsAvailable = selectedClass
+    ? selectedClass.maxCapacity - (selectedClass._count?.reservations ?? selectedClass.currentCount)
+    : 0
+  const guestAllowed =
+    !!selectedPurchase?.isShareable &&
+    checkGuestBookingAllowed(selectedPurchase?.classesRemaining ?? 0, guestSpotsAvailable) === 'OK'
+
   const weekDays = getWeekDays()
 
   const getWeekDates = () => {
@@ -624,7 +634,7 @@ export default function ReservarPage() {
         purchaseId: purchaseIdToUse,
       }
 
-      if (bringGuest && guestEmail) {
+      if (bringGuest && guestAllowed && guestEmail) {
         body.guest = {
           email: guestEmail.trim(),
           name: guestName.trim() || undefined,
@@ -1202,13 +1212,7 @@ export default function ReservarPage() {
                 )}
 
                 {/* Guest invitation toggle — only for shareable packages */}
-                {selectedPurchase?.isShareable && (() => {
-                  const spotsAvailable =
-                    (selectedClass?.maxCapacity ?? 0) -
-                    (selectedClass?._count?.reservations ?? selectedClass?.currentCount ?? 0)
-                  const guestAllowed =
-                    checkGuestBookingAllowed(selectedPurchase?.classesRemaining ?? 0, spotsAvailable) === 'OK'
-                  return (
+                {selectedPurchase?.isShareable && (
                   <div className="border border-beige rounded-lg p-4 space-y-3">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
@@ -1264,12 +1268,11 @@ export default function ReservarPage() {
                       </div>
                     )}
                   </div>
-                  )
-                })()}
+                )}
 
                 {/* Classes deduction info */}
                 {(() => {
-                  const classesToDeduct = bringGuest ? 2 : 1
+                  const classesToDeduct = (bringGuest && guestAllowed) ? 2 : 1
                   const remaining = selectedPurchase
                     ? selectedPurchase.classesRemaining
                     : (activePurchase?.classesRemaining || 0)
@@ -1316,9 +1319,9 @@ export default function ReservarPage() {
                 <Button
                   onClick={handleConfirmBooking}
                   isLoading={isBooking}
-                  disabled={bookablePurchases.length === 0 || (bringGuest && !guestEmail.trim())}
+                  disabled={bookablePurchases.length === 0 || (bringGuest && guestAllowed && !guestEmail.trim())}
                 >
-                  {bringGuest ? 'Reservar con Invitado' : 'Confirmar Reserva'}
+                  {bringGuest && guestAllowed ? 'Reservar con Invitado' : 'Confirmar Reserva'}
                 </Button>
               </ModalFooter>
             </>
