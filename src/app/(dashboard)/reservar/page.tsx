@@ -1154,10 +1154,10 @@ export default function ReservarPage() {
 
                 {/* Package selector — only when more than one package can book this class */}
                 {bookablePurchases.length > 1 && (
-                  <div className="border border-beige rounded-lg p-4 space-y-2">
-                    <p className="text-sm font-medium text-foreground">
+                  <fieldset className="border border-beige rounded-lg p-4 space-y-2">
+                    <legend className="text-sm font-medium text-foreground">
                       ¿Con cuál paquete quieres reservar?
-                    </p>
+                    </legend>
                     <div className="space-y-2">
                       {bookablePurchases.map((b) => (
                         <label
@@ -1167,6 +1167,7 @@ export default function ReservarPage() {
                           <input
                             type="radio"
                             name="bookable-package"
+                            value={b.purchaseId}
                             checked={selectedPurchase?.id === b.purchaseId}
                             onChange={() => {
                               setSelectedPurchase(toSelectedPurchase(b))
@@ -1189,7 +1190,7 @@ export default function ReservarPage() {
                         </label>
                       ))}
                     </div>
-                  </div>
+                  </fieldset>
                 )}
 
                 {/* No compatible package for this class */}
