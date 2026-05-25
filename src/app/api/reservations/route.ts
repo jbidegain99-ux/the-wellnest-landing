@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { sendEmail, buildGuestInvitationEmail, buildReservationConfirmationEmail } from '@/lib/emailService'
 import { formatDate, formatDateTimeFull } from '@/lib/utils'
+import { checkPackageClassCompatibility } from '@/lib/booking/packageCompatibility'
+import { TRIAL_PACKAGE_ID, isTrialBlockedForClass } from '@/lib/booking/trialCutoff'
 
 // Force dynamic - this route uses headers/session
 export const dynamic = 'force-dynamic'
@@ -45,8 +47,10 @@ async function validatePackageAllowsClass(
   })
   if (!pkg) return null // should not happen — caller already has purchase
 
+  const compatibility = checkPackageClassCompatibility(pkg, classDisciplineId)
+
   // Private packages can't self-book group classes
-  if (pkg.isPrivate) {
+  if (compatibility === 'PRIVATE_ONLY') {
     return {
       error:
         'Este paquete es para sesiones privadas (1:1). ' +
@@ -55,30 +59,23 @@ async function validatePackageAllowsClass(
     }
   }
 
-  // Discipline restriction: if the package has any discipline explicitly
-  // listed, the class discipline MUST be in that list. Empty list = unrestricted.
-  if (pkg.disciplines.length > 0) {
+  // Discipline restriction: build the human-readable list for the error message
+  if (compatibility === 'DISCIPLINE_NOT_COVERED') {
     const allowed = new Set(pkg.disciplines.map((d) => d.disciplineId))
-    if (!allowed.has(classDisciplineId)) {
-      const disciplineNames = await prisma.discipline.findMany({
-        where: { id: { in: Array.from(allowed) } },
-        select: { name: true },
-      })
-      const names = disciplineNames.map((d) => d.name).join(', ')
-      return {
-        error: `Este paquete solo cubre: ${names}. No puedes usarlo para esta clase.`,
-        code: ERROR_CODES.DISCIPLINE_NOT_COVERED,
-      }
+    const disciplineNames = await prisma.discipline.findMany({
+      where: { id: { in: Array.from(allowed) } },
+      select: { name: true },
+    })
+    const names = disciplineNames.map((d) => d.name).join(', ')
+    return {
+      error: `Este paquete solo cubre: ${names}. No puedes usarlo para esta clase.`,
+      code: ERROR_CODES.DISCIPLINE_NOT_COVERED,
     }
   }
 
   return null
 }
 
-// Trial package restriction: classes from March 9, 2026 onward require a paid package
-const TRIAL_PACKAGE_ID = 'cmm78xhwt0000bfage9rlmp2m'
-// March 9, 2026 midnight in El Salvador (UTC-6) = 06:00 UTC
-const TRIAL_CUTOFF_UTC = new Date('2026-03-09T06:00:00Z')
 
 export async function GET() {
   console.log('[RESERVATIONS API] GET request - fetching user reservations')
@@ -433,7 +430,7 @@ export async function POST(request: Request) {
         }
 
         // Trial package date restriction
-        if (purchase.packageId === TRIAL_PACKAGE_ID && classDateTime >= TRIAL_CUTOFF_UTC) {
+        if (isTrialBlockedForClass(purchase.packageId, classDateTime)) {
           console.log('[RESERVATIONS API] ERROR: Trial package blocked for post-cutoff class')
           return NextResponse.json({
             error: 'El paquete de prueba no es válido para clases a partir del 9 de marzo. Por favor adquiere un paquete para continuar.',
@@ -720,7 +717,7 @@ export async function POST(request: Request) {
     }
 
     // Trial package date restriction
-    if (purchase.packageId === TRIAL_PACKAGE_ID && classDateTime >= TRIAL_CUTOFF_UTC) {
+    if (isTrialBlockedForClass(purchase.packageId, classDateTime)) {
       // If auto-selected, try to find a non-trial purchase
       if (!requestedPurchaseId) {
         const nonTrialPurchase = await prisma.purchase.findFirst({
