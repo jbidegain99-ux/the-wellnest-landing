@@ -134,8 +134,17 @@ export async function POST(request: Request) {
       )
     }
 
-    // Always refund 1 class (guest is a free companion, no separate deduction)
-    const classesRefunded = 1
+    // If this host reservation had a guest (a separate isGuestReservation row for the
+    // same user+class), cancel that one too and refund 2. Otherwise refund 1.
+    const guestReservation = await prisma.reservation.findFirst({
+      where: {
+        userId: reservation.userId,
+        classId: reservation.classId,
+        isGuestReservation: true,
+        status: { not: 'CANCELLED' },
+      },
+    })
+    const classesRefunded = guestReservation ? 2 : 1
 
     // Perform cancellation in a transaction
     console.log('[CANCEL API] Executing cancellation transaction...')
@@ -152,9 +161,9 @@ export async function POST(request: Request) {
 
     // Note: We don't update class.currentCount because we use _count.reservations instead
     // The actual reservation count is calculated from confirmed reservations
-    const [updatedReservation, updatedPurchase] = await prisma.$transaction([
-      // 1. Mark reservation as cancelled
-      prisma.reservation.update({
+    const { updatedReservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
+      // 1. Mark host reservation as cancelled
+      const updatedReservation = await tx.reservation.update({
         where: { id: reservationId },
         data: {
           status: 'CANCELLED',
@@ -168,16 +177,26 @@ export async function POST(request: Request) {
             },
           },
         },
-      }),
+      })
 
       // 2. Return classes to the SPECIFIC package that was used
-      prisma.purchase.update({
+      const updatedPurchase = await tx.purchase.update({
         where: { id: reservation.purchaseId },
         data: {
           classesRemaining: { increment: classesRefunded },
         },
-      }),
-    ])
+      })
+
+      // 3. If there was a guest reservation, cancel it too
+      if (guestReservation) {
+        await tx.reservation.update({
+          where: { id: guestReservation.id },
+          data: { status: 'CANCELLED', cancelledAt: new Date() },
+        })
+      }
+
+      return { updatedReservation, updatedPurchase }
+    })
 
     console.log('[CANCEL API] Cancellation transaction completed:', {
       reservationId: updatedReservation.id,
@@ -309,7 +328,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Reserva cancelada correctamente. Se ha devuelto 1 clase a tu paquete "${reservation.purchase.package.name}".`,
+      message: `Reserva cancelada correctamente. Se ${classesRefunded === 1 ? 'ha devuelto 1 clase' : 'han devuelto 2 clases'} a tu paquete "${reservation.purchase.package.name}".`,
       updatedReservation: {
         id: updatedReservation.id,
         status: updatedReservation.status,
