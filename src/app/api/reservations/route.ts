@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { sendEmail, buildGuestInvitationEmail, buildReservationConfirmationEmail } from '@/lib/emailService'
 import { formatDate, formatDateTimeFull } from '@/lib/utils'
+import { checkPackageClassCompatibility } from '@/lib/booking/packageCompatibility'
 
 // Force dynamic - this route uses headers/session
 export const dynamic = 'force-dynamic'
@@ -45,8 +46,10 @@ async function validatePackageAllowsClass(
   })
   if (!pkg) return null // should not happen — caller already has purchase
 
+  const compatibility = checkPackageClassCompatibility(pkg, classDisciplineId)
+
   // Private packages can't self-book group classes
-  if (pkg.isPrivate) {
+  if (compatibility === 'PRIVATE_ONLY') {
     return {
       error:
         'Este paquete es para sesiones privadas (1:1). ' +
@@ -55,20 +58,17 @@ async function validatePackageAllowsClass(
     }
   }
 
-  // Discipline restriction: if the package has any discipline explicitly
-  // listed, the class discipline MUST be in that list. Empty list = unrestricted.
-  if (pkg.disciplines.length > 0) {
+  // Discipline restriction: build the human-readable list for the error message
+  if (compatibility === 'DISCIPLINE_NOT_COVERED') {
     const allowed = new Set(pkg.disciplines.map((d) => d.disciplineId))
-    if (!allowed.has(classDisciplineId)) {
-      const disciplineNames = await prisma.discipline.findMany({
-        where: { id: { in: Array.from(allowed) } },
-        select: { name: true },
-      })
-      const names = disciplineNames.map((d) => d.name).join(', ')
-      return {
-        error: `Este paquete solo cubre: ${names}. No puedes usarlo para esta clase.`,
-        code: ERROR_CODES.DISCIPLINE_NOT_COVERED,
-      }
+    const disciplineNames = await prisma.discipline.findMany({
+      where: { id: { in: Array.from(allowed) } },
+      select: { name: true },
+    })
+    const names = disciplineNames.map((d) => d.name).join(', ')
+    return {
+      error: `Este paquete solo cubre: ${names}. No puedes usarlo para esta clase.`,
+      code: ERROR_CODES.DISCIPLINE_NOT_COVERED,
     }
   }
 
