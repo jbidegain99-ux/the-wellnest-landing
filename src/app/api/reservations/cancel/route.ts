@@ -95,6 +95,14 @@ export async function POST(request: Request) {
       )
     }
 
+    // The guest's reservation can't be cancelled on its own — only via the host's.
+    if (reservation.isGuestReservation) {
+      return NextResponse.json(
+        { error: 'No puedes cancelar directamente la reserva del invitado. Cancela tu propia reserva.' },
+        { status: 400 }
+      )
+    }
+
     // Check if already cancelled
     if (reservation.status === 'CANCELLED') {
       console.log('[CANCEL API] ERROR: Reservation already cancelled')
@@ -150,7 +158,7 @@ export async function POST(request: Request) {
     console.log('[CANCEL API] Executing cancellation transaction...')
     console.log('[CANCEL API] Will update:', {
       reservationId: reservationId,
-      hasGuest: !!reservation.guestEmail,
+      hasGuest: !!guestReservation,
       classesRefunded,
       purchaseId: reservation.purchaseId,
       packageName: reservation.purchase.package.name,
