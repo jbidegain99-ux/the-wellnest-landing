@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { isPackageCompatibleWithClass } from '@/lib/booking/packageCompatibility'
+import { isTrialBlockedForClass } from '@/lib/booking/trialCutoff'
 
 // Force dynamic - this route uses the session
 export const dynamic = 'force-dynamic'
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
 
     const classData = await prisma.class.findUnique({
       where: { id: classId },
-      select: { disciplineId: true },
+      select: { disciplineId: true, dateTime: true },
     })
     if (!classData) {
       return NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 })
@@ -51,7 +52,11 @@ export async function GET(request: Request) {
     })
 
     const bookablePurchases = purchases
-      .filter((p) => isPackageCompatibleWithClass(p.package, classData.disciplineId))
+      .filter(
+        (p) =>
+          isPackageCompatibleWithClass(p.package, classData.disciplineId) &&
+          !isTrialBlockedForClass(p.packageId, classData.dateTime)
+      )
       .map((p) => ({
         purchaseId: p.id,
         packageId: p.packageId,

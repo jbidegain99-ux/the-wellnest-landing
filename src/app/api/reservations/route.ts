@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { sendEmail, buildGuestInvitationEmail, buildReservationConfirmationEmail } from '@/lib/emailService'
 import { formatDate, formatDateTimeFull } from '@/lib/utils'
 import { checkPackageClassCompatibility } from '@/lib/booking/packageCompatibility'
+import { TRIAL_PACKAGE_ID, isTrialBlockedForClass } from '@/lib/booking/trialCutoff'
 
 // Force dynamic - this route uses headers/session
 export const dynamic = 'force-dynamic'
@@ -75,10 +76,6 @@ async function validatePackageAllowsClass(
   return null
 }
 
-// Trial package restriction: classes from March 9, 2026 onward require a paid package
-const TRIAL_PACKAGE_ID = 'cmm78xhwt0000bfage9rlmp2m'
-// March 9, 2026 midnight in El Salvador (UTC-6) = 06:00 UTC
-const TRIAL_CUTOFF_UTC = new Date('2026-03-09T06:00:00Z')
 
 export async function GET() {
   console.log('[RESERVATIONS API] GET request - fetching user reservations')
@@ -433,7 +430,7 @@ export async function POST(request: Request) {
         }
 
         // Trial package date restriction
-        if (purchase.packageId === TRIAL_PACKAGE_ID && classDateTime >= TRIAL_CUTOFF_UTC) {
+        if (isTrialBlockedForClass(purchase.packageId, classDateTime)) {
           console.log('[RESERVATIONS API] ERROR: Trial package blocked for post-cutoff class')
           return NextResponse.json({
             error: 'El paquete de prueba no es válido para clases a partir del 9 de marzo. Por favor adquiere un paquete para continuar.',
@@ -720,7 +717,7 @@ export async function POST(request: Request) {
     }
 
     // Trial package date restriction
-    if (purchase.packageId === TRIAL_PACKAGE_ID && classDateTime >= TRIAL_CUTOFF_UTC) {
+    if (isTrialBlockedForClass(purchase.packageId, classDateTime)) {
       // If auto-selected, try to find a non-trial purchase
       if (!requestedPurchaseId) {
         const nonTrialPurchase = await prisma.purchase.findFirst({
