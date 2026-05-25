@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/Select'
 import { cn, getWeekDays, getMonthName, formatClassType } from '@/lib/utils'
+import { checkGuestBookingAllowed } from '@/lib/booking/guestBooking'
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -312,6 +313,16 @@ export default function ReservarPage() {
   const [bringGuest, setBringGuest] = React.useState(false)
   const [guestEmail, setGuestEmail] = React.useState('')
   const [guestName, setGuestName] = React.useState('')
+
+  // Whether the selected class + package allow bringing a guest (shareable package,
+  // ≥2 classes, ≥2 free seats). Single source so the confirm UI and the booking
+  // submit never desync. Recomputed each render from current selection.
+  const guestSpotsAvailable = selectedClass
+    ? selectedClass.maxCapacity - (selectedClass._count?.reservations ?? selectedClass.currentCount)
+    : 0
+  const guestAllowed =
+    !!selectedPurchase?.isShareable &&
+    checkGuestBookingAllowed(selectedPurchase?.classesRemaining ?? 0, guestSpotsAvailable) === 'OK'
 
   const weekDays = getWeekDays()
 
@@ -623,7 +634,7 @@ export default function ReservarPage() {
         purchaseId: purchaseIdToUse,
       }
 
-      if (bringGuest && guestEmail) {
+      if (bringGuest && guestAllowed && guestEmail) {
         body.guest = {
           email: guestEmail.trim(),
           name: guestName.trim() || undefined,
@@ -1206,9 +1217,10 @@ export default function ReservarPage() {
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={bringGuest}
-                        onChange={(e) => setBringGuest(e.target.checked)}
-                        className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                        checked={bringGuest && guestAllowed}
+                        disabled={!guestAllowed}
+                        onChange={(e) => setBringGuest(e.target.checked && guestAllowed)}
+                        className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4 disabled:opacity-50"
                       />
                       <div className="flex items-center gap-2">
                         <UserPlus className="h-4 w-4 text-primary" />
@@ -1217,8 +1229,13 @@ export default function ReservarPage() {
                         </span>
                       </div>
                     </label>
+                    {!guestAllowed && (
+                      <p className="text-xs text-gray-500 pl-7">
+                        Para llevar invitado necesitas al menos 2 clases en tu paquete y 2 cupos libres en la clase.
+                      </p>
+                    )}
 
-                    {bringGuest && (
+                    {bringGuest && guestAllowed && (
                       <div className="space-y-3 pl-7">
                         <div>
                           <label className="block text-xs text-gray-500 mb-1">
@@ -1246,7 +1263,7 @@ export default function ReservarPage() {
                           />
                         </div>
                         <p className="text-xs text-gray-500">
-                          Se descontará 1 clase de tu paquete. Tu invitado asiste gratis como acompañante.
+                          Se descontarán 2 clases de tu paquete (1 tuya + 1 de tu invitado). Tu invitado ocupa un cupo en la clase.
                         </p>
                       </div>
                     )}
@@ -1255,7 +1272,7 @@ export default function ReservarPage() {
 
                 {/* Classes deduction info */}
                 {(() => {
-                  const classesToDeduct = 1 // Always 1 — guest is free companion
+                  const classesToDeduct = (bringGuest && guestAllowed) ? 2 : 1
                   const remaining = selectedPurchase
                     ? selectedPurchase.classesRemaining
                     : (activePurchase?.classesRemaining || 0)
@@ -1302,9 +1319,9 @@ export default function ReservarPage() {
                 <Button
                   onClick={handleConfirmBooking}
                   isLoading={isBooking}
-                  disabled={bookablePurchases.length === 0 || (bringGuest && !guestEmail.trim())}
+                  disabled={bookablePurchases.length === 0 || (bringGuest && guestAllowed && !guestEmail.trim())}
                 >
-                  {bringGuest ? 'Reservar con Invitado' : 'Confirmar Reserva'}
+                  {bringGuest && guestAllowed ? 'Reservar con Invitado' : 'Confirmar Reserva'}
                 </Button>
               </ModalFooter>
             </>

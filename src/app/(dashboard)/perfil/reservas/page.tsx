@@ -148,6 +148,16 @@ export default function ReservasPage() {
     }, 150)
   }
 
+  const guestByClassId = React.useMemo(
+    () =>
+      new Map(
+        reservations
+          .filter((r) => r.isGuestReservation)
+          .map((r) => [r.class.id, r] as const)
+      ),
+    [reservations]
+  )
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -210,6 +220,7 @@ export default function ReservasPage() {
           {reservations
             .filter((r) => !r.isGuestReservation) // Only show buyer's own reservations
             .map((reservation) => {
+            const guestSibling = guestByClassId.get(reservation.class.id)
             const classDate = new Date(reservation.class.dateTime)
             const canCancelReservation = canCancel(reservation)
 
@@ -252,22 +263,22 @@ export default function ReservasPage() {
                         </div>
 
                         {/* Guest info */}
-                        {reservation.guestEmail && (
+                        {guestSibling && (
                           <div className="flex items-center gap-2 text-sm text-[#2D5A4A] bg-[#2D5A4A]/5 rounded-lg px-3 py-2">
                             <UserPlus className="h-4 w-4" />
                             <span>
-                              Con invitado: {reservation.guestName || reservation.guestEmail}
-                              {reservation.guestName && (
-                                <span className="text-gray-500 ml-1">({reservation.guestEmail})</span>
+                              Con invitado: {guestSibling.guestName || guestSibling.guestEmail}
+                              {guestSibling.guestName && guestSibling.guestEmail && (
+                                <span className="text-gray-500 ml-1">({guestSibling.guestEmail})</span>
                               )}
-                              {reservation.guestStatus && (
+                              {guestSibling.guestStatus && (
                                 <span className={`ml-2 text-xs font-medium ${
-                                  reservation.guestStatus === 'ACCEPTED' ? 'text-green-600' :
-                                  reservation.guestStatus === 'DECLINED' ? 'text-red-500' :
+                                  guestSibling.guestStatus === 'ACCEPTED' ? 'text-green-600' :
+                                  guestSibling.guestStatus === 'DECLINED' ? 'text-red-500' :
                                   'text-yellow-600'
                                 }`}>
-                                  {reservation.guestStatus === 'ACCEPTED' ? '• Aceptada' :
-                                   reservation.guestStatus === 'DECLINED' ? '• Declinada' :
+                                  {guestSibling.guestStatus === 'ACCEPTED' ? '• Aceptada' :
+                                   guestSibling.guestStatus === 'DECLINED' ? '• Declinada' :
                                    '• Pendiente'}
                                 </span>
                               )}

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
-import { sendEmail, buildGuestInvitationEmail, buildReservationConfirmationEmail } from '@/lib/emailService'
+import { sendEmail, buildReservationConfirmationEmail } from '@/lib/emailService'
 import { formatDate, formatDateTimeFull } from '@/lib/utils'
 import { checkPackageClassCompatibility } from '@/lib/booking/packageCompatibility'
 import { TRIAL_PACKAGE_ID, isTrialBlockedForClass } from '@/lib/booking/trialCutoff'
+import { checkGuestBookingAllowed, GUEST_TOTAL_COST } from '@/lib/booking/guestBooking'
 
 // Force dynamic - this route uses headers/session
 export const dynamic = 'force-dynamic'
@@ -751,8 +751,9 @@ export async function POST(request: Request) {
     }
 
     // === GUEST RESERVATION HANDLING ===
-    // New model: 1 single reservation with guestEmail, decrement 1 class only.
-    // Guest goes as companion — no separate reservation or class deduction for them.
+    // Guest model: two reservations (host + guest), deduct 2 classes, guest auto-accepted.
+    // The guest reservation (isGuestReservation=true) occupies a 2nd seat automatically
+    // because capacity is counted from non-cancelled reservations.
     if (guestData?.email) {
       // Validate the package supports sharing
       if (!purchase.package.isShareable || purchase.package.maxShares < 1) {
@@ -763,87 +764,71 @@ export async function POST(request: Request) {
         }, { status: 400 })
       }
 
-      // Need at least 1 class for the buyer
-      if (purchase.classesRemaining < 1) {
-        console.log('[RESERVATIONS API] ERROR: Not enough classes')
+      const spotsAvailable = classData.maxCapacity - classData._count.reservations
+      const guestCheck = checkGuestBookingAllowed(purchase.classesRemaining, spotsAvailable)
+      if (guestCheck === 'INSUFFICIENT_CREDITS') {
+        console.log('[RESERVATIONS API] ERROR: Not enough classes for guest')
         return NextResponse.json({
-          error: 'No tienes clases disponibles.',
+          error: 'Necesitas al menos 2 clases en tu paquete para llevar un invitado.',
           code: ERROR_CODES.NO_PACKAGE
         }, { status: 400 })
       }
+      if (guestCheck === 'INSUFFICIENT_CAPACITY') {
+        console.log('[RESERVATIONS API] ERROR: Not enough seats for guest')
+        return NextResponse.json({
+          error: 'No hay 2 cupos disponibles para ti y tu invitado en esta clase.',
+          code: ERROR_CODES.CLASS_FULL
+        }, { status: 400 })
+      }
 
-      // Generate a unique token for guest acceptance
-      const guestToken = crypto.randomBytes(32).toString('hex')
-
-      console.log('[RESERVATIONS API] Creating reservation with guest (1 class)...')
+      console.log('[RESERVATIONS API] Creating host + guest reservations (2 classes)...')
       const { reservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
-        // Atomic decrement — guard against race conditions
+        // Atomic decrement of 2 — guard against race conditions
         const updPurchase = await tx.purchase.update({
           where: { id: purchase.id },
-          data: { classesRemaining: { decrement: 1 } },
+          data: { classesRemaining: { decrement: GUEST_TOTAL_COST } },
         })
         if (updPurchase.classesRemaining < 0) {
           throw new Error('INSUFFICIENT_CREDITS')
         }
 
-        const res = await tx.reservation.create({
+        // Host reservation
+        const hostRes = await tx.reservation.create({
           data: {
             userId,
             classId,
             purchaseId: purchase.id,
             status: 'CONFIRMED',
-            guestEmail: guestData!.email!.trim(),
-            guestName: guestData!.name?.trim() || null,
-            guestStatus: 'PENDING',
-            guestToken,
+            isGuestReservation: false,
           },
           include: {
-            class: {
-              include: { discipline: true, instructor: true },
-            },
-            purchase: {
-              include: { package: true },
-            },
+            class: { include: { discipline: true, instructor: true } },
+            purchase: { include: { package: true } },
           },
         })
 
-        return { reservation: res, updatedPurchase: updPurchase }
+        // Guest reservation — auto-accepted, occupies a 2nd seat
+        await tx.reservation.create({
+          data: {
+            userId,
+            classId,
+            purchaseId: purchase.id,
+            status: 'CONFIRMED',
+            isGuestReservation: true,
+            guestEmail: guestData!.email!.trim(),
+            guestName: guestData!.name?.trim() || null,
+            guestStatus: 'ACCEPTED',
+          },
+        })
+
+        return { reservation: hostRes, updatedPurchase: updPurchase }
       })
 
-      console.log('[RESERVATIONS API] Reservation with guest created:', {
+      console.log('[RESERVATIONS API] Host + guest reservations created:', {
         reservationId: reservation.id,
         guestEmail: guestData.email,
-        guestToken,
         previousRemaining: purchase.classesRemaining,
         newRemaining: updatedPurchase.classesRemaining,
-      })
-
-      // Fire-and-forget: send guest invitation email with acceptance link
-      const formattedDateTime = formatDateTimeFull(reservation.class.dateTime)
-      const hostName = session.user.name || session.user.email || 'Un usuario'
-      const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
-      const acceptUrl = `${baseUrl}/invitacion/${guestToken}`
-
-      sendEmail({
-        to: guestData.email.trim(),
-        subject: `${hostName} te invitó a una clase en Wellnest`,
-        html: buildGuestInvitationEmail({
-          guestName: guestData.name?.trim() || null,
-          hostName,
-          disciplineName: reservation.class.discipline.name,
-          instructorName: reservation.class.instructor.name,
-          dateTime: formattedDateTime,
-          duration: reservation.class.duration,
-          acceptUrl,
-        }),
-      }).then(result => {
-        if (result.success) {
-          console.log('[RESERVATIONS API] Guest invitation email sent:', result.messageId)
-        } else {
-          console.error('[RESERVATIONS API] Guest invitation email failed:', result.error)
-        }
-      }).catch(err => {
-        console.error('[RESERVATIONS API] Guest invitation email error:', err)
       })
 
       let finalPurchaseStatus = updatedPurchase.status
