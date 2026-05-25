@@ -285,6 +285,9 @@ export default function ReservarPage() {
   const [activePurchase, setActivePurchase] = React.useState<ActivePurchase | null>(null)
   const [selectedPurchase, setSelectedPurchase] = React.useState<SelectedPurchase | null>(null)
   const [bookablePurchases, setBookablePurchases] = React.useState<BookablePurchase[]>([])
+  // Distinguishes "still resolving" / "server error" / "resolved" so the modal can
+  // tell a transient API failure apart from a genuine "no compatible package".
+  const [bookableStatus, setBookableStatus] = React.useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const [isLoading, setIsLoading] = React.useState(true)
   const [reservedClassIds, setReservedClassIds] = React.useState<Set<string>>(new Set())
   const [waitlistEntries, setWaitlistEntries] = React.useState<
@@ -573,17 +576,54 @@ export default function ReservarPage() {
     maxShares: b.maxShares,
   })
 
-  const fetchBookablePurchases = async (classId: string): Promise<BookablePurchase[]> => {
+  // Returns ok:false on ANY failure (network, 5xx, 401) so the caller never confuses
+  // a server error with a legitimately empty list of compatible packages.
+  const fetchBookablePurchases = async (
+    classId: string,
+  ): Promise<{ ok: true; purchases: BookablePurchase[] } | { ok: false }> => {
     try {
       const response = await fetch(`/api/user/bookable-purchases?classId=${classId}`)
       if (response.ok) {
         const data = await response.json()
-        return (data.bookablePurchases ?? []) as BookablePurchase[]
+        return { ok: true, purchases: (data.bookablePurchases ?? []) as BookablePurchase[] }
       }
     } catch (error) {
       console.error('Error fetching bookable purchases:', error)
     }
-    return []
+    return { ok: false }
+  }
+
+  // Resolves which packages can book a class and settles modal selection state.
+  // Shared by the initial class selection and the "intentar de nuevo" retry button.
+  const resolveBookablePurchases = async (classId: string) => {
+    setBookableStatus('loading')
+    const result = await fetchBookablePurchases(classId)
+
+    if (!result.ok) {
+      setBookablePurchases([])
+      setSelectedPurchase(null)
+      setBringGuest(false)
+      setGuestEmail('')
+      setGuestName('')
+      setBookableStatus('error')
+      return
+    }
+
+    const bookable = result.purchases
+    setBookablePurchases(bookable)
+
+    const keepCurrent = bookable.find((b) => b.purchaseId === selectedPurchase?.id)
+    const chosen = keepCurrent ?? bookable[0] ?? null
+    setSelectedPurchase(chosen ? toSelectedPurchase(chosen) : null)
+
+    // A non-shareable (or no) package can't carry a guest — reset guest state.
+    if (!chosen?.isShareable) {
+      setBringGuest(false)
+      setGuestEmail('')
+      setGuestName('')
+    }
+
+    setBookableStatus('loaded')
   }
 
   const handleSelectClass = async (cls: ClassData) => {
@@ -601,21 +641,8 @@ export default function ReservarPage() {
       setModalState('waitlist-confirm')
     } else {
       // Resolve which packages can book THIS class, then settle the selection.
-      const bookable = await fetchBookablePurchases(cls.id)
-      setBookablePurchases(bookable)
-
-      const keepCurrent = bookable.find((b) => b.purchaseId === selectedPurchase?.id)
-      const chosen = keepCurrent ?? bookable[0] ?? null
-      setSelectedPurchase(chosen ? toSelectedPurchase(chosen) : null)
-
-      // A non-shareable (or no) package can't carry a guest — reset guest state.
-      if (!chosen?.isShareable) {
-        setBringGuest(false)
-        setGuestEmail('')
-        setGuestName('')
-      }
-
       setModalState('confirm')
+      await resolveBookablePurchases(cls.id)
     }
   }
 
@@ -780,6 +807,7 @@ export default function ReservarPage() {
       setGuestEmail('')
       setGuestName('')
       setBookablePurchases([])
+      setBookableStatus('idle')
       setWaitlistMessage(null)
       setIsWaitlistSubmitting(false)
     }, 150)
@@ -1204,8 +1232,29 @@ export default function ReservarPage() {
                   </fieldset>
                 )}
 
-                {/* No compatible package for this class */}
-                {bookablePurchases.length === 0 && (
+                {/* Resolving which packages can book this class */}
+                {bookableStatus === 'loading' && (
+                  <div className="p-3 bg-beige/40 border border-beige rounded-lg text-sm text-gray-600">
+                    Verificando tus paquetes…
+                  </div>
+                )}
+
+                {/* Server/network error — NOT the user's fault, offer a retry */}
+                {bookableStatus === 'error' && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 space-y-2">
+                    <p>No pudimos verificar tus paquetes en este momento. Esto suele ser un problema temporal.</p>
+                    <button
+                      type="button"
+                      onClick={() => selectedClass && resolveBookablePurchases(selectedClass.id)}
+                      className="font-medium underline underline-offset-2 hover:text-amber-900"
+                    >
+                      Intentar de nuevo
+                    </button>
+                  </div>
+                )}
+
+                {/* Genuinely no compatible package — only after a successful check */}
+                {bookableStatus === 'loaded' && bookablePurchases.length === 0 && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                     No tienes un paquete válido para esta clase. Revisa tus paquetes o adquiere uno nuevo.
                   </div>
@@ -1319,7 +1368,7 @@ export default function ReservarPage() {
                 <Button
                   onClick={handleConfirmBooking}
                   isLoading={isBooking}
-                  disabled={bookablePurchases.length === 0 || (bringGuest && guestAllowed && !guestEmail.trim())}
+                  disabled={bookableStatus !== 'loaded' || bookablePurchases.length === 0 || (bringGuest && guestAllowed && !guestEmail.trim())}
                 >
                   {bringGuest && guestAllowed ? 'Reservar con Invitado' : 'Confirmar Reserva'}
                 </Button>
