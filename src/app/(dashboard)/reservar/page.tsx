@@ -1152,8 +1152,55 @@ export default function ReservarPage() {
                   </div>
                 </div>
 
+                {/* Package selector — only when more than one package can book this class */}
+                {bookablePurchases.length > 1 && (
+                  <div className="border border-beige rounded-lg p-4 space-y-2">
+                    <p className="text-sm font-medium text-foreground">
+                      ¿Con cuál paquete quieres reservar?
+                    </p>
+                    <div className="space-y-2">
+                      {bookablePurchases.map((b) => (
+                        <label
+                          key={b.purchaseId}
+                          className="flex items-center gap-3 cursor-pointer text-sm"
+                        >
+                          <input
+                            type="radio"
+                            name="bookable-package"
+                            checked={selectedPurchase?.id === b.purchaseId}
+                            onChange={() => {
+                              setSelectedPurchase(toSelectedPurchase(b))
+                              if (!b.isShareable) {
+                                setBringGuest(false)
+                                setGuestEmail('')
+                                setGuestName('')
+                              }
+                            }}
+                            className="text-primary focus:ring-primary h-4 w-4"
+                          />
+                          <span className="flex-1">
+                            <span className="font-medium text-foreground">{b.packageName}</span>
+                            <span className="block text-xs text-gray-500">
+                              {b.classesRemaining} clases restantes · vence{' '}
+                              {format(new Date(b.expiresAt), 'd MMM yyyy', { locale: es })}
+                              {b.isShareable && ' · permite invitado'}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* No compatible package for this class */}
+                {bookablePurchases.length === 0 && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    No tienes un paquete válido para esta clase. Revisa tus paquetes o adquiere uno nuevo.
+                  </div>
+                )}
+
                 {/* Guest invitation toggle — only for shareable packages */}
-                {activePurchase?.package?.isShareable && (
+                {selectedPurchase?.isShareable && (
                   <div className="border border-beige rounded-lg p-4 space-y-3">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
@@ -1254,7 +1301,7 @@ export default function ReservarPage() {
                 <Button
                   onClick={handleConfirmBooking}
                   isLoading={isBooking}
-                  disabled={bringGuest && !guestEmail.trim()}
+                  disabled={bookablePurchases.length === 0 || (bringGuest && !guestEmail.trim())}
                 >
                   {bringGuest ? 'Reservar con Invitado' : 'Confirmar Reserva'}
                 </Button>
