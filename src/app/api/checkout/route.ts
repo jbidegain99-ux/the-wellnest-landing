@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
+import { normalizeDiscountCode } from '@/lib/discounts'
 import { addDays } from 'date-fns'
 
 // Check if we're in test checkout mode
@@ -125,7 +126,7 @@ async function handleSuccessfulPayment({
 async function validateDiscountCode(code: string, packageIds: string[], userId: string) {
   const discount = await prisma.discountCode.findFirst({
     where: {
-      code: code.toUpperCase(),
+      code: normalizeDiscountCode(code),
       isActive: true,
       validFrom: { lte: new Date() },
       validUntil: { gte: new Date() },

@@ -117,7 +117,7 @@ export default function CarritoPage() {
       const response = await fetch('/api/discount/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: discountCode, packageIds }),
+        body: JSON.stringify({ code: discountCode.trim(), packageIds }),
       })
 
       const data = await response.json()

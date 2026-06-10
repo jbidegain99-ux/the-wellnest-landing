@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { normalizeDiscountCode } from '@/lib/discounts'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
 
     const discount = await prisma.discountCode.findFirst({
       where: {
-        code: code.toUpperCase(),
+        code: normalizeDiscountCode(code),
         isActive: true,
         validFrom: { lte: new Date() },
         validUntil: { gte: new Date() },
