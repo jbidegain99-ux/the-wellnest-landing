@@ -20,7 +20,9 @@ function orderIdFromProviderId(providerId: string | null): string | undefined {
 }
 
 /**
- * GET /api/cron/retry-invoices — corre cada hora (vercel.json).
+ * GET /api/cron/retry-invoices — corre 1 vez al día, 7:23am SV (vercel.json).
+ * El plan Hobby de Vercel no permite crons con frecuencia mayor a diaria; si
+ * se sube a Pro, conviene volverlo horario (23 * * * *).
  *
  * La emisión de DTE es una obligación fiscal con plazos: un fallo transitorio
  * del facturador no puede dejar la compra sin factura para siempre.

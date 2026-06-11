@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/retry-invoices",
-      "schedule": "23 * * * *"
+      "schedule": "23 13 * * *"
     }
   ]
 }
