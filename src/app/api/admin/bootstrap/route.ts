@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 
 // This endpoint creates the initial admin user ONLY if no users exist
 // After the first admin is created, this endpoint will always return 403
@@ -16,9 +17,11 @@ export async function POST() {
       )
     }
 
-    // Create admin user
-    const hashedPassword = await bcrypt.hash('admin123', 12)
-    const adminUser = await prisma.user.create({
+    // Create admin user with a random one-time password (a fixed bootstrap
+    // credential in the repo is a known-password backdoor)
+    const oneTimePassword = randomBytes(16).toString('base64url')
+    const hashedPassword = await bcrypt.hash(oneTimePassword, 12)
+    await prisma.user.create({
       data: {
         email: 'admin@thewellnest.sv',
         name: 'Admin Wellnest',
@@ -32,8 +35,8 @@ export async function POST() {
       message: 'Admin user created successfully',
       credentials: {
         email: 'admin@thewellnest.sv',
-        password: 'admin123',
-        note: 'Please change this password immediately after logging in!',
+        password: oneTimePassword,
+        note: 'Esta contraseña solo se muestra una vez. Cámbiala inmediatamente después de iniciar sesión.',
       },
     })
   } catch (error) {

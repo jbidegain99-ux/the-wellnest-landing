@@ -86,7 +86,9 @@ export async function POST(request: Request) {
         originalPrice: 0,
         finalPrice: 0,
         status: 'ACTIVE',
-        paymentProviderId: `trial_${Date.now()}`,
+        // Deterministic per user+package: with @unique on paymentProviderId
+        // the DB itself blocks claiming the same trial twice.
+        paymentProviderId: `trial_${userId}_${packageId}`,
       },
       include: {
         package: true,
@@ -128,6 +130,21 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
+    // Unique violation on paymentProviderId = this user already claimed this trial
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error as { code?: string }).code === 'P2002'
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Ya adquiriste este paquete. Solo se puede obtener una vez.',
+          code: 'SINGLE_PURCHASE_LIMIT',
+        },
+        { status: 400 }
+      )
+    }
+
     console.error('[CLAIM-TRIAL] Error:', error)
     return NextResponse.json(
       { error: 'Error al procesar la solicitud' },

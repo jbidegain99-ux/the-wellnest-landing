@@ -169,42 +169,67 @@ export async function POST(request: Request) {
 
     // Note: We don't update class.currentCount because we use _count.reservations instead
     // The actual reservation count is calculated from confirmed reservations
-    const { updatedReservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
-      // 1. Mark host reservation as cancelled
-      const updatedReservation = await tx.reservation.update({
-        where: { id: reservationId },
-        data: {
-          status: 'CANCELLED',
-          cancelledAt: new Date(),
-        },
-        include: {
-          class: {
-            include: {
-              discipline: true,
-              instructor: true,
-            },
+    const ALREADY_CANCELLED = 'RESERVATION_ALREADY_CANCELLED'
+    const cancelledAt = new Date()
+    let txResult: { updatedPurchase: { id: string; classesRemaining: number; status: string }; actualRefunded: number }
+    try {
+      txResult = await prisma.$transaction(async (tx) => {
+        // 1. Atomic claim on the host reservation: only ONE concurrent request
+        // can flip it to CANCELLED, so the refund below runs exactly once.
+        // (The early status check above is just a fast path.)
+        const hostClaim = await tx.reservation.updateMany({
+          where: { id: reservationId, status: { not: 'CANCELLED' } },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt,
           },
-        },
-      })
-
-      // 2. Return classes to the SPECIFIC package that was used
-      const updatedPurchase = await tx.purchase.update({
-        where: { id: reservation.purchaseId },
-        data: {
-          classesRemaining: { increment: classesRefunded },
-        },
-      })
-
-      // 3. If there was a guest reservation, cancel it too
-      if (guestReservation) {
-        await tx.reservation.update({
-          where: { id: guestReservation.id },
-          data: { status: 'CANCELLED', cancelledAt: new Date() },
         })
-      }
 
-      return { updatedReservation, updatedPurchase }
-    })
+        if (hostClaim.count === 0) {
+          throw new Error(ALREADY_CANCELLED)
+        }
+
+        // 2. If there was a guest reservation, cancel it too (conditionally,
+        // so a concurrent cancellation can't double-count the guest refund)
+        let guestCancelled = 0
+        if (guestReservation) {
+          const guestClaim = await tx.reservation.updateMany({
+            where: { id: guestReservation.id, status: { not: 'CANCELLED' } },
+            data: { status: 'CANCELLED', cancelledAt },
+          })
+          guestCancelled = guestClaim.count
+        }
+
+        // 3. Return exactly the classes actually cancelled in THIS transaction
+        // to the SPECIFIC package that was used
+        const actualRefunded = 1 + guestCancelled
+        const updatedPurchase = await tx.purchase.update({
+          where: { id: reservation.purchaseId },
+          data: {
+            classesRemaining: { increment: actualRefunded },
+            ...(reservation.purchase.status === 'DEPLETED' ? { status: 'ACTIVE' as const } : {}),
+          },
+        })
+
+        return { updatedPurchase, actualRefunded }
+      })
+    } catch (txError) {
+      if (txError instanceof Error && txError.message === ALREADY_CANCELLED) {
+        console.log('[CANCEL API] Lost cancellation race, reservation already cancelled:', reservationId)
+        return NextResponse.json(
+          { error: 'Esta reserva ya fue cancelada' },
+          { status: 400 }
+        )
+      }
+      throw txError
+    }
+    const { updatedPurchase, actualRefunded } = txResult
+    const updatedReservation = {
+      id: reservation.id,
+      status: 'CANCELLED' as const,
+      cancelledAt,
+      class: reservation.class,
+    }
 
     console.log('[CANCEL API] Cancellation transaction completed:', {
       reservationId: updatedReservation.id,
@@ -217,21 +242,8 @@ export async function POST(request: Request) {
       newPurchaseStatus: updatedPurchase.status,
     })
 
-    // If purchase was DEPLETED, set it back to ACTIVE since we now have classes
-    let finalPurchaseStatus = updatedPurchase.status
-    if (reservation.purchase.status === 'DEPLETED' && updatedPurchase.classesRemaining > 0) {
-      console.log('[CANCEL API] Reactivating depleted purchase:', {
-        purchaseId: reservation.purchaseId,
-        packageName: reservation.purchase.package.name,
-        classesNow: updatedPurchase.classesRemaining,
-      })
-      const reactivatedPurchase = await prisma.purchase.update({
-        where: { id: reservation.purchaseId },
-        data: { status: 'ACTIVE' },
-      })
-      finalPurchaseStatus = reactivatedPurchase.status
-      console.log('[CANCEL API] Purchase reactivated from DEPLETED to ACTIVE')
-    }
+    // DEPLETED -> ACTIVE reactivation now happens inside the transaction above
+    const finalPurchaseStatus = updatedPurchase.status
 
     // D) AUTO-ASSIGN WAITLIST: Check if someone is on the waitlist for this class
     const firstInWaitlist = await prisma.waitlist.findFirst({
@@ -336,7 +348,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Reserva cancelada correctamente. Se ${classesRefunded === 1 ? 'ha devuelto 1 clase' : 'han devuelto 2 clases'} a tu paquete "${reservation.purchase.package.name}".`,
+      message: `Reserva cancelada correctamente. Se ${actualRefunded === 1 ? 'ha devuelto 1 clase' : 'han devuelto 2 clases'} a tu paquete "${reservation.purchase.package.name}".`,
       updatedReservation: {
         id: updatedReservation.id,
         status: updatedReservation.status,

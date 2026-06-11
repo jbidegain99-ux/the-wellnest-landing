@@ -10,6 +10,15 @@ import { prisma } from '@/lib/prisma'
  */
 export async function DELETE() {
   try {
+    // Borra TODO el historial de reservas y waitlist además de las clases.
+    // Nunca debe estar disponible en producción.
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'Esta operación está deshabilitada en producción' },
+        { status: 403 }
+      )
+    }
+
     const session = await getServerSession(authOptions)
 
     if (!session || session.user?.role !== 'ADMIN') {

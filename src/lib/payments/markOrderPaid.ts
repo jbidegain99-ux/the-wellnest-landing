@@ -43,6 +43,8 @@ export interface MarkOrderPaidResult {
   error?: string
 }
 
+const ALREADY_CLAIMED = 'PAYMENT_ALREADY_CLAIMED'
+
 export async function markOrderPaidAndCreatePurchase({
   orderId,
   provider,
@@ -109,6 +111,19 @@ export async function markOrderPaidAndCreatePurchase({
 
     // 4. Create all records in a transaction
     const result = await prisma.$transaction(async (tx) => {
+      // Atomic claim: flips PENDING -> PAID as the first statement of the
+      // transaction, so concurrent callbacks (PayWay POST + browser GET,
+      // retries) can never both create the Purchase set. The status checks
+      // above are only a fast path — this is the authoritative gate.
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, status: 'PENDING' },
+        data: { status: 'PAID', paidAt: new Date() },
+      })
+
+      if (claimed.count === 0) {
+        throw new Error(ALREADY_CLAIMED)
+      }
+
       // 4a. Create Payment Transaction record
       await tx.paymentTransaction.create({
         data: {
@@ -234,15 +249,7 @@ export async function markOrderPaidAndCreatePurchase({
         }
       }
 
-      // 4d. Mark order as PAID
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
-          status: 'PAID',
-          paidAt: new Date(),
-        },
-      })
-
+      // (The order was already marked PAID by the atomic claim above.)
       return purchases
     })
 
@@ -266,6 +273,13 @@ export async function markOrderPaidAndCreatePurchase({
       purchases: result,
     }
   } catch (error) {
+    // Lost the atomic claim race: another invocation already processed this
+    // order. Idempotent success, same as the early PAID check.
+    if (error instanceof Error && error.message === ALREADY_CLAIMED) {
+      console.log('[PAYMENT] Order claimed by a concurrent invocation, returning alreadyPaid:', orderId)
+      return { success: true, alreadyPaid: true }
+    }
+
     console.error('[PAYMENT] Error in markOrderPaidAndCreatePurchase:', error)
     return {
       success: false,

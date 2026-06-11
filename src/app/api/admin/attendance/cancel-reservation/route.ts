@@ -53,29 +53,44 @@ export async function POST(request: Request) {
     }
 
     // Execute cancellation + refund in a transaction
-    const [updatedReservation, updatedPurchase] = await prisma.$transaction([
-      // 1. Cancel the reservation
-      prisma.reservation.update({
-        where: { id: reservationId },
-        data: {
-          status: 'CANCELLED',
-          cancelledAt: new Date(),
-          checkedIn: false,
-          checkedInAt: null,
-          checkedInBy: null,
-        },
-      }),
+    const ALREADY_CANCELLED = 'RESERVATION_ALREADY_CANCELLED'
+    let updatedPurchase: { id: string; classesRemaining: number; status: string }
+    try {
+      updatedPurchase = await prisma.$transaction(async (tx) => {
+        // 1. Atomic claim: only one concurrent cancellation (admin or user)
+        // can flip the reservation, so the refund runs exactly once.
+        const claim = await tx.reservation.updateMany({
+          where: { id: reservationId, status: { not: 'CANCELLED' } },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: new Date(),
+            checkedIn: false,
+            checkedInAt: null,
+            checkedInBy: null,
+          },
+        })
 
-      // 2. Refund 1 class to the purchase
-      prisma.purchase.update({
-        where: { id: reservation.purchaseId },
-        data: {
-          classesRemaining: { increment: 1 },
-          // Reactivate if it was depleted
-          ...(reservation.purchase.status === 'DEPLETED' ? { status: 'ACTIVE' } : {}),
-        },
-      }),
-    ])
+        if (claim.count === 0) {
+          throw new Error(ALREADY_CANCELLED)
+        }
+
+        // 2. Refund 1 class to the purchase
+        return tx.purchase.update({
+          where: { id: reservation.purchaseId },
+          data: {
+            classesRemaining: { increment: 1 },
+            // Reactivate if it was depleted
+            ...(reservation.purchase.status === 'DEPLETED' ? { status: 'ACTIVE' as const } : {}),
+          },
+        })
+      })
+    } catch (txError) {
+      if (txError instanceof Error && txError.message === ALREADY_CANCELLED) {
+        return NextResponse.json({ error: 'La reserva ya fue cancelada' }, { status: 400 })
+      }
+      throw txError
+    }
+    const updatedReservation = { id: reservationId, status: 'CANCELLED' as const }
 
     // Decrement class currentCount if tracked
     await prisma.class.update({

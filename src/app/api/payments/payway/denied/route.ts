@@ -8,7 +8,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { recordDeniedTransaction } from '@/lib/payments/markOrderPaid'
-import { parsePaywayCallback, sanitizePaywayPayload } from '@/lib/payments/payway'
+import { parsePaywayCallback, sanitizePaywayPayload, verifyCallbackSignature } from '@/lib/payments/payway'
 
 export async function POST(request: Request) {
   console.log('[PAYWAY DENIED] Received denied callback')
@@ -92,8 +92,10 @@ export async function POST(request: Request) {
       return NextResponse.redirect(new URL(`/checkout/success/${orderId}`, request.url))
     }
 
-    // 5. Record denied transaction if we have data
-    if (callbackData) {
+    // 5. Record denied transaction if we have data and the request is authentic
+    // (without a valid signature this could be anyone writing DENIED rows)
+    const sig = url.searchParams.get('sig') || formData.sig
+    if (callbackData && verifyCallbackSignature(orderId, sig)) {
       await recordDeniedTransaction({
         orderId,
         provider: 'PAYWAY',

@@ -63,12 +63,38 @@ export function formatPaywayAmount(amount: number): string {
 }
 
 /**
- * Generate the PayWay callback URL with orderId as query parameter.
+ * HMAC signature for callback URLs. The full callback URL (including this
+ * signature) travels to PayWay encrypted with PAYWAY_TOKEN_ENCRYPT, so a user
+ * never sees a valid signature for an order they haven't paid. Without it,
+ * anyone who knows their orderId could invoke the callback and mark the order
+ * as PAID without paying.
+ */
+function getCallbackSecret(): string {
+  const secret = process.env.PAYWAY_CALLBACK_SECRET || process.env.PAYWAY_TOKEN_ENCRYPT || ''
+  if (!secret) {
+    throw new Error('PAYWAY_CALLBACK_SECRET / PAYWAY_TOKEN_ENCRYPT is not configured')
+  }
+  return secret
+}
+
+export function signCallbackOrderId(orderId: string): string {
+  return crypto.createHmac('sha256', getCallbackSecret()).update(orderId).digest('hex')
+}
+
+export function verifyCallbackSignature(orderId: string, sig: string | null | undefined): boolean {
+  if (!sig) return false
+  const expected = Buffer.from(signCallbackOrderId(orderId), 'utf8')
+  const received = Buffer.from(sig, 'utf8')
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received)
+}
+
+/**
+ * Generate the PayWay callback URL with orderId and HMAC signature as query parameters.
  */
 export function generateCallbackUrl(orderId: string, denied: boolean = false): string {
   const config = getPaywayConfig()
   const endpoint = denied ? 'denied' : 'callback'
-  return `${config.callbackBaseUrl}/api/payments/payway/${endpoint}?oid=${orderId}`
+  return `${config.callbackBaseUrl}/api/payments/payway/${endpoint}?oid=${orderId}&sig=${signCallbackOrderId(orderId)}`
 }
 
 /**

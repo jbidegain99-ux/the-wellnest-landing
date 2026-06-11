@@ -12,8 +12,35 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { markOrderPaidAndCreatePurchase } from '@/lib/payments/markOrderPaid'
-import { parsePaywayCallback, sanitizePaywayPayload } from '@/lib/payments/payway'
+import { parsePaywayCallback, sanitizePaywayPayload, verifyCallbackSignature } from '@/lib/payments/payway'
+
+/**
+ * Best-effort forensic record for callbacks we reject or fail to process.
+ * Never throws: the order may not exist (FK) and that must not mask the rejection.
+ */
+async function recordCallbackError(
+  orderId: string,
+  reason: string,
+  formData: Record<string, string>
+): Promise<void> {
+  try {
+    await prisma.paymentTransaction.create({
+      data: {
+        orderId,
+        provider: 'PAYWAY',
+        status: 'ERROR',
+        rawPayload: {
+          reason,
+          ...sanitizePaywayPayload(formData),
+        } as Prisma.InputJsonValue,
+      },
+    })
+  } catch (err) {
+    console.error('[PAYWAY CALLBACK] Could not persist callback error record:', err)
+  }
+}
 
 export async function POST(request: Request) {
   console.log('[PAYWAY CALLBACK] Received callback')
@@ -85,13 +112,46 @@ export async function POST(request: Request) {
 
     console.log('[PAYWAY CALLBACK] Processing for order:', orderId)
 
+    // 2b. Verify HMAC signature. The signed callback URL only reaches PayWay
+    // encrypted, so a request without a valid signature did not originate from
+    // the URL we registered for this order.
+    const sig = url.searchParams.get('sig') || formData.sig
+    if (!verifyCallbackSignature(orderId, sig)) {
+      console.error('[PAYWAY CALLBACK] Invalid or missing callback signature for order:', orderId)
+      await recordCallbackError(orderId, 'invalid_signature', formData)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+
     // 3. Parse callback data
     const callbackData = parsePaywayCallback(url.searchParams, formData)
 
-    // We already have orderId, so update callbackData
-    if (callbackData) {
-      callbackData.orderId = orderId
+    // 3b. An approved PayWay payment always carries an authorization number.
+    // Without it there is no evidence a charge happened — do not credit.
+    // (callbackData is null when oid came from the body, so check formData too.)
+    if (!callbackData?.authorizationNumber && !formData.pwoAuthorizationNumber) {
+      console.error('[PAYWAY CALLBACK] Missing pwoAuthorizationNumber, refusing to mark as paid:', orderId)
+      await recordCallbackError(orderId, 'missing_authorization_number', formData)
+      return NextResponse.redirect(
+        new URL(`/checkout/payway/${orderId}?status=error&reason=processing_failed`, request.url),
+        303
+      )
     }
+
+    // We already have orderId, so update callbackData.
+    // parsePaywayCallback returns null when oid wasn't in the query string —
+    // rebuild from the form body so transaction data isn't lost.
+    const transactionFields = callbackData ?? {
+      orderId,
+      authorizationNumber: formData.pwoAuthorizationNumber,
+      referenceNumber: formData.pwoReferenceNumber,
+      paywayNumber: formData.pwoPayWayNumber,
+      transactionDate: formData.pwoTransactionDate,
+      paymentNumber: formData.pwoPaymentNumber,
+      cardBrand: formData.pwoCustomerCCBrand,
+      cardLastDigits: formData.pwoCustomerCCLastD,
+      cardHolder: formData.pwoCustomerName,
+    }
+    transactionFields.orderId = orderId
 
     // 4. Verify order exists
     const order = await prisma.order.findUnique({
@@ -127,20 +187,23 @@ export async function POST(request: Request) {
       orderId,
       provider: 'PAYWAY',
       transactionData: {
-        authorizationNumber: callbackData?.authorizationNumber,
-        referenceNumber: callbackData?.referenceNumber,
-        paywayNumber: callbackData?.paywayNumber,
-        transactionDate: callbackData?.transactionDate,
-        paymentNumber: callbackData?.paymentNumber,
-        cardBrand: callbackData?.cardBrand,
-        cardLastDigits: callbackData?.cardLastDigits,
-        cardHolder: callbackData?.cardHolder,
+        authorizationNumber: transactionFields.authorizationNumber,
+        referenceNumber: transactionFields.referenceNumber,
+        paywayNumber: transactionFields.paywayNumber,
+        transactionDate: transactionFields.transactionDate,
+        paymentNumber: transactionFields.paymentNumber,
+        cardBrand: transactionFields.cardBrand,
+        cardLastDigits: transactionFields.cardLastDigits,
+        cardHolder: transactionFields.cardHolder,
         rawPayload: sanitizePaywayPayload(formData),
       },
     })
 
     if (!result.success) {
       console.error('[PAYWAY CALLBACK] Failed to process payment:', result.error)
+      // The customer's card may already be charged at this point — leave a
+      // persistent trace so the failure can be reconciled, not just a log line.
+      await recordCallbackError(orderId, `processing_failed: ${result.error}`, formData)
       return NextResponse.redirect(
         new URL(`/checkout/payway/${orderId}?status=error&reason=processing_failed`, request.url),
         303
@@ -200,6 +263,14 @@ export async function GET(request: Request) {
         formData[key] = value
       }
     })
+
+    // Same authenticity requirement as POST: without a valid signature this
+    // GET is just a user-crafted URL and must never credit a payment.
+    if (!verifyCallbackSignature(orderId, url.searchParams.get('sig'))) {
+      console.error('[PAYWAY CALLBACK] GET with invalid/missing signature, not processing:', orderId)
+      await recordCallbackError(orderId, 'invalid_signature_get', formData)
+      return NextResponse.redirect(new URL(`/checkout/payway/${orderId}`, request.url))
+    }
 
     const callbackData = parsePaywayCallback(url.searchParams, formData)
 

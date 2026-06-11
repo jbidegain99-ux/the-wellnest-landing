@@ -7,7 +7,7 @@ const { txMock, prismaMock } = vi.hoisted(() => {
     purchase: { create: vi.fn() },
     promoRedemption: { findUnique: vi.fn(), create: vi.fn() },
     discountCode: { update: vi.fn() },
-    order: { update: vi.fn() },
+    order: { update: vi.fn(), updateMany: vi.fn() },
     package: { findMany: vi.fn() },
   }
 
@@ -35,6 +35,8 @@ import { markOrderPaidAndCreatePurchase } from './markOrderPaid'
 describe('markOrderPaidAndCreatePurchase — bundle packages', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Atomic PENDING -> PAID claim succeeds by default
+    txMock.order.updateMany.mockResolvedValue({ count: 1 })
     prismaMock.purchase.update.mockResolvedValue({})
     prismaMock.user.findUnique.mockResolvedValue({
       id: 'user-1',
@@ -255,5 +257,46 @@ describe('markOrderPaidAndCreatePurchase — bundle packages', () => {
     expect(data.bundleParentPackageId).toBeUndefined()
     expect(data.classesRemaining).toBe(40)
     expect(data.originalPrice).toBe(215)
+  })
+
+  it('returns alreadyPaid (no purchases) when a concurrent invocation wins the atomic claim', async () => {
+    const orderId = 'order-race'
+
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: orderId,
+      userId: 'user-1',
+      status: 'PENDING',
+      discountCode: null,
+      discountCodeId: null,
+      discountCodeRef: null,
+      items: [
+        {
+          id: 'item-1',
+          packageId: 'pkg-viajero',
+          quantity: 1,
+          unitPrice: 215,
+          package: {
+            id: 'pkg-viajero',
+            name: 'Flow Viajero',
+            slug: 'flow-viajero-40',
+            classCount: 40,
+            validityDays: 60,
+            singlePurchaseOnly: false,
+            isHidden: false,
+            bundleChildSlugs: [],
+          },
+        },
+      ],
+    })
+
+    // The other invocation already flipped PENDING -> PAID
+    txMock.order.updateMany.mockResolvedValue({ count: 0 })
+
+    const result = await markOrderPaidAndCreatePurchase({ orderId, provider: 'PAYWAY' })
+
+    expect(result.success).toBe(true)
+    expect(result.alreadyPaid).toBe(true)
+    expect(txMock.purchase.create).not.toHaveBeenCalled()
+    expect(txMock.paymentTransaction.create).not.toHaveBeenCalled()
   })
 })

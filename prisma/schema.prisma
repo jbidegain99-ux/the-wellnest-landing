@@ -179,6 +179,9 @@ model Purchase {
   originalPrice    Float
   finalPrice       Float
   status           PurchaseStatus @default(ACTIVE)
+  // NO agregar @unique: valores sentinela (manual_payment, pos_manual) se
+  // repiten a propósito. La unicidad de ids de gateway la garantiza el índice
+  // parcial "Purchase_gateway_provider_id_key" (ver nota al final del modelo).
   paymentProviderId String?  @map("stripePaymentId")
   createdAt        DateTime       @default(now())
 
@@ -209,6 +212,12 @@ model Purchase {
 
   @@index([sharedGroupId])
   @@index([bundleGroupId])
+  // ÍNDICE MANUAL EN PRODUCCIÓN (Prisma no soporta índices parciales):
+  //   CREATE UNIQUE INDEX "Purchase_gateway_provider_id_key"
+  //   ON "Purchase" ("stripePaymentId")
+  //   WHERE "stripePaymentId" ~ '^(payway|wompi|trial)_';
+  // Evita duplicar Purchases por callbacks de pago concurrentes y doble claim
+  // de trials. OJO: `prisma db push` puede borrarlo — recrearlo tras cada push.
 }
 
 enum PurchaseStatus {

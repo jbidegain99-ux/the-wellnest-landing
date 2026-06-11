@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 import { addDays, startOfDay } from 'date-fns'
 
 // El Salvador is UTC-6. To store times that display correctly for El Salvador users,
@@ -11,6 +12,16 @@ const EL_SALVADOR_UTC_OFFSET = 6
 
 export async function POST() {
   try {
+    // Este endpoint borra TODAS las clases (cascada sobre reservas/asistencias/
+    // waitlist) y sobreescribe precios de paquetes. Jamás debe correr en
+    // producción, sin importar el rol de la sesión.
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'El seed está deshabilitado en producción' },
+        { status: 403 }
+      )
+    }
+
     const session = await getServerSession(authOptions)
 
     if (!session || session.user?.role !== 'ADMIN') {
@@ -251,7 +262,7 @@ export async function POST() {
         validityDays: 5,
         validityText: null,
         bulletsTop: ['1 clase', '5 días de vigencia'],
-        bulletsBottom: ['Válida para todas las disciplinas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+        bulletsBottom: ['Válida para todas las disciplinas', 'Reserva desde la app', 'Cancela tu clase 4 horas antes'],
         isActive: true,
         isFeatured: false,
         order: 1,
@@ -268,7 +279,7 @@ export async function POST() {
         validityDays: 30,
         validityText: null,
         bulletsTop: ['4 clases', '30 días de vigencia'],
-        bulletsBottom: ['Ideal para comenzar', 'Todas las disciplinas incluidas', 'Reserva fácil desde la app', 'Cancela tu clase 8 horas antes'],
+        bulletsBottom: ['Ideal para comenzar', 'Todas las disciplinas incluidas', 'Reserva fácil desde la app', 'Cancela tu clase 4 horas antes'],
         isActive: true,
         isFeatured: false,
         order: 2,
@@ -285,7 +296,7 @@ export async function POST() {
         validityDays: 30,
         validityText: null,
         bulletsTop: ['8 clases', '30 días de vigencia'],
-        bulletsBottom: ['Dos veces por semana', 'Acceso a todas las disciplinas', 'Flexibilidad total de horarios', 'Cancela tu clase 8 horas antes'],
+        bulletsBottom: ['Dos veces por semana', 'Acceso a todas las disciplinas', 'Flexibilidad total de horarios', 'Cancela tu clase 4 horas antes'],
         isActive: true,
         isFeatured: true,
         order: 3,
@@ -302,7 +313,7 @@ export async function POST() {
         validityDays: 30,
         validityText: null,
         bulletsTop: ['12 clases', '30 días de vigencia'],
-        bulletsBottom: ['Ideal para crear hábito', 'Todas las disciplinas incluidas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+        bulletsBottom: ['Ideal para crear hábito', 'Todas las disciplinas incluidas', 'Reserva desde la app', 'Cancela tu clase 4 horas antes'],
         isActive: true,
         isFeatured: false,
         order: 4,
@@ -319,7 +330,7 @@ export async function POST() {
         validityDays: 30,
         validityText: null,
         bulletsTop: ['16 clases', '30 días de vigencia'],
-        bulletsBottom: ['Hasta 4 clases por semana', 'Movimiento consciente y flexible', 'Acompaña tu ritmo de vida', 'Cancela tu clase 8 horas antes'],
+        bulletsBottom: ['Hasta 4 clases por semana', 'Movimiento consciente y flexible', 'Acompaña tu ritmo de vida', 'Cancela tu clase 4 horas antes'],
         isActive: true,
         isFeatured: false,
         order: 5,
@@ -336,7 +347,7 @@ export async function POST() {
         validityDays: 35,
         validityText: null,
         bulletsTop: ['24 clases', '35 días de vigencia'],
-        bulletsBottom: ['Máxima flexibilidad', 'Acceso total a disciplinas', 'Ideal para rutinas activas', 'Cancela tu clase 8 horas antes'],
+        bulletsBottom: ['Máxima flexibilidad', 'Acceso total a disciplinas', 'Ideal para rutinas activas', 'Cancela tu clase 4 horas antes'],
         isActive: true,
         isFeatured: false,
         order: 6,
@@ -353,7 +364,7 @@ export async function POST() {
         validityDays: 90,
         validityText: 'Vigencia trimestral',
         bulletsTop: ['80 clases', 'Vigencia trimestral'],
-        bulletsBottom: ['Acceso ilimitado a disciplinas', 'Ideal para práctica constante', 'La mejor inversión en tu bienestar', 'Cancela tu clase 8 horas antes'],
+        bulletsBottom: ['Acceso ilimitado a disciplinas', 'Ideal para práctica constante', 'La mejor inversión en tu bienestar', 'Cancela tu clase 4 horas antes'],
         isActive: true,
         isFeatured: false,
         order: 7,
@@ -400,8 +411,10 @@ export async function POST() {
     })
     console.log(`[SEED] Deleted ${deletedPackages.count} packages without purchases`)
 
-    // Create admin user
-    const hashedPassword = await bcrypt.hash('admin123', 12)
+    // Create admin user (random password — this route is dev-only and the
+    // upsert never overwrites an existing user, so the value rarely matters)
+    const adminPlainPassword = randomBytes(12).toString('base64url')
+    const hashedPassword = await bcrypt.hash(adminPlainPassword, 12)
     await prisma.user.upsert({
       where: { email: 'admin@thewellnest.sv' },
       update: {},
@@ -412,6 +425,7 @@ export async function POST() {
         role: 'ADMIN',
       },
     })
+    console.log('[SEED] Admin password (solo si el usuario fue creado ahora):', adminPlainPassword)
 
     // Create discount codes
     await prisma.discountCode.upsert({
@@ -438,17 +452,8 @@ export async function POST() {
       },
     })
 
-    await prisma.discountCode.upsert({
-      where: { code: 'GRATIS100' },
-      update: {},
-      create: {
-        code: 'GRATIS100',
-        percentage: 100,
-        maxUses: 1000,
-        validFrom: new Date(),
-        validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-      },
-    })
+    // NOTA: GRATIS100 (100% de descuento) eliminado del seed — un código de
+    // descuento total no debe existir como dato sembrado.
 
     // Get discipline and instructor references
     const yoga = disciplines.find((d) => d.slug === 'yoga')!

@@ -1,10 +1,27 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 import { addDays, setHours, setMinutes, startOfDay } from 'date-fns'
 
 const prisma = new PrismaClient()
 
 async function main() {
+  // GUARD: este seed BORRA todas las clases y, por cascada (onDelete: Cascade),
+  // todas las reservas, asistencias y listas de espera. El .env local apunta a
+  // la base de PRODUCCIÓN, así que un `npx prisma db seed` accidental destruye
+  // datos reales. Solo corre con opt-in explícito y nunca en producción.
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+    console.error('[SEED] Bloqueado: NODE_ENV/VERCEL_ENV es production.')
+    process.exit(1)
+  }
+  if (process.env.SEED_ALLOW_DESTRUCTIVE !== '1') {
+    console.error(
+      '[SEED] Bloqueado: este seed es DESTRUCTIVO (borra clases y, en cascada, reservas/asistencias).\n' +
+      '[SEED] Verifica que DATABASE_URL apunte a una base LOCAL y ejecuta con SEED_ALLOW_DESTRUCTIVE=1.'
+    )
+    process.exit(1)
+  }
+
   console.log('Seeding database...')
 
   // Create disciplines
@@ -302,7 +319,7 @@ async function main() {
       validityDays: 5,
       validityText: null,
       bulletsTop: ['1 clase', '5 días de vigencia'],
-      bulletsBottom: ['Válida para todas las disciplinas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+      bulletsBottom: ['Válida para todas las disciplinas', 'Reserva desde la app', 'Cancela tu clase 4 horas antes'],
       isActive: true,
       isFeatured: false,
       order: 1,
@@ -319,7 +336,7 @@ async function main() {
       validityDays: 30,
       validityText: null,
       bulletsTop: ['4 clases', '30 días de vigencia'],
-      bulletsBottom: ['Ideal para comenzar', 'Todas las disciplinas incluidas', 'Reserva fácil desde la app', 'Cancela tu clase 8 horas antes'],
+      bulletsBottom: ['Ideal para comenzar', 'Todas las disciplinas incluidas', 'Reserva fácil desde la app', 'Cancela tu clase 4 horas antes'],
       isActive: true,
       isFeatured: false,
       order: 2,
@@ -336,7 +353,7 @@ async function main() {
       validityDays: 30,
       validityText: null,
       bulletsTop: ['8 clases', '30 días de vigencia'],
-      bulletsBottom: ['Dos veces por semana', 'Acceso a todas las disciplinas', 'Flexibilidad total de horarios', 'Cancela tu clase 8 horas antes'],
+      bulletsBottom: ['Dos veces por semana', 'Acceso a todas las disciplinas', 'Flexibilidad total de horarios', 'Cancela tu clase 4 horas antes'],
       isActive: true,
       isFeatured: true,
       order: 3,
@@ -355,7 +372,7 @@ async function main() {
       validityDays: 30,
       validityText: null,
       bulletsTop: ['12 clases', '30 días de vigencia', '15% de descuento'],
-      bulletsBottom: ['Ideal para crear hábito', 'Todas las disciplinas incluidas', 'Reserva desde la app', 'Cancela tu clase 8 horas antes'],
+      bulletsBottom: ['Ideal para crear hábito', 'Todas las disciplinas incluidas', 'Reserva desde la app', 'Cancela tu clase 4 horas antes'],
       isActive: true,
       isFeatured: false,
       order: 4,
@@ -372,7 +389,7 @@ async function main() {
       validityDays: 30,
       validityText: null,
       bulletsTop: ['16 clases', '30 días de vigencia'],
-      bulletsBottom: ['Hasta 4 clases por semana', 'Movimiento consciente y flexible', 'Acompaña tu ritmo de vida', 'Cancela tu clase 8 horas antes'],
+      bulletsBottom: ['Hasta 4 clases por semana', 'Movimiento consciente y flexible', 'Acompaña tu ritmo de vida', 'Cancela tu clase 4 horas antes'],
       isActive: true,
       isFeatured: false,
       order: 5,
@@ -391,7 +408,7 @@ async function main() {
       validityDays: 35,
       validityText: null,
       bulletsTop: ['24 clases', '35 días de vigencia', '10% de descuento'],
-      bulletsBottom: ['Máxima flexibilidad', 'Acceso total a disciplinas', 'Ideal para rutinas activas', 'Cancela tu clase 8 horas antes'],
+      bulletsBottom: ['Máxima flexibilidad', 'Acceso total a disciplinas', 'Ideal para rutinas activas', 'Cancela tu clase 4 horas antes'],
       isActive: true,
       isFeatured: false,
       order: 6,
@@ -410,7 +427,7 @@ async function main() {
       validityDays: 90,
       validityText: 'Vigencia trimestral',
       bulletsTop: ['80 clases', 'Vigencia trimestral', 'Puedes llevar un invitado a cada clase'],
-      bulletsBottom: ['Acceso ilimitado a disciplinas', 'Compartible — invita a alguien diferente cada vez', 'Ideal para práctica constante', 'Cancela tu clase 8 horas antes'],
+      bulletsBottom: ['Acceso ilimitado a disciplinas', 'Compartible — invita a alguien diferente cada vez', 'Ideal para práctica constante', 'Cancela tu clase 4 horas antes'],
       isActive: true,
       isFeatured: false,
       order: 7,
@@ -452,8 +469,9 @@ async function main() {
 
   console.log('Created packages:', packages.length)
 
-  // Create admin user
-  const hashedPassword = await bcrypt.hash('admin123', 12)
+  // Create admin user (password from env or random — never hardcoded)
+  const adminPlainPassword = process.env.SEED_ADMIN_PASSWORD || randomBytes(12).toString('base64url')
+  const hashedPassword = await bcrypt.hash(adminPlainPassword, 12)
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@thewellnest.sv' },
     update: {},
@@ -466,9 +484,13 @@ async function main() {
   })
 
   console.log('Created admin user:', adminUser.email)
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    console.log('Generated admin password (guárdala, no se vuelve a mostrar):', adminPlainPassword)
+  }
 
   // Create a test user with an active package
-  const testUserPassword = await bcrypt.hash('test123', 12)
+  const testPlainPassword = process.env.SEED_TEST_PASSWORD || randomBytes(12).toString('base64url')
+  const testUserPassword = await bcrypt.hash(testPlainPassword, 12)
   const testUser = await prisma.user.upsert({
     where: { email: 'test@example.com' },
     update: {},
@@ -481,6 +503,9 @@ async function main() {
   })
 
   console.log('Created test user:', testUser.email)
+  if (!process.env.SEED_TEST_PASSWORD) {
+    console.log('Generated test user password:', testPlainPassword)
+  }
 
   // Create discount codes
   await prisma.discountCode.upsert({
@@ -507,18 +532,9 @@ async function main() {
     },
   })
 
-  // 100% discount code for testing free orders
-  await prisma.discountCode.upsert({
-    where: { code: 'GRATIS100' },
-    update: {},
-    create: {
-      code: 'GRATIS100',
-      percentage: 100,
-      maxUses: 1000,
-      validFrom: new Date(),
-      validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-    },
-  })
+  // NOTA: el código GRATIS100 (100% de descuento) fue eliminado del seed.
+  // Un código de descuento total no debe existir como dato sembrado; si se
+  // necesita para pruebas, crearlo manualmente en una base de desarrollo.
 
   console.log('Created discount codes')
 

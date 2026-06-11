@@ -61,7 +61,8 @@ export async function GET(request: Request) {
       method: 'AES-256-CBC',
       iv: 'fedcba9876543210',
       keyDerivation: 'First 32 UTF-8 characters of PAYWAY_TOKEN_ENCRYPT',
-      keyFirst32Chars: config.tokenEncrypt.slice(0, 32),
+      // La clave nunca se incluye en la respuesta: los valores encriptados
+      // bastan para que PayWay valide la encriptación de su lado.
     }
   }
 

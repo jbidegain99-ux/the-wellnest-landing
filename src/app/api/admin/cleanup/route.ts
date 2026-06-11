@@ -40,6 +40,15 @@ export async function POST() {
   console.log('[CLEANUP API] ========== POST REQUEST ==========')
 
   try {
+    // Borra clases/instructores/paquetes fuera de una lista blanca hardcodeada
+    // que ya está desactualizada — pérdida de datos si corre en producción.
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'Esta operación está deshabilitada en producción' },
+        { status: 403 }
+      )
+    }
+
     const session = await getServerSession(authOptions)
 
     if (!session || session.user?.role !== 'ADMIN') {
