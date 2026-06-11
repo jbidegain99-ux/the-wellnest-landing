@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendToFacturador } from '@/lib/facturador'
 import { sendEmail } from '@/lib/emailService'
+import { timingSafeEqual } from 'crypto'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -24,8 +25,10 @@ export async function GET(req: NextRequest) {
     console.error('[CRON_RETRY_INVOICES] CRON_SECRET not configured')
     return NextResponse.json({ error: 'Cron not configured' }, { status: 500 })
   }
-  const auth = req.headers.get('authorization')
-  if (auth !== `Bearer ${expected}`) {
+  const auth = req.headers.get('authorization') ?? ''
+  const expectedHeader = Buffer.from(`Bearer ${expected}`)
+  const received = Buffer.from(auth)
+  if (received.length !== expectedHeader.length || !timingSafeEqual(received, expectedHeader)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

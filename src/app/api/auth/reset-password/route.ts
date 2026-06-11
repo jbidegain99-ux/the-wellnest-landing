@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
+import { createHash } from 'crypto'
 import { prisma } from '@/lib/prisma'
 
 /**
@@ -24,10 +25,16 @@ export async function POST(request: Request) {
       )
     }
 
-    // Buscar token válido
-    const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
-    })
+    // Buscar token válido por su hash (la BD guarda sha256 del token);
+    // fallback al valor crudo para tokens emitidos antes de este cambio
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+    const resetToken =
+      (await prisma.passwordResetToken.findUnique({
+        where: { token: tokenHash },
+      })) ??
+      (await prisma.passwordResetToken.findUnique({
+        where: { token },
+      }))
 
     if (!resetToken) {
       return NextResponse.json(
@@ -62,19 +69,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // Hashear nueva contraseña y actualizar
+    // Hashear nueva contraseña y actualizar. El consumo del token es
+    // atómico: dos envíos paralelos del formulario no resetean dos veces.
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    await prisma.$transaction([
-      prisma.user.update({
+    await prisma.$transaction(async (tx) => {
+      const consumed = await tx.passwordResetToken.updateMany({
+        where: { id: resetToken.id, used: false },
+        data: { used: true },
+      })
+      if (consumed.count === 0) {
+        throw new Error('TOKEN_ALREADY_USED')
+      }
+      await tx.user.update({
         where: { id: user.id },
         data: { password: hashedPassword, passwordChangedAt: new Date() },
-      }),
-      prisma.passwordResetToken.update({
-        where: { id: resetToken.id },
-        data: { used: true },
-      }),
-    ])
+      })
+    })
 
     console.log(`[RESET PASSWORD] Contraseña actualizada para: ${user.email}`)
 
@@ -83,6 +94,12 @@ export async function POST(request: Request) {
       success: true,
     })
   } catch (error) {
+    if (error instanceof Error && error.message === 'TOKEN_ALREADY_USED') {
+      return NextResponse.json(
+        { error: 'Este enlace ya fue utilizado. Solicita uno nuevo.' },
+        { status: 400 }
+      )
+    }
     console.error('Error in reset password:', error)
     return NextResponse.json(
       { error: 'Error al restablecer la contraseña' },

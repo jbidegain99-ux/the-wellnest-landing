@@ -17,6 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { sendEmail } from '@/lib/emailService'
 import {
@@ -25,6 +26,13 @@ import {
   previousWeekBoundsSV,
   weekBoundsFromMondaySV,
 } from '@/lib/instructorPayments'
+
+// Comparación en tiempo constante para secretos
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a)
+  const bb = Buffer.from(b)
+  return ab.length === bb.length && timingSafeEqual(ab, bb)
+}
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -69,8 +77,8 @@ async function handle(req: NextRequest): Promise<NextResponse> {
     console.error('[CRON_INSTRUCTOR_PAYMENTS] CRON_SECRET not configured')
     return NextResponse.json({ error: 'Cron not configured' }, { status: 500 })
   }
-  const auth = req.headers.get('authorization')
-  if (auth !== `Bearer ${expected}`) {
+  const auth = req.headers.get('authorization') ?? ''
+  if (!timingSafeEqualStr(auth, `Bearer ${expected}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

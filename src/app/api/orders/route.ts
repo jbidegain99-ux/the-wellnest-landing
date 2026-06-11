@@ -295,10 +295,9 @@ export async function POST(request: Request) {
     console.error('[ORDERS API] Error creating order:', JSON.stringify(err, null, 2))
     console.error('[ORDERS API] Error message:', err.message)
     console.error('[ORDERS API] Error code:', err.code)
+    // No exponer detalles internos (mensajes/códigos de Prisma) al cliente
     return NextResponse.json({
-      error: 'Error al crear la orden',
-      details: err.message,
-      code: err.code,
+      error: 'Error al crear la orden. Por favor intenta de nuevo.',
     }, { status: 500 })
   }
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { randomBytes } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, buildPasswordResetEmail } from '@/lib/emailService'
 import { checkRateLimit, requestIp } from '@/lib/rateLimit'
@@ -50,15 +50,18 @@ export async function POST(request: Request) {
 
     if (user) {
       // Generar token seguro (usando el email REAL de la cuenta — para
-      // cuentas legacy con mayúsculas, normalizedEmail no matchearía después)
+      // cuentas legacy con mayúsculas, normalizedEmail no matchearía después).
+      // En BD se guarda solo el hash: un dump de la tabla no debe permitir
+      // resetear contraseñas ajenas.
       const token = randomBytes(32).toString('hex')
+      const tokenHash = createHash('sha256').update(token).digest('hex')
       const expiresAt = new Date()
       expiresAt.setHours(expiresAt.getHours() + 1) // 1 hora de validez
 
       await prisma.passwordResetToken.create({
         data: {
           email: user.email,
-          token,
+          token: tokenHash,
           expiresAt,
         },
       })
@@ -92,7 +95,7 @@ export async function POST(request: Request) {
         where: {
           email: user.email,
           used: false,
-          token: { not: token },
+          token: { not: tokenHash },
           expiresAt: { gt: new Date() },
         },
         data: { used: true },

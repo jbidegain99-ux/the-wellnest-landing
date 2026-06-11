@@ -146,6 +146,10 @@ export async function sendToFacturador(
       .createHmac('sha256', config.webhookSecret)
       .update(body)
       .digest('hex')
+  } else {
+    // Visible en logs: enviar sin firma debe ser una anomalia detectable,
+    // no un fallback silencioso
+    console.error('[FACTURADOR] FACTURADOR_SV_WEBHOOK_SECRET no configurado — enviando SIN firma HMAC')
   }
 
   console.log('[FACTURADOR] Sending to Facturador SV:', {

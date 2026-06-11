@@ -1111,8 +1111,9 @@ export async function POST(request: Request) {
     // Return detailed error for debugging
     const errorMessage = error?.message || 'Error desconocido'
 
+    // No exponer detalles internos (mensajes de Prisma, stack) al cliente
     return NextResponse.json({
-      error: `Error al crear la reserva. Por favor intenta de nuevo. Si el problema persiste, contacta soporte. (${errorMessage})`,
+      error: 'Error al crear la reserva. Por favor intenta de nuevo. Si el problema persiste, contacta soporte.',
       code: ERROR_CODES.UNKNOWN_ERROR,
       details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     }, { status: 500 })

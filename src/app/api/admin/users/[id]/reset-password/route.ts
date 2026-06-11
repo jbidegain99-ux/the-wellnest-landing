@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { sendEmail, buildAdminPasswordResetEmail } from '@/lib/emailService'
+import { randomInt } from 'crypto'
 
 // Characters excluding ambiguous ones (0/O, 1/l/I)
 const CHARS_UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -13,21 +14,15 @@ const CHARS_DIGITS = '23456789'
 function generateTemporaryPassword(): string {
   const allChars = CHARS_UPPER + CHARS_LOWER + CHARS_DIGITS
 
-  // Ensure at least one of each type
-  let password = ''
-  password += CHARS_UPPER[Math.floor(Math.random() * CHARS_UPPER.length)]
-  password += CHARS_LOWER[Math.floor(Math.random() * CHARS_LOWER.length)]
-  password += CHARS_DIGITS[Math.floor(Math.random() * CHARS_DIGITS.length)]
+  // CSPRNG (Math.random es predecible) y 12 caracteres aleatorios
+  const pick = (chars: string) => chars[randomInt(chars.length)]
+  const password =
+    pick(CHARS_UPPER) +
+    pick(CHARS_LOWER) +
+    pick(CHARS_DIGITS) +
+    Array.from({ length: 9 }, () => pick(allChars)).join('')
 
-  // Fill remaining characters
-  for (let i = 3; i < 8; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)]
-  }
-
-  // Shuffle the password
-  const shuffled = password.split('').sort(() => Math.random() - 0.5).join('')
-
-  return `WnSt-${shuffled}`
+  return `WnSt-${password}`
 }
 
 // POST - reset a user's password and send temporary password via email

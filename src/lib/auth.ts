@@ -46,7 +46,9 @@ export const authOptions: NextAuthOptions = {
           }))
 
         if (!user || !user.password) {
-          throw new Error('Usuario no encontrado')
+          // Mensaje unificado: distinguir 'no existe' de 'password mal' permite
+          // enumerar cuentas
+          throw new Error('Email o contraseña incorrectos')
         }
 
         const isPasswordValid = await bcrypt.compare(
@@ -55,7 +57,7 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isPasswordValid) {
-          throw new Error('Contraseña incorrecta')
+          throw new Error('Email o contraseña incorrectos')
         }
 
         return {
