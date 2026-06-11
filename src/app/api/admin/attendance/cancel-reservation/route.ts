@@ -2,11 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import {
-  buildWaitlistAssignedEmail,
-  formatDateTimeShort,
-  sendEmail,
-} from '@/lib/emailService'
+import { promoteFromWaitlist } from '@/lib/booking/waitlistPromotion'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,11 +48,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'La reserva ya fue cancelada' }, { status: 400 })
     }
 
+    // Si se cancela la reserva del HOST y tiene un invitado vivo en la misma
+    // clase, el invitado también se cancela y se reembolsan 2 (mismo
+    // comportamiento que el cancel del usuario).
+    const guestReservation = reservation.isGuestReservation
+      ? null
+      : await prisma.reservation.findFirst({
+          where: {
+            userId: reservation.userId,
+            classId: reservation.classId,
+            isGuestReservation: true,
+            status: { not: 'CANCELLED' },
+          },
+        })
+
     // Execute cancellation + refund in a transaction
     const ALREADY_CANCELLED = 'RESERVATION_ALREADY_CANCELLED'
-    let updatedPurchase: { id: string; classesRemaining: number; status: string }
+    let txResult: {
+      updatedPurchase: { id: string; classesRemaining: number; status: string }
+      actualRefunded: number
+    }
     try {
-      updatedPurchase = await prisma.$transaction(async (tx) => {
+      txResult = await prisma.$transaction(async (tx) => {
         // 1. Atomic claim: only one concurrent cancellation (admin or user)
         // can flip the reservation, so the refund runs exactly once.
         const claim = await tx.reservation.updateMany({
@@ -74,15 +87,28 @@ export async function POST(request: Request) {
           throw new Error(ALREADY_CANCELLED)
         }
 
-        // 2. Refund 1 class to the purchase
-        return tx.purchase.update({
+        // 2. Cancel the sibling guest reservation too (conditionally)
+        let guestCancelled = 0
+        if (guestReservation) {
+          const guestClaim = await tx.reservation.updateMany({
+            where: { id: guestReservation.id, status: { not: 'CANCELLED' } },
+            data: { status: 'CANCELLED', cancelledAt: new Date() },
+          })
+          guestCancelled = guestClaim.count
+        }
+
+        // 3. Refund exactly what THIS transaction cancelled
+        const actualRefunded = 1 + guestCancelled
+        const updatedPurchase = await tx.purchase.update({
           where: { id: reservation.purchaseId },
           data: {
-            classesRemaining: { increment: 1 },
+            classesRemaining: { increment: actualRefunded },
             // Reactivate if it was depleted
             ...(reservation.purchase.status === 'DEPLETED' ? { status: 'ACTIVE' as const } : {}),
           },
         })
+
+        return { updatedPurchase, actualRefunded }
       })
     } catch (txError) {
       if (txError instanceof Error && txError.message === ALREADY_CANCELLED) {
@@ -90,12 +116,13 @@ export async function POST(request: Request) {
       }
       throw txError
     }
+    const { updatedPurchase, actualRefunded } = txResult
     const updatedReservation = { id: reservationId, status: 'CANCELLED' as const }
 
-    // Decrement class currentCount if tracked
+    // Decrement class currentCount if tracked (one per freed seat)
     await prisma.class.update({
       where: { id: reservation.classId },
-      data: { currentCount: { decrement: 1 } },
+      data: { currentCount: { decrement: actualRefunded } },
     }).catch(() => {
       // Non-critical — currentCount may already be 0
     })
@@ -103,100 +130,31 @@ export async function POST(request: Request) {
     console.log(
       `[Admin Cancel] Admin ${session.user.email} cancelled reservation ${reservationId} ` +
       `for user ${reservation.user.email} in class ${reservation.class.discipline.name}. ` +
-      `Refunded 1 class to purchase ${reservation.purchaseId}. ` +
+      `Refunded ${actualRefunded} class(es) to purchase ${reservation.purchaseId}. ` +
       `New balance: ${updatedPurchase.classesRemaining}`
     )
 
-    // Auto-assign first user in waitlist (if any) and notify by email
+    // Auto-assign from waitlist via shared helper. It refuses to promote when
+    // the class already started (admin can cancel past reservations) and
+    // validates package compatibility/trial/capacity like a normal booking.
     let waitlistAssignment: { userId: string; userName: string | null; reservationId: string } | null = null
     try {
-      const firstInWaitlist = await prisma.waitlist.findFirst({
-        where: { classId: reservation.classId },
-        orderBy: { position: 'asc' },
-        include: {
-          user: {
-            include: {
-              purchases: {
-                where: {
-                  status: 'ACTIVE',
-                  expiresAt: { gt: new Date() },
-                  classesRemaining: { gt: 0 },
-                },
-                orderBy: { expiresAt: 'asc' },
-              },
-            },
-          },
-        },
+      waitlistAssignment = await promoteFromWaitlist({
+        classId: reservation.classId,
+        classDateTime: new Date(reservation.class.dateTime),
+        disciplineId: reservation.class.disciplineId,
+        disciplineName: reservation.class.discipline.name,
+        instructorName: reservation.class.instructor.name,
+        duration: reservation.class.duration,
+        maxCapacity: reservation.class.maxCapacity,
       })
 
-      if (firstInWaitlist && firstInWaitlist.user.purchases.length > 0) {
-        const purchaseToUse = firstInWaitlist.user.purchases[0]
-
-        const [newReservation] = await prisma.$transaction([
-          prisma.reservation.create({
-            data: {
-              userId: firstInWaitlist.userId,
-              classId: reservation.classId,
-              purchaseId: purchaseToUse.id,
-              status: 'CONFIRMED',
-            },
-          }),
-          prisma.purchase.update({
-            where: { id: purchaseToUse.id },
-            data: { classesRemaining: { decrement: 1 } },
-          }),
-          prisma.waitlist.delete({
-            where: { id: firstInWaitlist.id },
-          }),
-          prisma.waitlist.updateMany({
-            where: {
-              classId: reservation.classId,
-              position: { gt: firstInWaitlist.position },
-            },
-            data: { position: { decrement: 1 } },
-          }),
-          // Compensate: admin cancel decremented currentCount above; auto-assign refills the spot
-          prisma.class.update({
-            where: { id: reservation.classId },
-            data: { currentCount: { increment: 1 } },
-          }),
-        ])
-
-        waitlistAssignment = {
-          userId: firstInWaitlist.userId,
-          userName: firstInWaitlist.user.name,
-          reservationId: newReservation.id,
-        }
-
-        console.log('[Admin Cancel] Waitlist user auto-assigned:', waitlistAssignment)
-
-        // Email (non-blocking)
-        try {
-          const purchaseWithPkg = await prisma.purchase.findUnique({
-            where: { id: purchaseToUse.id },
-            include: { package: true },
-          })
-
-          if (firstInWaitlist.user.email && purchaseWithPkg) {
-            await sendEmail({
-              to: firstInWaitlist.user.email,
-              subject: '¡Se liberó un cupo! Tu reserva está confirmada — Wellnest',
-              html: buildWaitlistAssignedEmail({
-                userName: firstInWaitlist.user.name,
-                disciplineName: reservation.class.discipline.name,
-                instructorName: reservation.class.instructor.name,
-                dateTime: formatDateTimeShort(reservation.class.dateTime),
-                duration: reservation.class.duration,
-                packageName: purchaseWithPkg.package.name,
-                classesRemaining: purchaseWithPkg.classesRemaining,
-                profileUrl: `${process.env.NEXTAUTH_URL || 'https://wellneststudio.net'}/perfil/reservas`,
-              }),
-            })
-            console.log('[Admin Cancel] Waitlist email sent to:', firstInWaitlist.user.email)
-          }
-        } catch (emailErr) {
-          console.error('[Admin Cancel] Failed to send waitlist email (non-blocking):', emailErr)
-        }
+      if (waitlistAssignment) {
+        // Compensate: admin cancel decremented currentCount above; auto-assign refills one spot
+        await prisma.class.update({
+          where: { id: reservation.classId },
+          data: { currentCount: { increment: 1 } },
+        }).catch(() => { /* non-critical */ })
       }
     } catch (waitlistError) {
       console.error('[Admin Cancel] Failed to auto-assign waitlist user (non-blocking):', waitlistError)

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { parseDiscountDateSV } from '@/lib/utils/discountDates'
 
 const updateDiscountCodeSchema = z.object({
   code: z.string().min(3, 'El código debe tener al menos 3 caracteres').optional(),
@@ -109,8 +110,9 @@ export async function PUT(
 
     if (data.percentage !== undefined) updateData.percentage = data.percentage
     if (data.maxUses !== undefined) updateData.maxUses = data.maxUses
-    if (data.validFrom !== undefined) updateData.validFrom = new Date(data.validFrom)
-    if (data.validUntil !== undefined) updateData.validUntil = new Date(data.validUntil)
+    // Días calendario SV: inicio a las 00:00 y fin a las 23:59:59 de El Salvador
+    if (data.validFrom !== undefined) updateData.validFrom = parseDiscountDateSV(data.validFrom, 'start')
+    if (data.validUntil !== undefined) updateData.validUntil = parseDiscountDateSV(data.validUntil, 'end')
     if (data.isActive !== undefined) updateData.isActive = data.isActive
     if (data.applicableTo !== undefined) updateData.applicableTo = data.applicableTo
 

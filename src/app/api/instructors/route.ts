@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Sin esto, Next sirve esta ruta como snapshot estático del build y los
+// instructores quedan congelados hasta el próximo deploy
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const instructors = await prisma.instructor.findMany({

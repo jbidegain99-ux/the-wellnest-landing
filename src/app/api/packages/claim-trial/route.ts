@@ -54,6 +54,15 @@ export async function POST(request: Request) {
       )
     }
 
+    // Los paquetes ocultos o privados no son reclamables públicamente aunque
+    // alguien conozca/adivine su id
+    if (pkg.isHidden || pkg.isPrivate) {
+      return NextResponse.json(
+        { error: 'Este paquete no está disponible' },
+        { status: 400 }
+      )
+    }
+
     // 2. Check if user already has this package (singlePurchaseOnly or legacy $0 check)
     if (pkg.singlePurchaseOnly) {
       const existingPurchase = await prisma.purchase.findFirst({

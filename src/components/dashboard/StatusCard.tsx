@@ -27,24 +27,32 @@ interface DashboardStatus {
 export function StatusCard() {
   const [data, setData] = React.useState<DashboardStatus | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [hasError, setHasError] = React.useState(false)
+
+  const fetchStatus = React.useCallback(async () => {
+    setIsLoading(true)
+    setHasError(false)
+    try {
+      const response = await fetch('/api/user/dashboard-status')
+      if (response.ok) {
+        const result = await response.json()
+        setData(result)
+      } else {
+        // Un error del servidor NO significa "sin paquete activo" — mostrarlo
+        // como tal evita el falso negativo que asusta al usuario.
+        setHasError(true)
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard status:', error)
+      setHasError(true)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   React.useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const response = await fetch('/api/user/dashboard-status')
-        if (response.ok) {
-          const result = await response.json()
-          setData(result)
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard status:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchStatus()
-  }, [])
+  }, [fetchStatus])
 
   if (isLoading) {
     return (
@@ -60,6 +68,24 @@ export function StatusCard() {
             <div className="h-4 w-24 rounded bg-beige-dark" />
             <div className="h-3 w-20 rounded bg-beige-dark" />
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (hasError) {
+    return (
+      <div className="rounded-2xl border border-beige-dark bg-gradient-to-r from-[#FFF8EF] to-[#F5F0E8] p-6">
+        <div className="flex flex-col items-center text-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            No pudimos cargar tu estado. Revisa tu conexión e intenta de nuevo.
+          </p>
+          <button
+            onClick={fetchStatus}
+            className="text-sm font-medium text-primary underline underline-offset-2 hover:opacity-80"
+          >
+            Reintentar
+          </button>
         </div>
       </div>
     )

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'wellnest-v1';
-const PRECACHE_URLS = ['/perfil', '/offline.html'];
+const CACHE_NAME = 'wellnest-v2';
+const PRECACHE_URLS = ['/offline.html'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -30,10 +30,19 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Cache successful navigation responses
+        // Cache successful navigation responses — EXCEPTO rutas autenticadas
+        // (/perfil, /admin) o respuestas privadas: cachear ese HTML lo deja
+        // accesible despues de cerrar sesion, incluso en equipos compartidos.
         if (response.ok && request.mode === 'navigate') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          const url = new URL(request.url);
+          const isPrivateRoute =
+            url.pathname.startsWith('/perfil') || url.pathname.startsWith('/admin');
+          const cacheControl = response.headers.get('Cache-Control') || '';
+          const isPrivateResponse = /no-store|private/i.test(cacheControl);
+          if (!isPrivateRoute && !isPrivateResponse) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
         }
         return response;
       })

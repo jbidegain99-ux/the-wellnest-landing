@@ -105,11 +105,14 @@ describe('markOrderPaidAndCreatePurchase — bundle packages', () => {
     expect(groupIds.size).toBe(1)
     expect(Array.from(groupIds)[0]).toBeTruthy()
 
+    // El precio real del item (60) se prorratea entre las 3 hijas
     for (const data of calls) {
       expect(data.bundleParentPackageId).toBe('pkg-trinity')
-      expect(data.originalPrice).toBe(0)
-      expect(data.finalPrice).toBe(0)
+      expect(data.originalPrice).toBe(20)
+      expect(data.finalPrice).toBe(20)
     }
+    const totalFinal = calls.reduce((sum, d) => sum + (d.finalPrice as number), 0)
+    expect(totalFinal).toBe(60)
 
     const packageIds = calls.map((d) => d.packageId).sort()
     expect(packageIds).toEqual(['pkg-pilates', 'pkg-pole', 'pkg-yoga'])

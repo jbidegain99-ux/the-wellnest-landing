@@ -18,9 +18,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Credenciales inválidas')
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        })
+        // Normalizado + fallback insensible a mayúsculas para cuentas legacy
+        // creadas antes de la normalización
+        const normalizedEmail = credentials.email.trim().toLowerCase()
+        const user =
+          (await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+          })) ??
+          (await prisma.user.findFirst({
+            where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+          }))
 
         if (!user || !user.password) {
           throw new Error('Usuario no encontrado')

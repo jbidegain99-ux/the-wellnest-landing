@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { getNowInSV, formatInSV } from '@/lib/utils/timezone'
 import { es } from 'date-fns/locale'
-import { differenceInCalendarDays, isToday, isTomorrow } from 'date-fns'
+import { differenceInCalendarDays } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
 
 // Force dynamic - this route uses headers/session
@@ -89,12 +89,16 @@ export async function GET() {
 
       const classTime = formatInSV(classDateTime, 'h:mm a', { locale: es })
 
-      // Determine date label
+      // Determine date label comparing calendar days in SV — isToday/isTomorrow
+      // compare against the server clock (UTC), which between 6pm y medianoche
+      // SV marca como "Hoy" clases de mañana.
+      const nowSV = getNowInSV()
+      const daysAhead = differenceInCalendarDays(classSV, nowSV)
       let classDate: string
-      if (isToday(classSV)) {
+      if (daysAhead === 0) {
         classDate = 'Hoy'
-      } else if (isTomorrow(classSV)) {
-        classDate = 'Manana'
+      } else if (daysAhead === 1) {
+        classDate = 'Mañana'
       } else {
         classDate = formatInSV(classDateTime, "EEE d MMM", { locale: es })
         // Capitalize first letter

@@ -136,6 +136,34 @@ export async function POST(request: Request) {
       }
     }
 
+    // Validate single-purchase packages BEFORE creating the order — sin esto
+    // el usuario paga y la acreditación falla DESPUÉS del cargo
+    // (misma validación que /api/checkout)
+    const singlePurchaseItems = itemsWithPackages.filter((item) => item.package.singlePurchaseOnly)
+    for (const item of singlePurchaseItems) {
+      const existingPurchase = await prisma.purchase.findFirst({
+        where: {
+          userId,
+          packageId: item.packageId,
+        },
+      })
+
+      if (existingPurchase) {
+        console.log('[ORDERS API] Single-purchase package already purchased:', {
+          userId,
+          packageId: item.packageId,
+          packageName: item.package.name,
+        })
+        return NextResponse.json(
+          {
+            error: `Ya compraste "${item.package.name}". Solo se puede adquirir una vez por usuario.`,
+            code: 'SINGLE_PURCHASE_LIMIT',
+          },
+          { status: 409 }
+        )
+      }
+    }
+
     // Validate discount code if provided
     let discountPercentage = 0
     let validatedDiscountCode: string | undefined

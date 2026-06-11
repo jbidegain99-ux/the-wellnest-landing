@@ -102,22 +102,31 @@ export default function AdminVentasPage() {
   const handleExportCSV = async () => {
     setIsExporting(true)
     try {
-      // Fetch all sales matching current filters (no pagination limit)
-      const params = new URLSearchParams({
-        page: '0',
-        limit: '10000',
-        sortOrder,
-      })
-      if (searchQuery) params.append('search', searchQuery)
-      if (paymentMethod) params.append('paymentMethod', paymentMethod)
-      if (startDate) params.append('startDate', startDate)
-      if (endDate) params.append('endDate', endDate)
+      // Fetch all sales matching current filters. El API limita cada página a
+      // 200 filas, así que se itera hasta cubrir pagination.totalPages — antes
+      // el export se truncaba en silencio a 200 filas.
+      const allSales: Sale[] = []
+      let currentPage = 0
+      let totalPages = 1
+      do {
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          limit: '200',
+          sortOrder,
+        })
+        if (searchQuery) params.append('search', searchQuery)
+        if (paymentMethod) params.append('paymentMethod', paymentMethod)
+        if (startDate) params.append('startDate', startDate)
+        if (endDate) params.append('endDate', endDate)
 
-      const response = await fetch(`/api/admin/sales?${params}`)
-      if (!response.ok) return
+        const response = await fetch(`/api/admin/sales?${params}`)
+        if (!response.ok) return
 
-      const data = await response.json()
-      const allSales: Sale[] = data.sales
+        const data = await response.json()
+        allSales.push(...(data.sales as Sale[]))
+        totalPages = data.pagination?.totalPages ?? 1
+        currentPage++
+      } while (currentPage < totalPages)
 
       // Build CSV
       const headers = ['ID', 'Email', 'Nombre', 'Paquete', 'Monto', 'Fecha', 'Estado', 'Metodo de Pago', 'Notas']

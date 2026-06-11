@@ -156,10 +156,13 @@ export async function POST(request: Request) {
       discipline: created.preferredDiscipline.name,
     })
 
-    // Fire-and-forget: notify all admins
-    notifyAdminsOfNewRequest(created.id).catch((err) =>
+    // Await: en serverless de Vercel la función muere al responder, así que un
+    // fire-and-forget puede no ejecutarse nunca. El error no rompe la respuesta.
+    try {
+      await notifyAdminsOfNewRequest(created.id)
+    } catch (err) {
       console.error('[PRIVATE_SESSIONS] Admin notification failed:', err)
-    )
+    }
 
     return NextResponse.json({ request: created }, { status: 201 })
   } catch (error) {

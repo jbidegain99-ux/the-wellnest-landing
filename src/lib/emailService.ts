@@ -1184,3 +1184,64 @@ export function buildPrivateSessionRejectionEmail(data: PrivateSessionRejectionD
   </table>
 </body></html>`
 }
+
+// ============================================================
+// Clase cancelada por el estudio (devolución de créditos)
+// ============================================================
+
+export interface ClassCancelledEmailData {
+  userName: string | null
+  disciplineName: string
+  instructorName: string
+  dateTime: string
+  classesRefunded: number
+  profileUrl: string
+}
+
+export function buildClassCancelledEmail(data: ClassCancelledEmailData): string {
+  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+  const refundText =
+    data.classesRefunded === 1
+      ? 'Devolvimos 1 clase a tu paquete'
+      : `Devolvimos ${data.classesRefunded} clases a tu paquete`
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase cancelada - Wellnest</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F5F0EB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto',system-ui,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F5F0EB;">
+    <tr><td align="center" style="padding:40px 20px;">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#fff;border-radius:12px;">
+        <tr><td style="padding:32px;">
+          <h1 style="color:#1F2937;margin:0 0 8px;font-size:20px;font-weight:600;text-align:center;">Tu clase fue cancelada</h1>
+          <p style="color:#6B7280;margin:0 0 24px;font-size:14px;text-align:center;">Wellnest</p>
+          <p style="color:#374151;font-size:16px;font-weight:500;margin:0 0 16px;">${greeting},</p>
+          <p style="color:#6B7280;margin:0 0 16px;font-size:14px;line-height:1.5;">Lamentamos avisarte que la siguiente clase fue cancelada por el estudio:</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;">
+            <tr><td style="background-color:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:16px;">
+              <p style="margin:0 0 4px;font-size:13px;color:#6B7280;"><strong style="color:#374151;">Clase:</strong> ${data.disciplineName}</p>
+              <p style="margin:0 0 4px;font-size:13px;color:#6B7280;"><strong style="color:#374151;">Instructor:</strong> ${data.instructorName}</p>
+              <p style="margin:0;font-size:13px;color:#6B7280;"><strong style="color:#374151;">Fecha y hora:</strong> ${data.dateTime}</p>
+            </td></tr>
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;">
+            <tr><td style="background-color:#F0F5F1;border:1px solid #D4E5D7;border-radius:8px;padding:16px;">
+              <p style="margin:0;font-size:13px;color:#374151;line-height:1.5;">${refundText} — pod&eacute;s usarla para reservar cualquier otra clase.</p>
+            </td></tr>
+          </table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
+            <tr><td align="center">
+              <a href="${data.profileUrl}" style="display:inline-block;padding:12px 24px;background:#86A889;color:#fff;text-decoration:none;border-radius:8px;font-weight:500;">Reservar otra clase</a>
+            </td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}

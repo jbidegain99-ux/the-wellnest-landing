@@ -97,7 +97,8 @@ export async function PATCH(
         },
       })
 
-      sendEmail({
+      // Await: en serverless el fire-and-forget puede no ejecutarse nunca
+      await sendEmail({
         to: sessionRequest.user.email,
         subject: 'No pudimos confirmar tu sesión privada',
         html: buildPrivateSessionRejectionEmail({
@@ -212,7 +213,8 @@ export async function PATCH(
       return { createdClass, reservation, updatedRequest, updatedPurchase }
     })
 
-    sendEmail({
+    // Await: en serverless el fire-and-forget puede no ejecutarse nunca
+    await sendEmail({
       to: sessionRequest.user.email,
       subject: 'Tu sesión privada está confirmada',
       html: buildPrivateSessionConfirmationEmail({

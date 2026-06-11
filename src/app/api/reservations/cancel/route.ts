@@ -2,11 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
-import {
-  buildWaitlistAssignedEmail,
-  formatDateTimeShort,
-  sendEmail,
-} from '@/lib/emailService'
+import { promoteFromWaitlist } from '@/lib/booking/waitlistPromotion'
 
 export async function POST(request: Request) {
   console.log('[CANCEL API] ========== CANCEL REQUEST START ==========')
@@ -245,103 +241,22 @@ export async function POST(request: Request) {
     // DEPLETED -> ACTIVE reactivation now happens inside the transaction above
     const finalPurchaseStatus = updatedPurchase.status
 
-    // D) AUTO-ASSIGN WAITLIST: Check if someone is on the waitlist for this class
-    const firstInWaitlist = await prisma.waitlist.findFirst({
-      where: { classId: reservation.classId },
-      orderBy: { position: 'asc' },
-      include: {
-        user: {
-          include: {
-            purchases: {
-              where: {
-                status: 'ACTIVE',
-                expiresAt: { gt: new Date() },
-                classesRemaining: { gt: 0 },
-              },
-              orderBy: { expiresAt: 'asc' },
-            },
-          },
-        },
-      },
-    })
-
+    // D) AUTO-ASSIGN WAITLIST: promote the first eligible user (shared helper:
+    // valida compatibilidad de paquete, trial, capacidad y reactivación)
     let waitlistAssignment = null
-    if (firstInWaitlist && firstInWaitlist.user.purchases.length > 0) {
-      console.log('[CANCEL API] Found user in waitlist:', {
-        userId: firstInWaitlist.userId,
-        userName: firstInWaitlist.user.name,
-        position: firstInWaitlist.position,
+    try {
+      waitlistAssignment = await promoteFromWaitlist({
+        classId: reservation.classId,
+        classDateTime: new Date(reservation.class.dateTime),
+        disciplineId: reservation.class.disciplineId,
+        disciplineName: reservation.class.discipline.name,
+        instructorName: reservation.class.instructor.name,
+        duration: reservation.class.duration,
+        maxCapacity: reservation.class.maxCapacity,
       })
-
-      const purchaseToUse = firstInWaitlist.user.purchases[0]
-
-      try {
-        // Create reservation for waitlist user and remove from waitlist
-        const [newReservation] = await prisma.$transaction([
-          prisma.reservation.create({
-            data: {
-              userId: firstInWaitlist.userId,
-              classId: reservation.classId,
-              purchaseId: purchaseToUse.id,
-              status: 'CONFIRMED',
-            },
-          }),
-          prisma.purchase.update({
-            where: { id: purchaseToUse.id },
-            data: { classesRemaining: { decrement: 1 } },
-          }),
-          prisma.waitlist.delete({
-            where: { id: firstInWaitlist.id },
-          }),
-          // Reorder remaining waitlist positions
-          prisma.waitlist.updateMany({
-            where: {
-              classId: reservation.classId,
-              position: { gt: firstInWaitlist.position },
-            },
-            data: { position: { decrement: 1 } },
-          }),
-        ])
-
-        waitlistAssignment = {
-          userId: firstInWaitlist.userId,
-          userName: firstInWaitlist.user.name,
-          reservationId: newReservation.id,
-        }
-
-        console.log('[CANCEL API] Waitlist user auto-assigned:', waitlistAssignment)
-
-        // Send email notification to the auto-assigned user (non-blocking)
-        try {
-          const purchaseWithPkg = await prisma.purchase.findUnique({
-            where: { id: purchaseToUse.id },
-            include: { package: true },
-          })
-
-          if (firstInWaitlist.user.email && purchaseWithPkg) {
-            await sendEmail({
-              to: firstInWaitlist.user.email,
-              subject: '¡Se liberó un cupo! Tu reserva está confirmada — Wellnest',
-              html: buildWaitlistAssignedEmail({
-                userName: firstInWaitlist.user.name,
-                disciplineName: reservation.class.discipline.name,
-                instructorName: reservation.class.instructor.name,
-                dateTime: formatDateTimeShort(reservation.class.dateTime),
-                duration: reservation.class.duration,
-                packageName: purchaseWithPkg.package.name,
-                classesRemaining: purchaseWithPkg.classesRemaining,
-                profileUrl: `${process.env.NEXTAUTH_URL || 'https://wellneststudio.net'}/perfil/reservas`,
-              }),
-            })
-            console.log('[CANCEL API] Waitlist email sent to:', firstInWaitlist.user.email)
-          }
-        } catch (emailErr) {
-          console.error('[CANCEL API] Failed to send waitlist email (non-blocking):', emailErr)
-        }
-      } catch (waitlistError) {
-        console.error('[CANCEL API] Failed to auto-assign waitlist user:', waitlistError)
-        // Non-blocking - the cancellation was successful, just couldn't auto-assign
-      }
+    } catch (waitlistError) {
+      console.error('[CANCEL API] Failed to auto-assign waitlist user:', waitlistError)
+      // Non-blocking - the cancellation was successful, just couldn't auto-assign
     }
 
     console.log('[CANCEL API] ========== CANCEL REQUEST SUCCESS ==========')

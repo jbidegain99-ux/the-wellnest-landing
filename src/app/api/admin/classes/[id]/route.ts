@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { buildClassCancelledEmail, formatDateTimeShort, sendEmail } from '@/lib/emailService'
 
 // El Salvador is UTC-6. To store times that display correctly for El Salvador users,
 // we need to add 6 hours to the desired local time to get UTC.
@@ -203,6 +204,74 @@ export async function PUT(
     if (data.classType !== undefined) updateData.classType = data.classType
     if (data.isCancelled !== undefined) updateData.isCancelled = data.isCancelled
 
+    // Al cancelar la clase, las reservas confirmadas se cancelan, se devuelven
+    // los créditos a cada paquete y se limpia la lista de espera — todo en una
+    // transacción. Antes el flag isCancelled solo ocultaba la clase y los
+    // alumnos perdían sus clases en silencio.
+    const cancellingNow = data.isCancelled === true && !existingClass.isCancelled
+    let cancellationSummary: {
+      reservationsCancelled: number
+      waitlistRemoved: number
+      notifyUserIds: string[]
+      refundsByUser: Map<string, number>
+    } | null = null
+
+    if (cancellingNow) {
+      cancellationSummary = await prisma.$transaction(async (tx) => {
+        const activeReservations = await tx.reservation.findMany({
+          where: { classId: id, status: 'CONFIRMED' },
+          select: { id: true, purchaseId: true, userId: true, isGuestReservation: true },
+        })
+
+        if (activeReservations.length > 0) {
+          await tx.reservation.updateMany({
+            where: { id: { in: activeReservations.map((r) => r.id) } },
+            data: { status: 'CANCELLED', cancelledAt: new Date() },
+          })
+        }
+
+        // Devolver créditos agrupados por purchase (host + invitado pueden
+        // compartir la misma purchase y deben devolver 2)
+        const refundsPerPurchase = new Map<string, number>()
+        for (const r of activeReservations) {
+          refundsPerPurchase.set(r.purchaseId, (refundsPerPurchase.get(r.purchaseId) ?? 0) + 1)
+        }
+        for (const [purchaseId, count] of Array.from(refundsPerPurchase.entries())) {
+          await tx.purchase.update({
+            where: { id: purchaseId },
+            data: { classesRemaining: { increment: count } },
+          })
+        }
+        if (refundsPerPurchase.size > 0) {
+          await tx.purchase.updateMany({
+            where: {
+              id: { in: Array.from(refundsPerPurchase.keys()) },
+              status: 'DEPLETED',
+              classesRemaining: { gt: 0 },
+            },
+            data: { status: 'ACTIVE' },
+          })
+        }
+
+        const removedWaitlist = await tx.waitlist.deleteMany({ where: { classId: id } })
+
+        // Créditos devueltos por usuario titular (para el email)
+        const refundsByUser = new Map<string, number>()
+        for (const r of activeReservations) {
+          refundsByUser.set(r.userId, (refundsByUser.get(r.userId) ?? 0) + 1)
+        }
+
+        return {
+          reservationsCancelled: activeReservations.length,
+          waitlistRemoved: removedWaitlist.count,
+          notifyUserIds: Array.from(
+            new Set(activeReservations.filter((r) => !r.isGuestReservation).map((r) => r.userId))
+          ),
+          refundsByUser,
+        }
+      })
+    }
+
     const cls = await prisma.class.update({
       where: { id },
       data: updateData,
@@ -213,8 +282,53 @@ export async function PUT(
       },
     })
 
+    // Notificar a los afectados (best-effort, después de la transacción)
+    if (cancellationSummary && cancellationSummary.notifyUserIds.length > 0) {
+      try {
+        const affectedUsers = await prisma.user.findMany({
+          where: { id: { in: cancellationSummary.notifyUserIds } },
+          select: { id: true, email: true, name: true },
+        })
+        const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
+        for (const user of affectedUsers) {
+          if (!user.email) continue
+          await sendEmail({
+            to: user.email,
+            subject: `Clase cancelada: ${cls.discipline.name} — Wellnest`,
+            html: buildClassCancelledEmail({
+              userName: user.name,
+              disciplineName: cls.discipline.name,
+              instructorName: cls.instructor.name,
+              dateTime: formatDateTimeShort(cls.dateTime),
+              classesRefunded: cancellationSummary.refundsByUser.get(user.id) ?? 1,
+              profileUrl: `${baseUrl}/reservar`,
+            }),
+          }).catch((err) => {
+            console.error('[ADMIN CLASSES] Failed to send cancellation email:', user.email, err)
+          })
+        }
+      } catch (emailErr) {
+        console.error('[ADMIN CLASSES] Cancellation emails failed (non-blocking):', emailErr)
+      }
+      console.log('[ADMIN CLASSES] Class cancelled with refunds:', {
+        classId: id,
+        ...{
+          reservationsCancelled: cancellationSummary.reservationsCancelled,
+          waitlistRemoved: cancellationSummary.waitlistRemoved,
+        },
+      })
+    }
+
     return NextResponse.json({
-      message: 'Clase actualizada correctamente',
+      message: cancellationSummary
+        ? `Clase cancelada. Se devolvieron créditos de ${cancellationSummary.reservationsCancelled} reserva(s) y se notificó a los alumnos.`
+        : 'Clase actualizada correctamente',
+      cancellation: cancellationSummary
+        ? {
+            reservationsCancelled: cancellationSummary.reservationsCancelled,
+            waitlistRemoved: cancellationSummary.waitlistRemoved,
+          }
+        : undefined,
       class: {
         id: cls.id,
         disciplineId: cls.disciplineId,

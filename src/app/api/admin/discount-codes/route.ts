@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { parseDiscountDateSV } from '@/lib/utils/discountDates'
 
 const createDiscountCodeSchema = z.object({
   code: z.string().min(3, 'El código debe tener al menos 3 caracteres'),
@@ -87,9 +88,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate dates
-    const validFrom = new Date(data.validFrom)
-    const validUntil = new Date(data.validUntil)
+    // Validate dates (días calendario de El Salvador: el código empieza a las
+    // 00:00 SV de validFrom y vence a las 23:59:59 SV de validUntil)
+    const validFrom = parseDiscountDateSV(data.validFrom, 'start')
+    const validUntil = parseDiscountDateSV(data.validUntil, 'end')
 
     if (validUntil <= validFrom) {
       return NextResponse.json(

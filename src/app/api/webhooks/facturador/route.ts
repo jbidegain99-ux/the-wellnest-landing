@@ -125,7 +125,10 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('[FACTURADOR-WEBHOOK] Unhandled error:', message)
 
-    return NextResponse.json({ received: true, error: 'Internal processing error' })
+    // 500 para que el facturador reintente — los handlers son idempotentes
+    // (updates por id con valores absolutos). Devolver 200 aquí perdía el
+    // estado del DTE para siempre.
+    return NextResponse.json({ received: false, error: 'Internal processing error' }, { status: 500 })
   }
 }
 

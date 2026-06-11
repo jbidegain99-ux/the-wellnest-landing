@@ -82,7 +82,7 @@ interface PaywayPayload {
   userOperation: string
 }
 
-type PageStatus = 'loading' | 'ready' | 'initializing' | 'error' | 'denied' | 'processing'
+type PageStatus = 'loading' | 'ready' | 'initializing' | 'error' | 'denied' | 'processing' | 'review'
 
 export default function PayWayCheckoutPage() {
   const params = useParams()
@@ -122,8 +122,15 @@ export default function PayWayCheckoutPage() {
       setPageStatus('denied')
       setError('El pago fue rechazado o cancelado. Puedes intentar nuevamente.')
     } else if (urlStatus === 'error') {
-      setPageStatus('error')
-      setError(getErrorMessage(errorReason))
+      if (errorReason === 'processing_failed') {
+        // El banco pudo haber cobrado y falló nuestro procesamiento interno:
+        // NO invitar a pagar de nuevo (riesgo de doble cobro).
+        setPageStatus('review')
+        setError(null)
+      } else {
+        setPageStatus('error')
+        setError(getErrorMessage(errorReason))
+      }
     }
   }, [urlStatus, errorReason])
 
@@ -349,6 +356,52 @@ export default function PayWayCheckoutPage() {
           </Button>
           <Link href="/carrito">
             <Button>Volver al carrito</Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // Review state: el cargo pudo haberse realizado pero falló el procesamiento
+  // interno. No se ofrece reintentar el pago para evitar un doble cobro.
+  if (pageStatus === 'review') {
+    return (
+      <div className="max-w-lg mx-auto py-12 text-center">
+        <AlertCircle className="h-16 w-16 mx-auto text-amber-500 mb-6" />
+        <h1 className="font-serif text-3xl font-semibold text-foreground mb-4">
+          Estamos verificando tu pago
+        </h1>
+        <p className="text-gray-600 mb-4">
+          Tu banco pudo haber procesado el cargo, pero tuvimos un problema al
+          registrarlo. <strong>No intentes pagar de nuevo</strong> — podrías
+          generar un doble cobro.
+        </p>
+        <p className="text-gray-600 mb-8">
+          Nuestro equipo fue notificado y acreditará tu compra en cuanto se
+          confirme el pago. Puedes revisar el estado de tu orden en unos minutos.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              // Solo verifica si la orden ya quedó pagada; si sigue pendiente
+              // permanece en esta pantalla (sin re-habilitar el botón de pago)
+              try {
+                const response = await fetch(`/api/orders?id=${orderId}`)
+                const data = await response.json()
+                if (response.ok && data.order?.status === 'PAID') {
+                  router.push(`/checkout/success/${orderId}`)
+                }
+              } catch {
+                // se mantiene la pantalla de verificación
+              }
+            }}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Revisar estado de la orden
+          </Button>
+          <Link href="/perfil/paquetes">
+            <Button>Ir a mis paquetes</Button>
           </Link>
         </div>
       </div>

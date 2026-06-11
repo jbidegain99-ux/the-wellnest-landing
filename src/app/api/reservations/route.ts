@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { sendEmail, buildReservationConfirmationEmail } from '@/lib/emailService'
@@ -26,6 +27,28 @@ const ERROR_CODES = {
   PRIVATE_PACKAGE_ONLY: 'PRIVATE_PACKAGE_ONLY',
   UNIQUE_CONSTRAINT: 'UNIQUE_CONSTRAINT',
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+}
+
+/**
+ * Capacity guard that runs INSIDE a reservation-creating transaction.
+ * Locks the class row (FOR UPDATE) so concurrent bookings for the same class
+ * serialize, then recounts active reservations. The pre-transaction capacity
+ * check is only a fast path — without this, two requests racing for the last
+ * spot both pass the outer check and oversell the class.
+ */
+async function assertCapacityInsideTx(
+  tx: Prisma.TransactionClient,
+  classId: string,
+  maxCapacity: number,
+  seatsNeeded: number
+): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM "Class" WHERE id = ${classId} FOR UPDATE`
+  const activeCount = await tx.reservation.count({
+    where: { classId, status: { not: 'CANCELLED' } },
+  })
+  if (activeCount + seatsNeeded > maxCapacity) {
+    throw new Error('CLASS_FULL_RACE')
+  }
 }
 
 /**
@@ -303,6 +326,29 @@ export async function POST(request: Request) {
           }, { status: 400 })
         }
 
+        // Same guards as every other booking path: a transfer must not allow
+        // a private/discipline-restricted/trial-blocked package to hold a
+        // reservation it could never have created.
+        const transferPackageCheck = await validatePackageAllowsClass(
+          newPurchase.id,
+          classData.disciplineId
+        )
+        if (transferPackageCheck) {
+          console.log('[RESERVATIONS API] ERROR: Package not compatible with class (transfer):', transferPackageCheck)
+          return NextResponse.json(
+            { error: transferPackageCheck.error, code: transferPackageCheck.code },
+            { status: 400 }
+          )
+        }
+
+        if (isTrialBlockedForClass(newPurchase.packageId, classDateTime)) {
+          console.log('[RESERVATIONS API] ERROR: Trial package blocked for post-cutoff class (transfer)')
+          return NextResponse.json({
+            error: 'El paquete de prueba no es válido para clases a partir del 9 de marzo. Por favor adquiere un paquete para continuar.',
+            code: ERROR_CODES.TRIAL_EXPIRED_FOR_DATE,
+          }, { status: 403 })
+        }
+
         // Transfer: return class to old package, take from new package (atomic)
         const { updatedReservation, oldPurchaseUpdated, newPurchaseUpdated } = await prisma.$transaction(async (tx) => {
           // Decrement new purchase first — guard against race
@@ -440,6 +486,9 @@ export async function POST(request: Request) {
 
         // Reactivate the reservation with atomic credit check
         const { reactivatedReservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
+          // Reactivating occupies a seat again — re-verify capacity under lock
+          await assertCapacityInsideTx(tx, classId, classData.maxCapacity, 1)
+
           const updPurchase = await tx.purchase.update({
             where: { id: purchase.id },
             data: { classesRemaining: { decrement: 1 } },
@@ -502,16 +551,20 @@ export async function POST(request: Request) {
     const classStartTime = new Date(classData.dateTime)
     const classEndTime = new Date(classStartTime.getTime() + classData.duration * 60000)
 
-    const conflictingReservation = await prisma.reservation.findFirst({
+    // Fetch ALL reservations that could overlap and evaluate each one.
+    // (A findFirst with a one-sided filter returns an arbitrary row and lets
+    // real conflicts through.) The window is bounded on both sides: a class
+    // starting before [start - MAX_DURATION] can't reach into ours.
+    const MAX_CLASS_DURATION_MS = 4 * 60 * 60 * 1000
+    const overlapCandidates = await prisma.reservation.findMany({
       where: {
         userId,
         status: 'CONFIRMED',
         class: {
-          AND: [
-            // Class starts before our class ends
-            { dateTime: { lt: classEndTime } },
-            // Class ends after our class starts (we calculate this differently)
-          ],
+          dateTime: {
+            lt: classEndTime,
+            gt: new Date(classStartTime.getTime() - MAX_CLASS_DURATION_MS),
+          },
         },
       },
       include: {
@@ -523,35 +576,36 @@ export async function POST(request: Request) {
       },
     })
 
-    // Check if there's actually a time conflict
+    const conflictingReservation = overlapCandidates.find((candidate) => {
+      const otherStart = new Date(candidate.class.dateTime)
+      const otherEnd = new Date(otherStart.getTime() + candidate.class.duration * 60000)
+      return classStartTime < otherEnd && classEndTime > otherStart
+    })
+
     if (conflictingReservation) {
       const otherClassStart = new Date(conflictingReservation.class.dateTime)
       const otherClassEnd = new Date(otherClassStart.getTime() + conflictingReservation.class.duration * 60000)
-
-      // Check if times overlap
-      if (classStartTime < otherClassEnd && classEndTime > otherClassStart) {
-        console.log('[RESERVATIONS API] ERROR: Time conflict detected:', {
-          newClass: {
-            discipline: classData.discipline.name,
-            start: classStartTime.toISOString(),
-            end: classEndTime.toISOString()
-          },
-          existingClass: {
-            discipline: conflictingReservation.class.discipline.name,
-            start: otherClassStart.toISOString(),
-            end: otherClassEnd.toISOString()
-          },
-        })
-        return NextResponse.json({
-          error: `Ya tienes una reserva a esa hora: ${conflictingReservation.class.discipline.name} a las ${otherClassStart.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', timeZone: 'America/El_Salvador' })}. No puedes reservar dos clases en horarios que se solapan.`,
-          code: ERROR_CODES.TIME_CONFLICT,
-          conflictingClass: {
-            id: conflictingReservation.class.id,
-            discipline: conflictingReservation.class.discipline.name,
-            time: otherClassStart.toISOString(),
-          }
-        }, { status: 400 })
-      }
+      console.log('[RESERVATIONS API] ERROR: Time conflict detected:', {
+        newClass: {
+          discipline: classData.discipline.name,
+          start: classStartTime.toISOString(),
+          end: classEndTime.toISOString()
+        },
+        existingClass: {
+          discipline: conflictingReservation.class.discipline.name,
+          start: otherClassStart.toISOString(),
+          end: otherClassEnd.toISOString()
+        },
+      })
+      return NextResponse.json({
+        error: `Ya tienes una reserva a esa hora: ${conflictingReservation.class.discipline.name} a las ${otherClassStart.toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', timeZone: 'America/El_Salvador' })}. No puedes reservar dos clases en horarios que se solapan.`,
+        code: ERROR_CODES.TIME_CONFLICT,
+        conflictingClass: {
+          id: conflictingReservation.class.id,
+          discipline: conflictingReservation.class.discipline.name,
+          time: otherClassStart.toISOString(),
+        }
+      }, { status: 400 })
     }
     console.log('[RESERVATIONS API] No time conflicts found')
 
@@ -783,6 +837,9 @@ export async function POST(request: Request) {
 
       console.log('[RESERVATIONS API] Creating host + guest reservations (2 classes)...')
       const { reservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
+        // Host + guest need 2 seats — re-verify capacity under lock
+        await assertCapacityInsideTx(tx, classId, classData.maxCapacity, GUEST_TOTAL_COST)
+
         // Atomic decrement of 2 — guard against race conditions
         const updPurchase = await tx.purchase.update({
           where: { id: purchase.id },
@@ -865,6 +922,9 @@ export async function POST(request: Request) {
     })
 
     const { reservation, updatedPurchase } = await prisma.$transaction(async (tx) => {
+      // Re-verify capacity under lock — the outer check is only a fast path
+      await assertCapacityInsideTx(tx, classId, classData.maxCapacity, 1)
+
       // Atomic decrement — if another request already took the last class,
       // classesRemaining goes negative and we rollback
       const updPurchase = await tx.purchase.update({
@@ -924,12 +984,13 @@ export async function POST(request: Request) {
 
     console.log('[RESERVATIONS API] ========== POST REQUEST SUCCESS ==========')
 
-    // Fire-and-forget: send reservation confirmation email with QR link
+    // Await: en serverless de Vercel la función muere al responder, así que un
+    // fire-and-forget puede no ejecutarse nunca. El error no rompe la reserva.
     if (session.user.email) {
       const formattedResDateTime = formatDateTimeFull(reservation.class.dateTime)
       const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
 
-      sendEmail({
+      await sendEmail({
         to: session.user.email,
         subject: `Reserva confirmada: ${reservation.class.discipline.name}`,
         html: buildReservationConfirmationEmail({
@@ -973,6 +1034,15 @@ export async function POST(request: Request) {
       return NextResponse.json({
         error: 'No tienes clases disponibles. Es posible que se hayan usado desde otra sesión. Recarga la página.',
         code: ERROR_CODES.NO_PACKAGE
+      }, { status: 400 })
+    }
+
+    // Handle capacity race (someone took the last spot during the transaction)
+    if (error?.message === 'CLASS_FULL_RACE') {
+      console.log('[RESERVATIONS API] Race condition prevented — class filled up concurrently')
+      return NextResponse.json({
+        error: 'La clase se llenó mientras procesábamos tu reserva. No se descontaron clases de tu paquete.',
+        code: ERROR_CODES.CLASS_FULL
       }, { status: 400 })
     }
 

@@ -21,11 +21,17 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.toLowerCase().trim()
 
-    // Buscar el usuario
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      select: { id: true, name: true, email: true },
-    })
+    // Buscar el usuario (fallback insensible a mayúsculas para cuentas legacy
+    // creadas antes de la normalización de emails)
+    const user =
+      (await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true, name: true, email: true },
+      })) ??
+      (await prisma.user.findFirst({
+        where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+        select: { id: true, name: true, email: true },
+      }))
 
     if (user) {
       // Invalidar tokens previos no usados

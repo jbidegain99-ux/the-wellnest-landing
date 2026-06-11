@@ -22,11 +22,15 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, email, password, phone } = validation.data
+    const { name, password, phone } = validation.data
+    // Normalizar igual que forgot/reset-password: sin esto, una cuenta creada
+    // con mayúsculas queda fuera de la recuperación de contraseña
+    const email = validation.data.email.trim().toLowerCase()
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
+    // Check if user already exists (insensible a mayúsculas para no crear
+    // duplicados contra cuentas legacy sin normalizar)
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
     })
 
     if (existingUser) {

@@ -94,34 +94,66 @@ export async function POST(request: Request) {
     }
 
     if (action === 'approve') {
+      // customAmount sin validar permitía montos negativos o mayores al pago real
+      if (customAmount !== undefined) {
+        if (
+          typeof customAmount !== 'number' ||
+          !Number.isFinite(customAmount) ||
+          customAmount <= 0 ||
+          customAmount > refundRequest.purchase.finalPrice
+        ) {
+          return NextResponse.json(
+            {
+              error: `Monto inválido: debe ser mayor a 0 y no exceder $${refundRequest.purchase.finalPrice.toFixed(2)} (lo pagado).`,
+            },
+            { status: 400 }
+          )
+        }
+      }
       const finalAmount = customAmount !== undefined ? customAmount : refundRequest.amount
 
-      // Update refund request
-      const updated = await prisma.refundRequest.update({
-        where: { id: refundId },
-        data: {
-          status: 'REFUNDED',
-          amount: finalAmount,
-          notes: notes || null,
-          refundedAt: new Date(),
-          refundedBy: session.user.id,
-          providerRef: `manual_${Date.now()}`, // Would be Stripe refund ID in production
-        },
-      })
-
-      // Mark purchase as expired since it was refunded
-      await prisma.purchase.update({
-        where: { id: refundRequest.purchaseId },
-        data: { status: 'EXPIRED' },
-      })
-
-      // If promo was used, void the redemption
-      if (refundRequest.purchase.discountCode) {
-        await prisma.promoRedemption.updateMany({
-          where: { purchaseId: refundRequest.purchaseId },
-          data: { status: 'REFUNDED' },
+      // Transacción: sin ella, un fallo a medio camino dejaba el reembolso
+      // marcado pero el paquete activo (o viceversa)
+      const updated = await prisma.$transaction(async (tx) => {
+        const updatedRequest = await tx.refundRequest.update({
+          where: { id: refundId },
+          data: {
+            status: 'REFUNDED',
+            amount: finalAmount,
+            notes: notes || null,
+            refundedAt: new Date(),
+            refundedBy: session.user.id,
+            providerRef: `manual_${Date.now()}`,
+          },
         })
-      }
+
+        // Mark purchase as expired since it was refunded
+        await tx.purchase.update({
+          where: { id: refundRequest.purchaseId },
+          data: { status: 'EXPIRED' },
+        })
+
+        // Cancel future reservations that were paid with this purchase —
+        // un paquete reembolsado no debe sostener reservas activas
+        await tx.reservation.updateMany({
+          where: {
+            purchaseId: refundRequest.purchaseId,
+            status: 'CONFIRMED',
+            class: { dateTime: { gt: new Date() } },
+          },
+          data: { status: 'CANCELLED', cancelledAt: new Date() },
+        })
+
+        // If promo was used, void the redemption
+        if (refundRequest.purchase.discountCode) {
+          await tx.promoRedemption.updateMany({
+            where: { purchaseId: refundRequest.purchaseId },
+            data: { status: 'REFUNDED' },
+          })
+        }
+
+        return updatedRequest
+      })
 
       console.log('[ADMIN REFUND] Refund approved:', {
         id: refundId,

@@ -85,11 +85,14 @@ export async function POST(request: Request) {
       )
     }
 
-    // Find user by referral code (first 8 chars of qrCode)
+    // Find user by referral code (first 8 chars of qrCode). El código se
+    // muestra en mayúsculas pero qrCode se almacena en minúsculas: el match
+    // debe ser insensible a mayúsculas o nunca encuentra al referrer.
     const referrer = await prisma.user.findFirst({
       where: {
         qrCode: {
-          startsWith: code.toUpperCase().substring(0, 8),
+          startsWith: code.substring(0, 8),
+          mode: 'insensitive',
         },
       },
     })

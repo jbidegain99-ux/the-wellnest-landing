@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { EXCLUDED_USER_IDS } from '@/lib/constants'
 import { getExcludedPurchaseIds } from '@/lib/excluded-purchases'
+import { svLocalToUTC } from '@/lib/utils/timezone'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,17 +53,18 @@ export async function GET(request: Request) {
     }
     // "all" or empty string: no filter applied
 
-    // Date range filter (on purchase createdAt)
+    // Date range filter (on purchase createdAt). YYYY-MM-DD se interpreta como
+    // día calendario de El Salvador — new Date('YYYY-MM-DD') sería medianoche
+    // UTC y corre la ventana 6 horas.
     if (startDate || endDate) {
       where.createdAt = {}
       if (startDate) {
-        where.createdAt.gte = new Date(startDate)
+        const [y, m, d] = startDate.split('-').map(Number)
+        where.createdAt.gte = svLocalToUTC(y, m - 1, d, 0, 0, 0, 0)
       }
       if (endDate) {
-        // Include the full end date day
-        const end = new Date(endDate)
-        end.setHours(23, 59, 59, 999)
-        where.createdAt.lte = end
+        const [y, m, d] = endDate.split('-').map(Number)
+        where.createdAt.lte = svLocalToUTC(y, m - 1, d, 23, 59, 59, 999)
       }
     }
 

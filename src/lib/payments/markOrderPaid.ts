@@ -162,15 +162,33 @@ export async function markOrderPaidAndCreatePurchase({
               const missing = item.package.bundleChildSlugs.filter((s) => !found.includes(s))
               throw new Error(`Bundle ${item.package.slug ?? item.package.id}: missing child packages: ${missing.join(', ')}`)
             }
-            for (const child of children) {
+
+            // Prorate the real price across children (cent adjustment on the
+            // last one) so SUM(finalPrice) of the group equals what was charged.
+            // A $0 group would be invisible to finance/bank reconciliation and
+            // would never get a DTE.
+            const round2 = (n: number) => Math.round(n * 100) / 100
+            const childOriginalShare = round2(originalPrice / children.length)
+            const childFinalShare = round2(finalPrice / children.length)
+
+            for (let c = 0; c < children.length; c++) {
+              const child = children[c]
+              const isLast = c === children.length - 1
+              const childOriginal = isLast
+                ? round2(originalPrice - childOriginalShare * (children.length - 1))
+                : childOriginalShare
+              const childFinal = isLast
+                ? round2(finalPrice - childFinalShare * (children.length - 1))
+                : childFinalShare
+
               const purchase = await tx.purchase.create({
                 data: {
                   userId: order.userId,
                   packageId: child.id,
                   classesRemaining: child.classCount,
                   expiresAt: addDays(new Date(), item.package.validityDays),
-                  originalPrice: 0,
-                  finalPrice: 0,
+                  originalPrice: childOriginal,
+                  finalPrice: childFinal,
                   discountCode: order.discountCode || null,
                   status: 'ACTIVE',
                   paymentProviderId: `${provider.toLowerCase()}_${orderId}_${item.id}_${i}_${child.slug}`,
@@ -186,6 +204,8 @@ export async function markOrderPaidAndCreatePurchase({
                 classesRemaining: purchase.classesRemaining,
                 expiresAt: purchase.expiresAt,
                 finalPrice: purchase.finalPrice,
+                pkg: { id: child.id, name: child.name, classCount: child.classCount },
+                bundleParentPackageId: item.package.id,
               })
             }
             continue
@@ -350,6 +370,10 @@ interface PurchaseForFacturacion {
   classesRemaining: number
   expiresAt: Date
   finalPrice: number
+  // Presentes solo en purchases hijas de un bundle: el orderItem se resuelve
+  // vía el paquete padre y el DTE se emite con los datos del paquete hijo.
+  pkg?: { id: string; name: string; classCount: number }
+  bundleParentPackageId?: string
 }
 
 async function triggerFacturacion(
@@ -382,8 +406,20 @@ async function triggerFacturacion(
   }
 
   for (const purchase of paidPurchases) {
-    const orderItem = order.items.find((i) => i.packageId === purchase.packageId)
-    if (!orderItem) continue
+    // Las purchases hijas de un bundle no tienen orderItem propio: el item de
+    // la orden apunta al paquete padre (bundleParentPackageId).
+    const orderItem = order.items.find(
+      (i) =>
+        i.packageId === purchase.packageId ||
+        (purchase.bundleParentPackageId && i.packageId === purchase.bundleParentPackageId)
+    )
+    if (!orderItem) {
+      console.error('[FACTURADOR] No order item found for purchase, skipping invoice:', {
+        purchaseId: purchase.id,
+        packageId: purchase.packageId,
+      })
+      continue
+    }
 
     const discountPercentage = order.discountCodeRef?.percentage ?? 0
     const originalPrice = purchase.finalPrice / (1 - discountPercentage / 100)
@@ -394,7 +430,9 @@ async function triggerFacturacion(
         purchaseId: purchase.id,
         orderId: order.id,
         user,
-        pkg: orderItem.package,
+        // Para hijas de bundle, facturar con los datos del paquete hijo (el
+        // orderItem.package es el bundle padre)
+        pkg: purchase.pkg ?? orderItem.package,
         originalPrice: Math.round(originalPrice * 100) / 100,
         finalPrice: purchase.finalPrice,
         discountAmount: Math.round(discountAmount * 100) / 100,
