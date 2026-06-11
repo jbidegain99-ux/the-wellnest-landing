@@ -95,6 +95,14 @@ export async function POST(request: Request) {
       )
     }
 
+    // Las sesiones privadas 1:1 no tienen lista de espera
+    if (classInfo.isPrivate || classInfo.isCancelled) {
+      return NextResponse.json(
+        { error: 'Esta clase no está disponible para lista de espera.' },
+        { status: 400 }
+      )
+    }
+
     if (classInfo._count.reservations < classInfo.maxCapacity) {
       return NextResponse.json(
         { error: 'Esta clase aún tiene cupos disponibles. Reserva directamente.' },

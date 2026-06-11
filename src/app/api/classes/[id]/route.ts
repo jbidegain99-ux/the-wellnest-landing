@@ -8,8 +8,10 @@ export async function GET(
   try {
     const { id } = await params
 
-    const classData = await prisma.class.findUnique({
-      where: { id },
+    // Endpoint público: las clases privadas (sesiones 1:1) y canceladas no
+    // deben ser visibles ni direccionables por id
+    const classData = await prisma.class.findFirst({
+      where: { id, isPrivate: false, isCancelled: false },
       include: {
         discipline: true,
         complementaryDiscipline: true,
@@ -17,7 +19,7 @@ export async function GET(
         _count: {
           select: {
             reservations: {
-              where: { status: 'CONFIRMED' },
+              where: { status: { not: 'CANCELLED' } },
             },
           },
         },

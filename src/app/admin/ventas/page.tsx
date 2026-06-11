@@ -142,10 +142,16 @@ export default function AdminVentasPage() {
         s.notes || '',
       ])
 
+      // CSV injection: una celda que empieza con = + - @ se ejecuta como
+      // fórmula al abrir en Excel — se neutraliza anteponiendo apóstrofe
+      const sanitizeCell = (cell: unknown): string => {
+        const value = String(cell)
+        return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+      }
       const csvContent = [
         headers.join(','),
         ...rows.map((row) =>
-          row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+          row.map((cell) => `"${sanitizeCell(cell).replace(/"/g, '""')}"`).join(',')
         ),
       ].join('\n')
 

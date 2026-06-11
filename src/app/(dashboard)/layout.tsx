@@ -11,7 +11,6 @@ import {
   Calendar,
   Clock,
   History,
-  Gift,
   Menu,
   X,
   LogOut,
@@ -32,7 +31,9 @@ const navigation = [
   { name: 'Próximas Reservas', href: '/perfil/reservas', icon: Calendar, badgeKey: 'proximasReservas' as const },
   { name: 'Lista de Espera', href: '/perfil/espera', icon: Clock, badgeKey: 'listaEspera' as const },
   { name: 'Historial', href: '/perfil/historial', icon: History, badgeKey: null },
-  { name: 'Mis Invitaciones', href: '/perfil/invitaciones', icon: Gift, badgeKey: null },
+  // 'Mis Invitaciones' (programa de referidos) eliminado por decisión de
+  // negocio 2026-06-10: no habrá promoción de referidos. El modelo Referral
+  // queda en el schema solo como dato histórico.
 ]
 
 export default function DashboardLayout({

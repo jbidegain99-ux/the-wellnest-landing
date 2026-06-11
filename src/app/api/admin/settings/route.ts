@@ -6,18 +6,22 @@ import { prisma } from '@/lib/prisma'
 export const dynamic = 'force-dynamic'
 
 // Default settings values
+// NOTA: los campos de Stripe se eliminaron — el gateway es PayWay y un
+// secreto jamás debe vivir en SiteSettings en texto plano.
 const DEFAULT_SETTINGS: Record<string, string> = {
   siteName: 'Wellnest',
   siteDescription: 'Tu santuario de bienestar integral en El Salvador.',
   phone: '+503 1234 5678',
   email: 'hola@thewellnest.sv',
   address: 'Presidente Plaza, Colonia San Benito, San Salvador, El Salvador',
-  stripePublicKey: 'pk_test_...',
-  stripeSecretKey: 'sk_test_...',
-  cancellationHours: '8',
+  cancellationHours: '4',
   defaultCapacity: '15',
-  cancellationPolicy: 'Puedes cancelar tu reserva hasta 8 horas antes del inicio de la clase sin penalización. Las cancelaciones tardías o no asistencias resultarán en la pérdida de la clase de tu paquete.',
+  cancellationPolicy: 'Puedes cancelar tu reserva hasta 4 horas antes del inicio de la clase sin penalización. Las cancelaciones tardías o no asistencias resultarán en la pérdida de la clase de tu paquete.',
 }
+
+// Solo claves conocidas: antes el POST aceptaba y persistía cualquier clave
+// arbitraria (incluyendo secretos) sin validación
+const ALLOWED_KEYS = new Set(Object.keys(DEFAULT_SETTINGS))
 
 // GET - Retrieve all settings
 export async function GET() {
@@ -66,8 +70,31 @@ export async function POST(request: Request) {
       )
     }
 
+    const entries = Object.entries(settings).filter(([key]) => ALLOWED_KEYS.has(key))
+
+    if (entries.length === 0) {
+      return NextResponse.json(
+        { error: 'Ninguna clave de configuración válida' },
+        { status: 400 }
+      )
+    }
+
+    // Validar numéricos (cancellationHours también gobierna ventanas de
+    // reembolso — un NaN aquí rompe esos cálculos en silencio)
+    for (const [key, value] of entries) {
+      if (key === 'cancellationHours' || key === 'defaultCapacity') {
+        const n = Number(value)
+        if (!Number.isFinite(n) || n < 0 || n > 100) {
+          return NextResponse.json(
+            { error: `Valor inválido para ${key}: debe ser un número entre 0 y 100` },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
     // Upsert each setting
-    const updatePromises = Object.entries(settings).map(([key, value]) =>
+    const updatePromises = entries.map(([key, value]) =>
       prisma.siteSettings.upsert({
         where: { key },
         update: { value: String(value) },

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(newPassword, 12)
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, passwordChangedAt: new Date() },
     })
 
     return NextResponse.json({ success: true, message: 'Contraseña actualizada correctamente' })

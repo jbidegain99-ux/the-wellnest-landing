@@ -232,6 +232,16 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
+    // Las sesiones privadas 1:1 se reservan solo vía PrivateSessionRequest
+    // (el admin crea la reserva al confirmar) — no por este flujo genérico
+    if (classData.isPrivate) {
+      console.log('[RESERVATIONS API] ERROR: Class is private (1:1)')
+      return NextResponse.json({
+        error: 'Esta es una sesión privada. Solicítala desde tu perfil en "Sesión Privada".',
+        code: ERROR_CODES.CLASS_NOT_FOUND
+      }, { status: 400 })
+    }
+
     const classDateTime = new Date(classData.dateTime)
     const now = new Date()
 

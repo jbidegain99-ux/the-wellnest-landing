@@ -8,10 +8,34 @@ import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
+// Solo rutas internas: un redirect absoluto (https://evil.com) convertiría el
+// login en un open redirect para phishing post-autenticación. callbackUrl de
+// NextAuth puede venir como URL absoluta del mismo origen — se acepta solo esa.
+function safeInternalPath(value: string | null): string | null {
+  if (!value) return null
+  if (value.startsWith('/') && !value.startsWith('//') && !value.includes('\\')) {
+    return value
+  }
+  try {
+    const url = new URL(value)
+    if (typeof window !== 'undefined' && url.origin === window.location.origin) {
+      return url.pathname + url.search
+    }
+  } catch {
+    // no es URL válida
+  }
+  return null
+}
+
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirect = searchParams.get('redirect') || '/'
+  // redirect propio o callbackUrl que setea el middleware de NextAuth en
+  // deep-links protegidos — antes se ignoraba y aterrizaban en la home
+  const redirect =
+    safeInternalPath(searchParams.get('redirect')) ??
+    safeInternalPath(searchParams.get('callbackUrl')) ??
+    '/'
 
   const [showPassword, setShowPassword] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)

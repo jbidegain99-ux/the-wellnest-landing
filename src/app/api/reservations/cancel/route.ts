@@ -99,6 +99,16 @@ export async function POST(request: Request) {
       )
     }
 
+    // Las sesiones privadas 1:1 tienen su propio flujo (Class +
+    // PrivateSessionRequest): cancelarlas por aquí dejaría la sesión y la
+    // solicitud desincronizadas. Se coordinan con el estudio.
+    if (reservation.class.isPrivate) {
+      return NextResponse.json(
+        { error: 'Para cancelar o reagendar tu sesión privada, contáctanos por WhatsApp o en recepción.' },
+        { status: 400 }
+      )
+    }
+
     // Check if already cancelled
     if (reservation.status === 'CANCELLED') {
       console.log('[CANCEL API] ERROR: Reservation already cancelled')

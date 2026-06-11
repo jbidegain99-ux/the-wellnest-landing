@@ -58,7 +58,7 @@ export async function POST(
 
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, passwordChangedAt: new Date() },
     })
 
     const loginUrl = `${process.env.NEXTAUTH_URL || 'https://wellneststudio.net'}/login`

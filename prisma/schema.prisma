@@ -12,6 +12,9 @@ model User {
   id            String    @id @default(cuid())
   email         String    @unique
   password      String?
+  // Invalidación de sesiones JWT: el callback jwt compara la emisión del
+  // token contra este timestamp tras un reset/cambio de contraseña
+  passwordChangedAt DateTime?
   name          String
   phone         String?
   // Información fiscal para El Salvador

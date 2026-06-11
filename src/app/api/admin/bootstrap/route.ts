@@ -5,8 +5,16 @@ import { randomBytes } from 'crypto'
 
 // This endpoint creates the initial admin user ONLY if no users exist
 // After the first admin is created, this endpoint will always return 403
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    // Exigir secreto compartido: sin esto, cualquiera que llegue primero a una
+    // BD recién creada se vuelve ADMIN
+    const provided = request.headers.get('x-bootstrap-secret')
+    const expected = process.env.BOOTSTRAP_SECRET
+    if (!expected || provided !== expected) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+
     // Check if any users exist
     const userCount = await prisma.user.count()
 
@@ -53,9 +61,9 @@ export async function GET() {
   try {
     const userCount = await prisma.user.count()
 
+    // No exponer el conteo de usuarios públicamente
     return NextResponse.json({
       needsBootstrap: userCount === 0,
-      userCount,
     })
   } catch (error) {
     console.error('Bootstrap check error:', error)

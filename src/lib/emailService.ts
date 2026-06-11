@@ -1,3 +1,16 @@
+
+/**
+ * Escapa HTML en datos de usuario interpolados en plantillas (nombres, notas):
+ * sin esto, un nombre como "<img src=x onerror=...>" se inyecta en los emails.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
 export interface EmailAttachment {
   filename: string
   contentBase64: string
@@ -279,7 +292,7 @@ export interface GuestInvitationData {
 }
 
 export function buildGuestInvitationEmail(data: GuestInvitationData): string {
-  const greeting = data.guestName ? `Hola ${data.guestName}` : 'Hola'
+  const greeting = data.guestName ? `Hola ${escapeHtml(data.guestName)}` : 'Hola'
 
   return `
 <!DOCTYPE html>
@@ -428,7 +441,7 @@ export interface ReservationConfirmationData {
 }
 
 export function buildReservationConfirmationEmail(data: ReservationConfirmationData): string {
-  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+  const greeting = data.userName ? `Hola ${escapeHtml(data.userName)}` : 'Hola'
 
   return `
 <!DOCTYPE html>
@@ -558,7 +571,7 @@ export interface WaitlistAssignedEmailData {
 }
 
 export function buildWaitlistAssignedEmail(data: WaitlistAssignedEmailData): string {
-  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+  const greeting = data.userName ? `Hola ${escapeHtml(data.userName)}` : 'Hola'
 
   return `
 <!DOCTYPE html>
@@ -695,7 +708,7 @@ export interface TrialPackageEmailData {
 }
 
 export function buildTrialPackageEmail(data: TrialPackageEmailData): string {
-  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+  const greeting = data.userName ? `Hola ${escapeHtml(data.userName)}` : 'Hola'
 
   return `
 <!DOCTYPE html>
@@ -1054,7 +1067,7 @@ export function buildAdminPrivateSessionNotification(data: AdminPrivateSessionNo
     : '<p style="margin:6px 0;color:#6B7280;"><em>Sin preferencia de instructor</em></p>'
 
   const notesRow = data.notes
-    ? `<p style="margin:12px 0 6px;"><strong>Notas:</strong></p><p style="margin:0;color:#374151;white-space:pre-wrap;">${data.notes}</p>`
+    ? `<p style="margin:12px 0 6px;"><strong>Notas:</strong></p><p style="margin:0;color:#374151;white-space:pre-wrap;">${escapeHtml(data.notes)}</p>`
     : ''
 
   return `<!DOCTYPE html>
@@ -1066,7 +1079,7 @@ export function buildAdminPrivateSessionNotification(data: AdminPrivateSessionNo
         <tr><td style="padding:32px;">
           <h1 style="color:#1F2937;margin:0 0 8px;font-size:20px;font-weight:600;">Nueva solicitud de sesi&oacute;n privada</h1>
           <p style="color:#6B7280;margin:0 0 24px;font-size:14px;">Wellnest Studio</p>
-          <p style="margin:0 0 4px;"><strong>Cliente:</strong> ${data.userName}</p>
+          <p style="margin:0 0 4px;"><strong>Cliente:</strong> ${escapeHtml(data.userName)}</p>
           <p style="margin:0 0 16px;color:#6B7280;font-size:14px;">${data.userEmail}</p>
           <p style="margin:6px 0;"><strong>Disciplina solicitada:</strong> ${data.disciplineName}</p>
           ${instructorRow}
@@ -1099,7 +1112,7 @@ export interface PrivateSessionConfirmationData {
 }
 
 export function buildPrivateSessionConfirmationEmail(data: PrivateSessionConfirmationData): string {
-  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+  const greeting = data.userName ? `Hola ${escapeHtml(data.userName)}` : 'Hola'
   const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
 
   const sessionsBlock = data.sessions
@@ -1155,7 +1168,7 @@ export interface PrivateSessionRejectionData {
 }
 
 export function buildPrivateSessionRejectionEmail(data: PrivateSessionRejectionData): string {
-  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+  const greeting = data.userName ? `Hola ${escapeHtml(data.userName)}` : 'Hola'
   const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
   const reasonBlock = data.reason
     ? `<p style="color:#6B7280;margin:12px 0;font-size:14px;line-height:1.5;"><strong>Motivo:</strong> ${data.reason}</p>`
@@ -1199,7 +1212,7 @@ export interface ClassCancelledEmailData {
 }
 
 export function buildClassCancelledEmail(data: ClassCancelledEmailData): string {
-  const greeting = data.userName ? `Hola ${data.userName}` : 'Hola'
+  const greeting = data.userName ? `Hola ${escapeHtml(data.userName)}` : 'Hola'
   const refundText =
     data.classesRefunded === 1
       ? 'Devolvimos 1 clase a tu paquete'

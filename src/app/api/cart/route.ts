@@ -146,9 +146,10 @@ export async function DELETE(request: Request) {
     const itemId = searchParams.get('itemId')
 
     if (itemId) {
-      // Delete specific item
-      await prisma.cartItem.delete({
-        where: { id: itemId },
+      // Delete specific item — acotado a la sesión propia (IDOR: sin el
+      // sessionId cualquiera podía borrar items de otros carritos por id)
+      await prisma.cartItem.deleteMany({
+        where: { id: itemId, sessionId },
       })
     } else {
       // Clear entire cart
@@ -169,6 +170,7 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const sessionId = await getCartSessionId()
     const body = await request.json()
     const { itemId, quantity } = body
 
@@ -179,18 +181,35 @@ export async function PATCH(request: Request) {
       )
     }
 
+    // Entero acotado: sin esto se aceptaban cantidades fraccionarias o absurdas
+    if (typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity > 20) {
+      return NextResponse.json(
+        { error: 'Cantidad inválida' },
+        { status: 400 }
+      )
+    }
+
     if (quantity <= 0) {
-      await prisma.cartItem.delete({
-        where: { id: itemId },
+      await prisma.cartItem.deleteMany({
+        where: { id: itemId, sessionId },
       })
       return NextResponse.json({ deleted: true })
     }
 
-    const cartItem = await prisma.cartItem.update({
-      where: { id: itemId },
+    // updateMany acotado a la sesión propia (IDOR) — luego se relee el item
+    const updated = await prisma.cartItem.updateMany({
+      where: { id: itemId, sessionId },
       data: { quantity },
     })
 
+    if (updated.count === 0) {
+      return NextResponse.json(
+        { error: 'Item no encontrado en tu carrito' },
+        { status: 404 }
+      )
+    }
+
+    const cartItem = await prisma.cartItem.findUnique({ where: { id: itemId } })
     return NextResponse.json(cartItem)
   } catch (error) {
     console.error('Error updating cart:', error)

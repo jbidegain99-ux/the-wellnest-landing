@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { sendEmail } from '@/lib/emailService'
+import { checkRateLimit, requestIp } from '@/lib/rateLimit'
 
 function escapeHtml(value: string): string {
   return value
@@ -12,15 +13,24 @@ function escapeHtml(value: string): string {
 }
 
 const contactSchema = z.object({
-  name: z.string().min(2, 'Nombre muy corto'),
-  email: z.string().email('Email inválido'),
-  phone: z.string().optional(),
-  subject: z.string().min(3, 'Asunto muy corto'),
-  message: z.string().min(10, 'Mensaje muy corto'),
+  name: z.string().min(2, 'Nombre muy corto').max(100, 'Nombre muy largo'),
+  email: z.string().email('Email inválido').max(254),
+  phone: z.string().max(30).optional(),
+  subject: z.string().min(3, 'Asunto muy corto').max(200, 'Asunto muy largo'),
+  message: z.string().min(10, 'Mensaje muy corto').max(5000, 'Mensaje muy largo'),
 })
 
 export async function POST(request: Request) {
   try {
+    // 5 mensajes / 10 min por IP (spam del formulario público)
+    const rl = checkRateLimit(`contact:${requestIp(request)}`, 5, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados mensajes. Intenta de nuevo en unos minutos.' },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
 
     const validation = contactSchema.safeParse(body)

@@ -12,6 +12,12 @@ export async function GET(
   { params }: { params: Promise<{ key: string }> }
 ) {
   try {
+    // Mismo guard ADMIN que el PUT — es un endpoint /api/admin/*
+    const session = await getServerSession(authOptions)
+    if (!session || session.user?.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
     const { key } = await params
 
     const asset = await prisma.brandAsset.findUnique({
@@ -51,12 +57,19 @@ export async function PUT(
       return NextResponse.json({ error: 'URL es requerida' }, { status: 400 })
     }
 
-    // Validate URL format
+    // Validate URL format — solo http(s) o rutas internas; esquemas como
+    // javascript:/data: terminarían inyectados en atributos src del sitio
     try {
-      new URL(url)
+      const parsed = new URL(url)
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        return NextResponse.json(
+          { error: 'URL inválida. Solo se permiten URLs https/http o rutas internas.' },
+          { status: 400 }
+        )
+      }
     } catch {
       // If not a valid URL, check if it's a valid internal path
-      if (!url.startsWith('/')) {
+      if (!url.startsWith('/') || url.startsWith('//')) {
         return NextResponse.json(
           { error: 'URL inválida. Debe ser una URL absoluta o una ruta interna que empiece con /' },
           { status: 400 }
