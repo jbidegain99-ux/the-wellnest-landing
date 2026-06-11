@@ -283,18 +283,29 @@ export default function AdminInstructoresPage() {
     setIsReordering(instructor.id)
 
     try {
-      await Promise.all([
-        fetch(`/api/admin/instructors/${instructor.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order: other.order }),
-        }),
-        fetch(`/api/admin/instructors/${other.id}`, {
+      // Secuencial y verificando res.ok: dos PUT en paralelo sin chequeo
+      // podian dejar orden duplicado si uno fallaba
+      const first = await fetch(`/api/admin/instructors/${instructor.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: other.order }),
+      })
+      if (!first.ok) throw new Error('swap-1 failed')
+
+      const second = await fetch(`/api/admin/instructors/${other.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: instructor.order }),
+      })
+      if (!second.ok) {
+        // revertir el primero para no dejar orden duplicado
+        await fetch(`/api/admin/instructors/${instructor.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ order: instructor.order }),
-        }),
-      ])
+        }).catch(() => {})
+        throw new Error('swap-2 failed')
+      }
       await fetchInstructors()
     } catch (error) {
       showError('Error al reordenar')

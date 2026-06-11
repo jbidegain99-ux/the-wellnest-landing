@@ -31,6 +31,7 @@ export default function CarritoPage() {
   const router = useRouter()
   const [cartItems, setCartItems] = React.useState<CartItem[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [hasLoadError, setHasLoadError] = React.useState(false)
   const [discountCode, setDiscountCode] = React.useState('')
   const [appliedDiscount, setAppliedDiscount] = React.useState<AppliedDiscount | null>(null)
   const [discountError, setDiscountError] = React.useState('')
@@ -38,23 +39,30 @@ export default function CarritoPage() {
   const [isUpdating, setIsUpdating] = React.useState<string | null>(null)
 
   // Fetch cart from API
-  React.useEffect(() => {
-    const fetchCart = async () => {
-      try {
-        const response = await fetch('/api/cart')
-        if (response.ok) {
-          const data = await response.json()
-          setCartItems(data)
-        }
-      } catch (error) {
-        console.error('Error fetching cart:', error)
-      } finally {
-        setIsLoading(false)
+  const fetchCart = React.useCallback(async () => {
+    setIsLoading(true)
+    setHasLoadError(false)
+    try {
+      const response = await fetch('/api/cart')
+      if (response.ok) {
+        const data = await response.json()
+        setCartItems(data)
+      } else {
+        // Un error del servidor NO significa "carrito vacío" — mostrarlo
+        // como tal evita el falso negativo.
+        setHasLoadError(true)
       }
+    } catch (error) {
+      console.error('Error fetching cart:', error)
+      setHasLoadError(true)
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchCart()
   }, [])
+
+  React.useEffect(() => {
+    fetchCart()
+  }, [fetchCart])
 
   const subtotal = cartItems.reduce(
     (sum, item) => sum + (item.package?.price || 0) * item.quantity,
@@ -167,6 +175,21 @@ export default function CarritoPage() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (hasLoadError) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 text-center">
+        <ShoppingBag className="h-16 w-16 mx-auto text-gray-400 mb-6" />
+        <h1 className="font-serif text-3xl font-semibold text-foreground mb-4">
+          No pudimos cargar tu carrito
+        </h1>
+        <p className="text-gray-600 mb-8">
+          Ocurrió un error al cargar tu carrito. Revisa tu conexión e intenta de nuevo.
+        </p>
+        <Button onClick={fetchCart}>Reintentar</Button>
       </div>
     )
   }

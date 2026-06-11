@@ -10,7 +10,10 @@ export interface InputProps
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, label, error, icon, id, ...props }, ref) => {
-    const inputId = id || React.useId()
+    // Hook incondicional (Reglas de Hooks): `id || useId()` corto-circuita
+    // el hook cuando id existe y rompe el orden de hooks entre renders
+    const generatedId = React.useId()
+    const inputId = id ?? generatedId
 
     return (
       <div className="w-full">

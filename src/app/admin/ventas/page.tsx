@@ -52,6 +52,8 @@ export default function AdminVentasPage() {
 
   // Filters
   const [searchQuery, setSearchQuery] = React.useState('')
+  // El fetch usa la versión debounced: antes se disparaba un request por tecla
+  const [debouncedQuery, setDebouncedQuery] = React.useState('')
   const [paymentMethod, setPaymentMethod] = React.useState('')
   const [startDate, setStartDate] = React.useState('')
   const [endDate, setEndDate] = React.useState('')
@@ -59,9 +61,17 @@ export default function AdminVentasPage() {
   const [showFilters, setShowFilters] = React.useState(false)
   const [isExporting, setIsExporting] = React.useState(false)
 
-  const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+  // Token de secuencia: descarta respuestas fuera de orden (la lenta de "a"
+  // no debe pisar la rápida de "ana")
+  const fetchSeqRef = React.useRef(0)
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   const fetchSales = React.useCallback(async (page = 0) => {
+    const seq = ++fetchSeqRef.current
     setIsLoading(true)
     try {
       const params = new URLSearchParams({
@@ -69,12 +79,13 @@ export default function AdminVentasPage() {
         limit: '50',
         sortOrder,
       })
-      if (searchQuery) params.append('search', searchQuery)
+      if (debouncedQuery) params.append('search', debouncedQuery)
       if (paymentMethod) params.append('paymentMethod', paymentMethod)
       if (startDate) params.append('startDate', startDate)
       if (endDate) params.append('endDate', endDate)
 
       const response = await fetch(`/api/admin/sales?${params}`)
+      if (seq !== fetchSeqRef.current) return // respuesta vieja: descartar
       if (response.ok) {
         const data = await response.json()
         setSales(data.sales)
@@ -83,9 +94,9 @@ export default function AdminVentasPage() {
     } catch (error) {
       console.error('Error fetching sales:', error)
     } finally {
-      setIsLoading(false)
+      if (seq === fetchSeqRef.current) setIsLoading(false)
     }
-  }, [searchQuery, paymentMethod, startDate, endDate, sortOrder])
+  }, [debouncedQuery, paymentMethod, startDate, endDate, sortOrder])
 
   React.useEffect(() => {
     fetchSales(0)
@@ -93,10 +104,6 @@ export default function AdminVentasPage() {
 
   const handleSearch = (value: string) => {
     setSearchQuery(value)
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-    searchTimeoutRef.current = setTimeout(() => {
-      // fetchSales will be triggered by the useEffect when searchQuery changes
-    }, 300)
   }
 
   const handleExportCSV = async () => {

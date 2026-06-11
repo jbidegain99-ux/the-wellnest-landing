@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getNowInSV } from '@/lib/utils/timezone'
+import { EXCLUDED_USER_IDS } from '@/lib/constants'
 
 interface SubsequentPurchase {
   packageName: string
@@ -64,6 +64,8 @@ export async function GET() {
     const trialPurchases = await prisma.purchase.findMany({
       where: {
         packageId: { in: trialPackageIds },
+        // Cuentas de prueba fuera de las métricas de conversión
+        userId: { notIn: EXCLUDED_USER_IDS },
       },
       include: {
         user: {
@@ -89,21 +91,35 @@ export async function GET() {
       return true
     })
 
-    // 4. For each trial user, find subsequent paid purchases
-    const now = getNowInSV()
-    const users: TrialUserReport[] = await Promise.all(
-      uniqueTrialPurchases.map(async (tp) => {
-        const subsequentPurchases = await prisma.purchase.findMany({
-          where: {
-            userId: tp.userId,
-            createdAt: { gt: tp.createdAt },
-            package: { price: { gt: 0 } },
-          },
-          include: {
-            package: { select: { name: true, price: true } },
-          },
-          orderBy: { createdAt: 'asc' },
-        })
+    // 4. For each trial user, find subsequent paid purchases.
+    // Una sola query userId IN (...) agrupada en memoria — antes era una
+    // query por usuario (N+1).
+    // new Date() para filtros Prisma: getNowInSV devuelve un epoch corrido
+    // -6h que NO debe compararse contra timestamps UTC de la BD
+    const now = new Date()
+    const trialUserIds = uniqueTrialPurchases.map((tp) => tp.userId)
+    const allSubsequent = await prisma.purchase.findMany({
+      where: {
+        userId: { in: trialUserIds },
+        package: { price: { gt: 0 } },
+      },
+      include: {
+        package: { select: { name: true, price: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+    const subsequentByUser = new Map<string, typeof allSubsequent>()
+    for (const sp of allSubsequent) {
+      const list = subsequentByUser.get(sp.userId) ?? []
+      list.push(sp)
+      subsequentByUser.set(sp.userId, list)
+    }
+
+    const users: TrialUserReport[] = uniqueTrialPurchases.map((tp) => {
+      {
+        const subsequentPurchases = (subsequentByUser.get(tp.userId) ?? []).filter(
+          (sp) => sp.createdAt > tp.createdAt
+        )
 
         const subsequentData: SubsequentPurchase[] = subsequentPurchases.map((sp) => ({
           packageName: sp.package.name,
@@ -132,8 +148,8 @@ export async function GET() {
           totalSpentAfterTrial: Math.round(totalSpentAfterTrial * 100) / 100,
           daysSinceTrialPurchase,
         }
-      })
-    )
+      }
+    })
 
     // 5. Calculate summary
     const totalTrialUsers = users.length

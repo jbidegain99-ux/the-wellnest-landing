@@ -21,18 +21,26 @@ interface WaitlistItem {
 export default function ListaEsperaPage() {
   const [items, setItems] = React.useState<WaitlistItem[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [hasLoadError, setHasLoadError] = React.useState(false)
   const [removingId, setRemovingId] = React.useState<string | null>(null)
   const [message, setMessage] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const fetchWaitlist = async () => {
+    setIsLoading(true)
+    setHasLoadError(false)
     try {
       const response = await fetch('/api/waitlist')
       if (response.ok) {
         const data = await response.json()
         setItems(data.items)
+      } else {
+        // Un error del servidor NO significa "no estás en ninguna lista" —
+        // mostrarlo como tal evita el falso negativo.
+        setHasLoadError(true)
       }
     } catch (error) {
       console.error('Error fetching waitlist:', error)
+      setHasLoadError(true)
     } finally {
       setIsLoading(false)
     }
@@ -106,7 +114,22 @@ export default function ListaEsperaPage() {
       )}
 
       {/* Waitlist Items */}
-      {items.length === 0 ? (
+      {hasLoadError ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <h3 className="font-medium text-foreground mb-2">
+              No pudimos cargar tu lista de espera
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Revisa tu conexión e intenta de nuevo.
+            </p>
+            <Button variant="outline" onClick={fetchWaitlist}>
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      ) : items.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Clock className="h-12 w-12 mx-auto text-gray-400 mb-4" />

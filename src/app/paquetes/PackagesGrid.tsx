@@ -121,11 +121,13 @@ export function PackagesGrid({ packages, colors, purchasedSinglePackageIds = [] 
         const data = await response.json()
         if (data.code === 'SINGLE_PURCHASE_LIMIT') {
           setClaimedSingleIds(prev => [...prev, pkg.id])
-          setCartError(data.error)
         }
+        // Mostrar SIEMPRE el error para no fallar en silencio.
+        setCartError(data.error || 'No pudimos agregar el paquete al carrito. Intenta de nuevo.')
       }
     } catch (error) {
       console.error('Error adding to cart:', error)
+      setCartError('No pudimos agregar el paquete al carrito. Revisa tu conexión e intenta de nuevo.')
     } finally {
       setIsAddingToCart(null)
     }

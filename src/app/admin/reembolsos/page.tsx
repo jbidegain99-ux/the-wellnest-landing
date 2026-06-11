@@ -61,6 +61,7 @@ export default function AdminReembolsosPage() {
     REJECTED: 0,
   })
   const [isLoading, setIsLoading] = React.useState(true)
+  const [hasLoadError, setHasLoadError] = React.useState(false)
   const [selectedRequest, setSelectedRequest] = React.useState<RefundRequest | null>(null)
   const [actionNotes, setActionNotes] = React.useState('')
   const [customAmount, setCustomAmount] = React.useState<string>('')
@@ -69,6 +70,7 @@ export default function AdminReembolsosPage() {
 
   const fetchRequests = async () => {
     setIsLoading(true)
+    setHasLoadError(false)
     try {
       const url = filter ? `/api/admin/refunds?status=${filter}` : '/api/admin/refunds'
       const response = await fetch(url)
@@ -76,9 +78,14 @@ export default function AdminReembolsosPage() {
         const data = await response.json()
         setRequests(data.refundRequests)
         setStatusCounts(data.statusCounts)
+      } else {
+        // Un error del servidor NO significa "sin solicitudes" — mostrarlo
+        // como tal evita el falso negativo.
+        setHasLoadError(true)
       }
     } catch (error) {
       console.error('Error fetching requests:', error)
+      setHasLoadError(true)
     } finally {
       setIsLoading(false)
     }
@@ -167,6 +174,18 @@ export default function AdminReembolsosPage() {
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : hasLoadError ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-500 mb-6">
+              No pudimos cargar las solicitudes de reembolso. Intenta de nuevo.
+            </p>
+            <Button variant="outline" onClick={fetchRequests}>
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
       ) : requests.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">

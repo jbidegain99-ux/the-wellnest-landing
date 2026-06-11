@@ -60,6 +60,7 @@ function getClassStatus(dateTime: string, duration: number): 'upcoming' | 'activ
 export default function AsistenciasPage() {
   const [classes, setClasses] = React.useState<AttendanceClass[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [hasLoadError, setHasLoadError] = React.useState(false)
   const [selectedDate, setSelectedDate] = React.useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -67,15 +68,21 @@ export default function AsistenciasPage() {
 
   const fetchClasses = React.useCallback(async () => {
     setIsLoading(true)
+    setHasLoadError(false)
     try {
       const dateStr = selectedDate.toISOString().split('T')[0]
       const response = await fetch(`/api/admin/attendance/classes?date=${dateStr}`)
       if (response.ok) {
         const data = await response.json()
         setClasses(data)
+      } else {
+        // Un error del servidor NO significa "sin clases este día" —
+        // mostrarlo como tal evita el falso negativo.
+        setHasLoadError(true)
       }
     } catch (error) {
       console.error('Error fetching attendance classes:', error)
+      setHasLoadError(true)
     } finally {
       setIsLoading(false)
     }
@@ -170,6 +177,21 @@ export default function AsistenciasPage() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : hasLoadError ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <h3 className="font-medium text-foreground mb-2">
+              No pudimos cargar las clases
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Ocurrió un error al cargar las clases del día. Intenta de nuevo.
+            </p>
+            <Button variant="outline" onClick={fetchClasses}>
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
       ) : classes.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">

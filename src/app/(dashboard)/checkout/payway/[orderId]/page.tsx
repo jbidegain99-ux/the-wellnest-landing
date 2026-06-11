@@ -134,6 +134,25 @@ export default function PayWayCheckoutPage() {
     }
   }, [urlStatus, errorReason])
 
+  // Polling del estado de la orden durante el pago: si el redirect de PayWay
+  // se pierde (popup cerrado, red), el usuario igual aterriza en success al
+  // detectarse la orden PAID.
+  React.useEffect(() => {
+    if (pageStatus !== 'processing' && pageStatus !== 'review') return
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/orders?id=${orderId}`)
+        const data = await response.json().catch(() => null)
+        if (response.ok && data?.order?.status === 'PAID') {
+          router.push(`/checkout/success/${orderId}`)
+        }
+      } catch {
+        // siguiente tick
+      }
+    }, 7000)
+    return () => clearInterval(interval)
+  }, [pageStatus, orderId, router])
+
   const fetchOrderData = async () => {
     try {
       setPageStatus('loading')

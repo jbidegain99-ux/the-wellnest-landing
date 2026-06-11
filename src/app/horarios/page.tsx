@@ -270,6 +270,7 @@ export default function HorariosPage() {
   const [disciplines, setDisciplines] = React.useState<Discipline[]>([])
   const [classes, setClasses] = React.useState<ClassData[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [hasLoadError, setHasLoadError] = React.useState(false)
   const [currentWeekStart, setCurrentWeekStart] = React.useState(() => {
     return startOfWeek(new Date(), { weekStartsOn: 1 })
   })
@@ -323,43 +324,55 @@ export default function HorariosPage() {
         if (response.ok) {
           const data = await response.json()
           setActivePurchase(data)
+        } else {
+          // Error del servidor = estado desconocido: NO bloquear con el modal
+          // de "sin paquete"; el backend re-valida al reservar.
+          setActivePurchase(null)
         }
       } catch (error) {
         console.error('Error fetching active purchase:', error)
+        setActivePurchase(null)
       }
     }
     fetchActivePurchase()
   }, [session])
 
   // Fetch classes for current week
-  React.useEffect(() => {
-    const fetchClasses = async () => {
-      setIsLoading(true)
-      try {
-        const startDate = format(currentWeekStart, 'yyyy-MM-dd')
-        const endDate = format(weekEnd, 'yyyy-MM-dd')
+  const fetchClasses = React.useCallback(async () => {
+    setIsLoading(true)
+    setHasLoadError(false)
+    try {
+      const startDate = format(currentWeekStart, 'yyyy-MM-dd')
+      const endDate = format(weekEnd, 'yyyy-MM-dd')
 
-        let url = `/api/classes?startDate=${startDate}&endDate=${endDate}`
-        if (selectedDiscipline !== 'all') {
-          const discipline = disciplines.find(d => d.slug === selectedDiscipline)
-          if (discipline) {
-            url += `&disciplineId=${discipline.id}`
-          }
+      let url = `/api/classes?startDate=${startDate}&endDate=${endDate}`
+      if (selectedDiscipline !== 'all') {
+        const discipline = disciplines.find(d => d.slug === selectedDiscipline)
+        if (discipline) {
+          url += `&disciplineId=${discipline.id}`
         }
-
-        const response = await fetch(url)
-        if (response.ok) {
-          const data = await response.json()
-          setClasses(data)
-        }
-      } catch (error) {
-        console.error('Error fetching classes:', error)
-      } finally {
-        setIsLoading(false)
       }
+
+      const response = await fetch(url)
+      if (response.ok) {
+        const data = await response.json()
+        setClasses(data)
+      } else {
+        // Un error del servidor NO significa "sin clases" — mostrarlo
+        // como tal evita el falso negativo de calendario vacío.
+        setHasLoadError(true)
+      }
+    } catch (error) {
+      console.error('Error fetching classes:', error)
+      setHasLoadError(true)
+    } finally {
+      setIsLoading(false)
     }
-    fetchClasses()
   }, [currentWeekStart, selectedDiscipline, disciplines, weekEnd])
+
+  React.useEffect(() => {
+    fetchClasses()
+  }, [fetchClasses])
 
   const goToPreviousWeek = () => {
     setCurrentWeekStart(addDays(currentWeekStart, -7))
@@ -415,7 +428,13 @@ export default function HorariosPage() {
     // For non-full classes, require an active package to proceed.
     // Full classes go to /reservar where the waitlist-confirm modal handles
     // the no-package case with a warning (per spec).
-    if (!isFull && (!activePurchase?.hasActivePackage || activePurchase.classesRemaining <= 0)) {
+    // Si activePurchase es null (fetch fallido o aún cargando) el estado es
+    // desconocido: dejamos pasar al flujo normal y el backend re-valida.
+    if (
+      !isFull &&
+      activePurchase &&
+      (!activePurchase.hasActivePackage || activePurchase.classesRemaining <= 0)
+    ) {
       setShowNoPackageModal(true)
       return
     }
@@ -489,6 +508,15 @@ export default function HorariosPage() {
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : hasLoadError ? (
+            <div className="py-12 text-center bg-white rounded-2xl shadow-sm">
+              <p className="text-gray-600 mb-4">
+                No pudimos cargar los horarios. Revisa tu conexión e intenta de nuevo.
+              </p>
+              <Button variant="outline" onClick={fetchClasses} className="min-h-[44px]">
+                Reintentar
+              </Button>
             </div>
           ) : (
             <>

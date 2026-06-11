@@ -78,3 +78,14 @@ tsconfig.tsbuildinfo
 *.tsbuildinfo
 .vercel
 .env*.local
+
+# Dumps y auditorías con datos de producción (nunca commitear)
+backup_*.sql
+backup_*.json
+audit_*.json
+audit_*.csv
+audit-*.json
+*.xlsx
+scripts/_data/
+HALLAZGO_*.md
+AUDITORIA_DISCREPANCIA_*.md

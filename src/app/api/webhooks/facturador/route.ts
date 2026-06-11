@@ -76,14 +76,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing correlation_id' }, { status: 400 })
     }
 
-    // 5. Verify purchase exists
-    const purchase = await prisma.purchase.findUnique({
+    // 5. Verify purchase exists. Wellnest envía como referencia el formato
+    // compuesto `orderId_purchaseId` en algunos flujos: si el lookup directo
+    // falla, intentar con el segmento tras el último `_`.
+    const purchaseInclude = {
+      user: { select: { id: true, name: true, email: true } },
+      package: { select: { name: true } },
+    } as const
+
+    let purchase = await prisma.purchase.findUnique({
       where: { id: purchaseId },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        package: { select: { name: true } },
-      },
+      include: purchaseInclude,
     })
+
+    if (!purchase && purchaseId.includes('_')) {
+      const lastSegment = purchaseId.slice(purchaseId.lastIndexOf('_') + 1)
+      purchase = await prisma.purchase.findUnique({
+        where: { id: lastSegment },
+        include: purchaseInclude,
+      })
+      if (purchase) {
+        console.log('[FACTURADOR-WEBHOOK] Resolved composite correlation_id:', {
+          received: purchaseId,
+          resolved: lastSegment,
+        })
+      }
+    }
 
     if (!purchase) {
       console.error('[FACTURADOR-WEBHOOK] Purchase not found:', purchaseId)

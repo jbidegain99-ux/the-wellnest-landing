@@ -40,6 +40,22 @@ export async function GET(request: Request) {
       ]
     }
 
+    // Endpoint público: el rango es OBLIGATORIO y acotado — sin él se
+    // devolvía toda la tabla histórica con includes completos
+    if (!startDate || !endDate) {
+      return NextResponse.json(
+        { error: 'startDate y endDate son requeridos (YYYY-MM-DD)' },
+        { status: 400 }
+      )
+    }
+    const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+    if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) {
+      return NextResponse.json(
+        { error: 'Formato de fecha inválido (YYYY-MM-DD)' },
+        { status: 400 }
+      )
+    }
+
     if (startDate && endDate) {
       // Parse dates for El Salvador timezone (UTC-6)
       // The frontend sends dates in YYYY-MM-DD format representing El Salvador dates
@@ -64,6 +80,20 @@ export async function GET(request: Request) {
         EL_SALVADOR_UTC_OFFSET_HOURS - 1, // 5 AM UTC = 11 PM El Salvador previous day
         59, 59, 999
       ))
+
+      // Ventana máxima de 8 semanas
+      const MAX_RANGE_MS = 56 * 24 * 60 * 60 * 1000
+      if (
+        Number.isNaN(start.getTime()) ||
+        Number.isNaN(end.getTime()) ||
+        end.getTime() - start.getTime() > MAX_RANGE_MS ||
+        end < start
+      ) {
+        return NextResponse.json(
+          { error: 'Rango de fechas inválido (máximo 8 semanas)' },
+          { status: 400 }
+        )
+      }
 
       where.dateTime = {
         gte: start,

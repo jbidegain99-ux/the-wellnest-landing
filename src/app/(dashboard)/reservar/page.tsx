@@ -289,6 +289,7 @@ export default function ReservarPage() {
   // tell a transient API failure apart from a genuine "no compatible package".
   const [bookableStatus, setBookableStatus] = React.useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const [isLoading, setIsLoading] = React.useState(true)
+  const [hasClassesLoadError, setHasClassesLoadError] = React.useState(false)
   const [reservedClassIds, setReservedClassIds] = React.useState<Set<string>>(new Set())
   const [waitlistEntries, setWaitlistEntries] = React.useState<
     Map<string, { id: string; position: number }>
@@ -455,34 +456,41 @@ export default function ReservarPage() {
   }, [packageIdFromUrl])
 
   // Fetch classes for current week
-  React.useEffect(() => {
-    const fetchClasses = async () => {
-      setIsLoading(true)
-      try {
-        const startDate = format(currentWeekStart, 'yyyy-MM-dd')
-        const endDate = format(weekEnd, 'yyyy-MM-dd')
+  const fetchClasses = React.useCallback(async () => {
+    setIsLoading(true)
+    setHasClassesLoadError(false)
+    try {
+      const startDate = format(currentWeekStart, 'yyyy-MM-dd')
+      const endDate = format(weekEnd, 'yyyy-MM-dd')
 
-        let url = `/api/classes?startDate=${startDate}&endDate=${endDate}`
-        if (selectedDiscipline !== 'all') {
-          const discipline = disciplines.find(d => d.slug === selectedDiscipline)
-          if (discipline) {
-            url += `&disciplineId=${discipline.id}`
-          }
+      let url = `/api/classes?startDate=${startDate}&endDate=${endDate}`
+      if (selectedDiscipline !== 'all') {
+        const discipline = disciplines.find(d => d.slug === selectedDiscipline)
+        if (discipline) {
+          url += `&disciplineId=${discipline.id}`
         }
-
-        const response = await fetch(url)
-        if (response.ok) {
-          const data = await response.json()
-          setClasses(data)
-        }
-      } catch (error) {
-        console.error('Error fetching classes:', error)
-      } finally {
-        setIsLoading(false)
       }
+
+      const response = await fetch(url)
+      if (response.ok) {
+        const data = await response.json()
+        setClasses(data)
+      } else {
+        // Un error del servidor NO significa "sin clases" — mostrarlo
+        // como tal evita el falso negativo de calendario vacío.
+        setHasClassesLoadError(true)
+      }
+    } catch (error) {
+      console.error('Error fetching classes:', error)
+      setHasClassesLoadError(true)
+    } finally {
+      setIsLoading(false)
     }
-    fetchClasses()
   }, [currentWeekStart, selectedDiscipline, disciplines, weekEnd])
+
+  React.useEffect(() => {
+    fetchClasses()
+  }, [fetchClasses])
 
   // Track if we've already processed the classIdFromUrl to prevent reopening
   const [classIdProcessed, setClassIdProcessed] = React.useState(false)
@@ -922,6 +930,18 @@ export default function ReservarPage() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      ) : hasClassesLoadError ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-600 mb-6">
+              No pudimos cargar el calendario de clases. Revisa tu conexión e intenta de nuevo.
+            </p>
+            <Button variant="outline" onClick={fetchClasses}>
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <>
           {/* Mobile Agenda View */}

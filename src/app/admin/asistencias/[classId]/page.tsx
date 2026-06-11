@@ -130,7 +130,13 @@ export default function ClassAttendancePage() {
     }
   }
 
+  // Guard de doble tap + error visible: antes el toggle era ciego (sin
+  // feedback de fallo) y dos taps rapidos disparaban dos requests
+  const [checkingInId, setCheckingInId] = React.useState<string | null>(null)
+
   const handleManualCheckIn = async (reservationId: string) => {
+    if (checkingInId) return
+    setCheckingInId(reservationId)
     try {
       const response = await fetch('/api/admin/attendance/manual', {
         method: 'POST',
@@ -140,9 +146,18 @@ export default function ClassAttendancePage() {
 
       if (response.ok) {
         await fetchClassData()
+      } else {
+        const data = await response.json().catch(() => null)
+        setScanResult({
+          type: 'error',
+          message: data?.error || 'No se pudo registrar el check-in. Intenta de nuevo.',
+        })
       }
     } catch (error) {
       console.error('Error manual check-in:', error)
+      setScanResult({ type: 'error', message: 'Error de conexión al registrar check-in' })
+    } finally {
+      setCheckingInId(null)
     }
   }
 
@@ -345,7 +360,8 @@ export default function ClassAttendancePage() {
                         </div>
                         <button
                           onClick={() => handleManualCheckIn(reservation.id)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          disabled={checkingInId !== null}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
                           title="Deshacer check-in"
                         >
                           <X className="h-4 w-4" />
@@ -354,7 +370,8 @@ export default function ClassAttendancePage() {
                     ) : (
                       <button
                         onClick={() => handleManualCheckIn(reservation.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
+                        disabled={checkingInId !== null}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-primary bg-primary/5 hover:bg-primary/10 transition-colors disabled:opacity-50"
                       >
                         <Check className="h-4 w-4" />
                         Check-in

@@ -37,24 +37,33 @@ export default function HistorialPage() {
   const [history, setHistory] = React.useState<HistoryEntry[]>([])
   const [stats, setStats] = React.useState<HistoryStats | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [hasLoadError, setHasLoadError] = React.useState(false)
+
+  const fetchHistory = React.useCallback(async () => {
+    setIsLoading(true)
+    setHasLoadError(false)
+    try {
+      const response = await fetch('/api/user/history')
+      if (response.ok) {
+        const data = await response.json()
+        setHistory(data.reservations)
+        setStats(data.stats)
+      } else {
+        // Un error del servidor NO significa "historial vacío" — mostrarlo
+        // como tal evita el falso negativo.
+        setHasLoadError(true)
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error)
+      setHasLoadError(true)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   React.useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const response = await fetch('/api/user/history')
-        if (response.ok) {
-          const data = await response.json()
-          setHistory(data.reservations)
-          setStats(data.stats)
-        }
-      } catch (error) {
-        console.error('Error fetching history:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
     fetchHistory()
-  }, [])
+  }, [fetchHistory])
 
   if (isLoading) {
     return (
@@ -87,7 +96,21 @@ export default function HistorialPage() {
         </p>
       </div>
 
-      {history.length === 0 ? (
+      {hasLoadError ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-gray-500 mb-4">
+              No pudimos cargar tu historial. Revisa tu conexión e intenta de nuevo.
+            </p>
+            <button
+              onClick={fetchHistory}
+              className="text-sm font-medium text-primary underline underline-offset-2 hover:opacity-80"
+            >
+              Reintentar
+            </button>
+          </CardContent>
+        </Card>
+      ) : history.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-gray-500">

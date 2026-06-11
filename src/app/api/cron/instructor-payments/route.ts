@@ -145,10 +145,32 @@ async function handle(req: NextRequest): Promise<NextResponse> {
   })
 }
 
+// try/catch global: el cron corre solo una vez a la semana — un error
+// inesperado sin alerta significa una semana sin reporte de pagos y nadie
+// se entera. Runbook de re-disparo manual: GET con ?weekStart=YYYY-MM-DD
+// (lunes) y header Authorization: Bearer $CRON_SECRET.
+async function handleSafely(req: NextRequest): Promise<NextResponse> {
+  try {
+    return await handle(req)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[CRON_INSTRUCTOR_PAYMENTS] Unhandled error:', error)
+    const recipient = process.env.ADMIN_NOTIFICATION_EMAIL || 'contact@wellneststudio.net'
+    await sendEmail({
+      to: recipient,
+      subject: '[Wellnest] Falló el cron de pagos a instructores',
+      html: `<p>El cron semanal de pagos a instructores falló con el error:</p><pre>${message}</pre><p>Re-disparo manual: GET /api/cron/instructor-payments?weekStart=&lt;lunes YYYY-MM-DD&gt; con Authorization Bearer CRON_SECRET.</p>`,
+    }).catch((emailErr) => {
+      console.error('[CRON_INSTRUCTOR_PAYMENTS] Alert email also failed:', emailErr)
+    })
+    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+  }
+}
+
 export async function GET(req: NextRequest) {
-  return handle(req)
+  return handleSafely(req)
 }
 
 export async function POST(req: NextRequest) {
-  return handle(req)
+  return handleSafely(req)
 }

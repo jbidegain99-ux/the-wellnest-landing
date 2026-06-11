@@ -51,6 +51,7 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [isComplete, setIsComplete] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [hasLoadError, setHasLoadError] = React.useState(false)
   const [checkoutData, setCheckoutData] = React.useState<CheckoutSummary | null>(null)
   const [appliedDiscount, setAppliedDiscount] = React.useState<AppliedDiscount | null>(null)
   const [purchases, setPurchases] = React.useState<PurchaseResult[]>([])
@@ -58,37 +59,43 @@ export default function CheckoutPage() {
   const [termsError, setTermsError] = React.useState(false)
 
   // Fetch checkout summary on mount
-  React.useEffect(() => {
-    const fetchCheckoutData = async () => {
-      try {
-        const response = await fetch('/api/checkout')
-        if (response.ok) {
-          const data = await response.json()
-          setCheckoutData(data)
-        }
-
-        // Get discount from sessionStorage (set by cart page)
-        try {
-          const savedDiscount = sessionStorage.getItem('cartDiscount')
-          if (savedDiscount) {
-            const parsed = JSON.parse(savedDiscount)
-            if (parsed && parsed.code && parsed.percentage) {
-              setAppliedDiscount(parsed)
-            }
-          }
-        } catch (storageError) {
-          console.error('[CHECKOUT] Error reading discount from storage:', storageError)
-        }
-      } catch (err) {
-        console.error('Error fetching checkout data:', err)
-        setError('Error al cargar los datos del carrito')
-      } finally {
-        setIsLoading(false)
+  const fetchCheckoutData = React.useCallback(async () => {
+    setIsLoading(true)
+    setHasLoadError(false)
+    try {
+      const response = await fetch('/api/checkout')
+      if (response.ok) {
+        const data = await response.json()
+        setCheckoutData(data)
+      } else {
+        // Un error del servidor NO significa "carrito vacío" — mostrarlo
+        // como tal evita el falso negativo.
+        setHasLoadError(true)
       }
-    }
 
-    fetchCheckoutData()
+      // Get discount from sessionStorage (set by cart page)
+      try {
+        const savedDiscount = sessionStorage.getItem('cartDiscount')
+        if (savedDiscount) {
+          const parsed = JSON.parse(savedDiscount)
+          if (parsed && parsed.code && parsed.percentage) {
+            setAppliedDiscount(parsed)
+          }
+        }
+      } catch (storageError) {
+        console.error('[CHECKOUT] Error reading discount from storage:', storageError)
+      }
+    } catch (err) {
+      console.error('Error fetching checkout data:', err)
+      setHasLoadError(true)
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
+
+  React.useEffect(() => {
+    fetchCheckoutData()
+  }, [fetchCheckoutData])
 
   // Calculate totals with discount
   const subtotal = checkoutData?.subtotal || 0
@@ -229,6 +236,22 @@ export default function CheckoutPage() {
         <Link href="/login?redirect=/checkout">
           <Button>Iniciar Sesión</Button>
         </Link>
+      </div>
+    )
+  }
+
+  // Show load error with retry (NOT the empty cart message)
+  if (hasLoadError) {
+    return (
+      <div className="max-w-lg mx-auto py-12 text-center">
+        <AlertCircle className="h-16 w-16 mx-auto text-gray-400 mb-6" />
+        <h1 className="font-serif text-3xl font-semibold text-foreground mb-4">
+          No pudimos cargar tu checkout
+        </h1>
+        <p className="text-gray-600 mb-8">
+          Ocurrió un error al cargar los datos de tu compra. Revisa tu conexión e intenta de nuevo.
+        </p>
+        <Button onClick={fetchCheckoutData}>Reintentar</Button>
       </div>
     )
   }

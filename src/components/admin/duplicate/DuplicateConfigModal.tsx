@@ -209,7 +209,7 @@ export default function DuplicateConfigModal({
           <Button
             type="button"
             onClick={onSubmit}
-            disabled={isSubmitting || entries.length === 0}
+            disabled={isSubmitting || entries.length === 0 || conflicts.length > 0}
             isLoading={isSubmitting}
           >
             {isSubmitting ? 'Creando...' : `Crear ${entries.length} clase${entries.length === 1 ? '' : 's'}`}

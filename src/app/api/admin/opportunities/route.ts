@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getNowInSV } from '@/lib/utils/timezone'
 import { EXCLUDED_USER_IDS } from '@/lib/constants'
 import { getExcludedPurchaseIds } from '@/lib/excluded-purchases'
 
@@ -15,7 +14,9 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const now = getNowInSV()
+    // new Date() para filtros Prisma: getNowInSV devuelve un epoch corrido
+    // -6h que NO debe compararse contra timestamps UTC de la BD
+    const now = new Date()
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 

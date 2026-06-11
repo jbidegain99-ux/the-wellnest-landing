@@ -20,9 +20,11 @@ const navigation = {
     { name: 'Contacto', href: '/contacto' },
   ],
   legal: [
+    // /privacidad y /cancelacion no existen como páginas: ambas políticas
+    // viven dentro de los Términos y Condiciones
     { name: 'Términos y Condiciones', href: '/terminos' },
-    { name: 'Política de Privacidad', href: '/privacidad' },
-    { name: 'Política de Cancelación', href: '/cancelacion' },
+    { name: 'Política de Privacidad', href: '/terminos' },
+    { name: 'Política de Cancelación', href: '/terminos' },
   ],
 }
 

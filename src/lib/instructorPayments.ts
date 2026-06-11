@@ -26,11 +26,9 @@
 import type { PrismaClient } from '@prisma/client'
 import { ReservationStatus } from '@prisma/client'
 import * as XLSX from 'xlsx'
-
-const EXCLUDED_USER_IDS = [
-  'cmkwpkvqu000412r2ky35ifh0', // Jose
-  'cmm8i9p41000511xmilevn46x', // Olivia
-]
+// Una sola fuente de verdad: una copia local desincronizada afecta
+// directamente los pagos a instructores
+import { EXCLUDED_USER_IDS } from '@/lib/constants'
 
 export interface PayTier {
   bruto: number

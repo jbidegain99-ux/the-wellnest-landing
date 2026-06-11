@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getNowInSV } from '@/lib/utils/timezone'
 
 // Force dynamic - this route uses headers/session
 export const dynamic = 'force-dynamic'
@@ -19,7 +18,9 @@ export async function GET() {
     }
 
     const userId = session.user.id
-    const now = getNowInSV()
+    // new Date() para filtros Prisma: getNowInSV devuelve un epoch corrido
+    // -6h que NO debe compararse contra timestamps UTC de la BD
+    const now = new Date()
 
     const [activePaquetes, proximasReservas, listaEspera] = await Promise.all([
       // Active purchases: status ACTIVE, not expired, classes remaining
