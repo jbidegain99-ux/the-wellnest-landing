@@ -18,10 +18,15 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Credenciales inválidas')
         }
 
-        // Normalizado + fallback insensible a mayúsculas para cuentas legacy
-        // creadas antes de la normalización
-        const normalizedEmail = credentials.email.trim().toLowerCase()
+        // 1) match exacto (protege cuentas legacy duplicadas solo por
+        // mayúsculas), 2) normalizado, 3) fallback insensible para cuentas
+        // legacy con mayúsculas y sin duplicado
+        const exactEmail = credentials.email.trim()
+        const normalizedEmail = exactEmail.toLowerCase()
         const user =
+          (await prisma.user.findUnique({
+            where: { email: exactEmail },
+          })) ??
           (await prisma.user.findUnique({
             where: { email: normalizedEmail },
           })) ??

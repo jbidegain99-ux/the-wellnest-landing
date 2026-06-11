@@ -218,6 +218,11 @@ export async function PUT(
 
     if (cancellingNow) {
       cancellationSummary = await prisma.$transaction(async (tx) => {
+        // Lock de la clase: serializa contra reservas/promociones concurrentes
+        // (sus transacciones toman el mismo lock antes de crear reservas), así
+        // ninguna reserva se cuela entre el barrido de reembolsos y el flag.
+        await tx.$queryRaw`SELECT id FROM "Class" WHERE id = ${id} FOR UPDATE`
+
         const activeReservations = await tx.reservation.findMany({
           where: { classId: id, status: 'CONFIRMED' },
           select: { id: true, purchaseId: true, userId: true, isGuestReservation: true },
@@ -255,6 +260,10 @@ export async function PUT(
 
         const removedWaitlist = await tx.waitlist.deleteMany({ where: { classId: id } })
 
+        // El flag isCancelled (y el resto del update) se aplica DENTRO de la
+        // transacción: si algo falla, los reembolsos también se revierten.
+        await tx.class.update({ where: { id }, data: updateData })
+
         // Créditos devueltos por usuario titular (para el email)
         const refundsByUser = new Map<string, number>()
         for (const r of activeReservations) {
@@ -272,15 +281,24 @@ export async function PUT(
       })
     }
 
-    const cls = await prisma.class.update({
-      where: { id },
-      data: updateData,
-      include: {
-        discipline: true,
-        complementaryDiscipline: true,
-        instructor: true,
-      },
-    })
+    const cls = cancellationSummary
+      ? await prisma.class.findUniqueOrThrow({
+          where: { id },
+          include: {
+            discipline: true,
+            complementaryDiscipline: true,
+            instructor: true,
+          },
+        })
+      : await prisma.class.update({
+          where: { id },
+          data: updateData,
+          include: {
+            discipline: true,
+            complementaryDiscipline: true,
+            instructor: true,
+          },
+        })
 
     // Notificar a los afectados (best-effort, después de la transacción)
     if (cancellationSummary && cancellationSummary.notifyUserIds.length > 0) {

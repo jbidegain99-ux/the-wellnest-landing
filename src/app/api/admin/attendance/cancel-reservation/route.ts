@@ -162,7 +162,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Reserva cancelada. Se devolvio 1 clase al paquete de ${reservation.user.name || reservation.user.email}.`,
+      message: `Reserva cancelada. Se ${actualRefunded === 1 ? 'devolvió 1 clase' : `devolvieron ${actualRefunded} clases`} al paquete de ${reservation.user.name || reservation.user.email}.`,
       updatedReservation: {
         id: updatedReservation.id,
         status: updatedReservation.status,

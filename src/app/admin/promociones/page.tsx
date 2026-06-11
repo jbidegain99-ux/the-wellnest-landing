@@ -15,6 +15,13 @@ import {
 } from '@/components/ui/Modal'
 import { formatDate } from '@/lib/utils'
 
+// El backend guarda validUntil como fin de día El Salvador (UTC+6h del día
+// siguiente). toISOString() mostraría el día UTC (+1) y cada guardado del
+// formulario correría la vigencia un día — formatear en zona SV evita el drift.
+function toSVDateInput(value: string | Date): string {
+  return new Date(value).toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' })
+}
+
 interface DiscountCode {
   id: string
   code: string
@@ -427,9 +434,7 @@ export default function AdminPromocionesPage() {
                   name="validFrom"
                   type="date"
                   defaultValue={
-                    editingPromo?.validFrom
-                      ? new Date(editingPromo.validFrom).toISOString().split('T')[0]
-                      : ''
+                    editingPromo?.validFrom ? toSVDateInput(editingPromo.validFrom) : ''
                   }
                   required
                 />
@@ -438,9 +443,7 @@ export default function AdminPromocionesPage() {
                   name="validUntil"
                   type="date"
                   defaultValue={
-                    editingPromo?.validUntil
-                      ? new Date(editingPromo.validUntil).toISOString().split('T')[0]
-                      : ''
+                    editingPromo?.validUntil ? toSVDateInput(editingPromo.validUntil) : ''
                   }
                   required
                 />

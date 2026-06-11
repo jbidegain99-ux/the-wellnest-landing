@@ -42,7 +42,13 @@ async function assertCapacityInsideTx(
   maxCapacity: number,
   seatsNeeded: number
 ): Promise<void> {
-  await tx.$queryRaw`SELECT id FROM "Class" WHERE id = ${classId} FOR UPDATE`
+  const rows = await tx.$queryRaw<Array<{ isCancelled: boolean }>>`
+    SELECT "isCancelled" FROM "Class" WHERE id = ${classId} FOR UPDATE`
+  // El lock también serializa contra la cancelación admin de la clase: una
+  // reserva no puede colarse entre el barrido de reembolsos y el flag.
+  if (rows.length === 0 || rows[0].isCancelled) {
+    throw new Error('CLASS_CANCELLED_RACE')
+  }
   const activeCount = await tx.reservation.count({
     where: { classId, status: { not: 'CANCELLED' } },
   })
@@ -374,7 +380,7 @@ export async function POST(request: Request) {
           })
 
           return { updatedReservation: updRes, oldPurchaseUpdated: oldPurchaseUpd, newPurchaseUpdated: newPurchaseUpd }
-        })
+        }, { maxWait: 5000, timeout: 10000 })
 
         // Update statuses if needed
         if (oldPurchaseUpdated.classesRemaining > 0 && oldPurchaseUpdated.status === 'DEPLETED') {
@@ -515,7 +521,7 @@ export async function POST(request: Request) {
           })
 
           return { reactivatedReservation: reactivated, updatedPurchase: updPurchase }
-        })
+        }, { maxWait: 5000, timeout: 10000 })
 
         console.log('[RESERVATIONS API] Reservation reactivated successfully:', {
           reservationId: reactivatedReservation.id,
@@ -879,7 +885,7 @@ export async function POST(request: Request) {
         })
 
         return { reservation: hostRes, updatedPurchase: updPurchase }
-      })
+      }, { maxWait: 5000, timeout: 10000 })
 
       console.log('[RESERVATIONS API] Host + guest reservations created:', {
         reservationId: reservation.id,
@@ -958,7 +964,7 @@ export async function POST(request: Request) {
       })
 
       return { reservation: res, updatedPurchase: updPurchase }
-    })
+    }, { maxWait: 5000, timeout: 10000 })
 
     console.log('[RESERVATIONS API] Reservation created successfully:', {
       reservationId: reservation.id,
@@ -1044,6 +1050,24 @@ export async function POST(request: Request) {
         error: 'La clase se llenó mientras procesábamos tu reserva. No se descontaron clases de tu paquete.',
         code: ERROR_CODES.CLASS_FULL
       }, { status: 400 })
+    }
+
+    // The class was cancelled while booking
+    if (error?.message === 'CLASS_CANCELLED_RACE') {
+      console.log('[RESERVATIONS API] Class was cancelled during booking')
+      return NextResponse.json({
+        error: 'Esta clase fue cancelada. No se descontaron clases de tu paquete.',
+        code: ERROR_CODES.CLASS_NOT_FOUND
+      }, { status: 400 })
+    }
+
+    // Transaction timed out waiting for the class lock (high demand burst)
+    if (error?.code === 'P2028') {
+      console.log('[RESERVATIONS API] Transaction timeout under contention')
+      return NextResponse.json({
+        error: 'Hay mucha demanda en esta clase en este momento. Intenta de nuevo en unos segundos.',
+        code: ERROR_CODES.UNKNOWN_ERROR
+      }, { status: 409 })
     }
 
     // Handle specific Prisma errors

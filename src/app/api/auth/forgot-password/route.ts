@@ -21,9 +21,14 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.toLowerCase().trim()
 
-    // Buscar el usuario (fallback insensible a mayúsculas para cuentas legacy
-    // creadas antes de la normalización de emails)
+    // Buscar el usuario: 1) match exacto con lo tecleado (protege cuentas
+    // legacy duplicadas solo por mayúsculas), 2) normalizado, 3) fallback
+    // insensible para cuentas legacy con mayúsculas y sin duplicado
     const user =
+      (await prisma.user.findUnique({
+        where: { email: email.trim() },
+        select: { id: true, name: true, email: true },
+      })) ??
       (await prisma.user.findUnique({
         where: { email: normalizedEmail },
         select: { id: true, name: true, email: true },

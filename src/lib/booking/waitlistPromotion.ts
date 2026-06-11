@@ -44,7 +44,12 @@ async function assertCapacityInsideTx(
   classId: string,
   maxCapacity: number
 ): Promise<void> {
-  await tx.$queryRaw`SELECT id FROM "Class" WHERE id = ${classId} FOR UPDATE`
+  const rows = await tx.$queryRaw<Array<{ isCancelled: boolean }>>`
+    SELECT "isCancelled" FROM "Class" WHERE id = ${classId} FOR UPDATE`
+  // Nunca promover hacia una clase cancelada (consume créditos del alumno)
+  if (rows.length === 0 || rows[0].isCancelled) {
+    throw new Error('CLASS_CANCELLED_RACE')
+  }
   const activeCount = await tx.reservation.count({
     where: { classId, status: { not: 'CANCELLED' } },
   })
@@ -156,7 +161,7 @@ export async function promoteFromWaitlist(
         })
 
         return { reservationId, classesRemaining: updPurchase.classesRemaining }
-      })
+      }, { maxWait: 5000, timeout: 10000 })
 
       console.log('[WAITLIST] User auto-assigned from waitlist:', {
         userId: entry.userId,
@@ -210,6 +215,10 @@ export async function promoteFromWaitlist(
       if (err instanceof Error && err.message === 'CLASS_FULL_RACE') {
         // El cupo liberado ya fue tomado por una reserva directa — no hay nada que promover
         console.log('[WAITLIST] Freed spot was taken concurrently, stopping promotion:', classId)
+        return null
+      }
+      if (err instanceof Error && err.message === 'CLASS_CANCELLED_RACE') {
+        console.log('[WAITLIST] Class is cancelled, stopping promotion:', classId)
         return null
       }
       console.error('[WAITLIST] Failed to promote waitlist user, trying next:', {
