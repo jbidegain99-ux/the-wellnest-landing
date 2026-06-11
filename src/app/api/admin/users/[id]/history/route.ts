@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { classifyPayment } from '@/lib/finance/calculate'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,8 +67,17 @@ export async function GET(
     const events: AuditEvent[] = []
 
     // Purchase events
+    const METHOD_LABELS: Record<string, string> = {
+      PAYWAY: 'PayWay',
+      POS: 'POS',
+      MANUAL: 'Transferencia/Manual',
+      TRIAL: 'Prueba gratis',
+      GIFT: 'Cortesía',
+      OFFLINE: 'Offline',
+    }
     for (const p of purchases) {
-      const isAdminAssigned = !p.paymentProviderId
+      const method = classifyPayment(p.paymentProviderId)
+      const isAdminAssigned = method !== 'PAYWAY'
       events.push({
         id: `purchase-${p.id}`,
         type: isAdminAssigned ? 'assignment' : 'purchase',
@@ -85,7 +95,7 @@ export async function GET(
           status: p.status,
           classesRemaining: p.classesRemaining,
           expiresAt: p.expiresAt.toISOString(),
-          paymentMethod: isAdminAssigned ? 'Offline' : 'PayWay',
+          paymentMethod: METHOD_LABELS[method] ?? 'Offline',
         },
       })
     }

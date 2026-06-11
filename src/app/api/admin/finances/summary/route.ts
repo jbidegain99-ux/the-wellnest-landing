@@ -82,9 +82,26 @@ export async function GET(request: Request) {
     const totals = aggregatePurchases(rows, config)
     const daily = groupByDaySV(rows, config)
 
+    // Reembolsos aprobados en el periodo: sin restarlos, bruto/neto quedan
+    // sobreestimados (el dinero salió de vuelta al cliente)
+    const refundsInPeriod = await prisma.refundRequest.aggregate({
+      where: {
+        status: 'REFUNDED',
+        refundedAt: { gte: start, lte: end },
+        purchase: { userId: { notIn: EXCLUDED_USER_IDS } },
+      },
+      _sum: { amount: true },
+      _count: { _all: true },
+    })
+    const refundsTotal = Math.round((refundsInPeriod._sum.amount ?? 0) * 100) / 100
+
     return NextResponse.json({
       period,
       range: { start: start.toISOString(), end: end.toISOString() },
+      refunds: {
+        total: refundsTotal,
+        count: refundsInPeriod._count._all,
+      },
       config: {
         ivaRate: config.ivaRate,
         ivaIncludedInPrice: config.ivaIncludedInPrice,

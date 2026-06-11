@@ -7,7 +7,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
-import { addDays } from 'date-fns'
+import { svExpiryEndOfDay } from '@/lib/utils/timezone'
 import type { PaymentProvider } from '@prisma/client'
 import { Prisma } from '@prisma/client'
 import { sendToFacturador } from '@/lib/facturador'
@@ -186,7 +186,7 @@ export async function markOrderPaidAndCreatePurchase({
                   userId: order.userId,
                   packageId: child.id,
                   classesRemaining: child.classCount,
-                  expiresAt: addDays(new Date(), item.package.validityDays),
+                  expiresAt: svExpiryEndOfDay(item.package.validityDays),
                   originalPrice: childOriginal,
                   finalPrice: childFinal,
                   discountCode: order.discountCode || null,
@@ -216,7 +216,7 @@ export async function markOrderPaidAndCreatePurchase({
               userId: order.userId,
               packageId: item.packageId,
               classesRemaining: item.package.classCount,
-              expiresAt: addDays(new Date(), item.package.validityDays),
+              expiresAt: svExpiryEndOfDay(item.package.validityDays),
               originalPrice,
               finalPrice,
               discountCode: order.discountCode || null,
@@ -261,11 +261,21 @@ export async function markOrderPaidAndCreatePurchase({
             },
           })
 
-          // Increment discount code usage
-          await tx.discountCode.update({
-            where: { id: order.discountCodeId },
-            data: { currentUses: { increment: 1 } },
-          })
+          // Increment condicional: nunca exceder maxUses aunque dos pagos
+          // concurrentes lleguen con el mismo código. Si el cupo se agotó
+          // entre la creación de la orden y el pago, se respeta el precio ya
+          // cobrado pero se deja registro para revisión.
+          const claimed = await tx.$executeRaw`
+            UPDATE "DiscountCode"
+            SET "currentUses" = "currentUses" + 1
+            WHERE id = ${order.discountCodeId}
+              AND ("maxUses" IS NULL OR "currentUses" < "maxUses")`
+          if (claimed === 0) {
+            console.error('[PAYMENT] Discount maxUses exceeded at payment time (order already charged):', {
+              orderId,
+              discountCodeId: order.discountCodeId,
+            })
+          }
         }
       }
 

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
-import { addDays } from 'date-fns'
+import { svExpiryEndOfDay } from '@/lib/utils/timezone'
 import { sendEmail, buildTrialPackageEmail } from '@/lib/emailService'
 import { formatDate } from '@/lib/utils'
 
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Create the Purchase record
-    const expiresAt = addDays(new Date(), pkg.validityDays)
+    const expiresAt = svExpiryEndOfDay(pkg.validityDays)
 
     const purchase = await prisma.purchase.create({
       data: {

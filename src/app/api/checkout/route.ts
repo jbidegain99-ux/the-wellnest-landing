@@ -4,7 +4,8 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { authOptions } from '@/lib/auth'
 import { normalizeDiscountCode } from '@/lib/discounts'
-import { addDays } from 'date-fns'
+import { svExpiryEndOfDay } from '@/lib/utils/timezone'
+import { randomUUID } from 'crypto'
 
 // Check if we're in test checkout mode
 const isTestMode = process.env.WELLNEST_TEST_CHECKOUT === 'true'
@@ -23,7 +24,10 @@ async function getCartSessionId(): Promise<string> {
   return sessionId || ''
 }
 
-// Handle successful payment - creates purchase records
+// Handle successful payment - creates purchase records.
+// Una sola transacción: el increment de maxUses es condicional y atómico, la
+// redención maneja el caso VOID previo (upsert) y los bundles generan una
+// purchase por paquete hijo (igual que markOrderPaid).
 async function handleSuccessfulPayment({
   userId,
   items,
@@ -38,9 +42,11 @@ async function handleSuccessfulPayment({
     package: {
       id: string
       name: string
+      slug: string | null
       price: number
       classCount: number
       validityDays: number
+      bundleChildSlugs: string[]
     }
   }>
   discountCode?: string
@@ -48,75 +54,111 @@ async function handleSuccessfulPayment({
   discountPercentage?: number
 }) {
   console.log('[CHECKOUT API] Creating purchase records for user:', userId)
-  const purchases = []
+  const batchId = randomUUID()
+  const round2 = (n: number) => Math.round(n * 100) / 100
 
-  for (const item of items) {
-    for (let i = 0; i < item.quantity; i++) {
-      const originalPrice = item.package.price
-      const finalPrice = discountPercentage
-        ? originalPrice * (1 - discountPercentage / 100)
-        : originalPrice
-
-      console.log('[CHECKOUT API] Creating purchase:', {
-        packageId: item.packageId,
-        packageName: item.package.name,
-        classCount: item.package.classCount,
-        originalPrice,
-        finalPrice,
-      })
-
-      const purchase = await prisma.purchase.create({
-        data: {
-          userId,
-          packageId: item.packageId,
-          classesRemaining: item.package.classCount,
-          expiresAt: addDays(new Date(), item.package.validityDays),
-          originalPrice,
-          finalPrice,
-          discountCode: discountCode || null,
-          status: 'ACTIVE',
-          paymentProviderId: isTestMode ? `test_${Date.now()}_${i}` : `free_${Date.now()}_${i}`,
-        },
-        include: {
-          package: true,
-        },
-      })
-
-      console.log('[CHECKOUT API] Purchase created:', {
-        id: purchase.id,
-        packageName: purchase.package.name,
-        classesRemaining: purchase.classesRemaining,
-        status: purchase.status,
-      })
-
-      purchases.push(purchase)
+  const purchases = await prisma.$transaction(async (tx) => {
+    // Claim atómico del cupo del código ANTES de crear purchases: compara
+    // currentUses contra maxUses en la misma sentencia (dos checkouts
+    // concurrentes no pueden exceder el límite)
+    if (discountCode && discountCodeId) {
+      const claimed = await tx.$executeRaw`
+        UPDATE "DiscountCode"
+        SET "currentUses" = "currentUses" + 1
+        WHERE id = ${discountCodeId}
+          AND "isActive" = true
+          AND ("maxUses" IS NULL OR "currentUses" < "maxUses")`
+      if (claimed === 0) {
+        throw new Error('DISCOUNT_EXHAUSTED')
+      }
     }
-  }
 
-  // Update discount code usage and create redemption record if used
-  if (discountCode && discountCodeId && purchases.length > 0) {
-    console.log('[CHECKOUT API] Recording promo redemption:', { userId, discountCode, discountCodeId })
+    const created = []
+    for (const item of items) {
+      for (let i = 0; i < item.quantity; i++) {
+        const originalPrice = item.package.price
+        const finalPrice = discountPercentage
+          ? round2(originalPrice * (1 - discountPercentage / 100))
+          : originalPrice
 
-    // A) CREAR REGISTRO DE REDENCIÓN (PromoRedemption)
-    await prisma.$transaction([
-      // Increment usage counter
-      prisma.discountCode.updateMany({
-        where: { code: discountCode },
-        data: { currentUses: { increment: 1 } },
-      }),
-      // Create redemption record linked to first purchase
-      prisma.promoRedemption.create({
-        data: {
+        // Bundle: una purchase por paquete hijo, precio prorrateado
+        if (item.package.bundleChildSlugs && item.package.bundleChildSlugs.length > 0) {
+          const bundleGroupId = randomUUID()
+          const children = await tx.package.findMany({
+            where: { slug: { in: item.package.bundleChildSlugs } },
+          })
+          if (children.length !== item.package.bundleChildSlugs.length) {
+            throw new Error(`Bundle ${item.package.slug ?? item.package.id}: faltan paquetes hijos`)
+          }
+          const originalShare = round2(originalPrice / children.length)
+          const finalShare = round2(finalPrice / children.length)
+          for (let c = 0; c < children.length; c++) {
+            const child = children[c]
+            const isLast = c === children.length - 1
+            const purchase = await tx.purchase.create({
+              data: {
+                userId,
+                packageId: child.id,
+                classesRemaining: child.classCount,
+                expiresAt: svExpiryEndOfDay(item.package.validityDays),
+                originalPrice: isLast
+                  ? round2(originalPrice - originalShare * (children.length - 1))
+                  : originalShare,
+                finalPrice: isLast
+                  ? round2(finalPrice - finalShare * (children.length - 1))
+                  : finalShare,
+                discountCode: discountCode || null,
+                status: 'ACTIVE',
+                paymentProviderId: `${isTestMode ? 'test' : 'free'}_${batchId}_${item.packageId}_${i}_${child.slug}`,
+                bundleParentPackageId: item.package.id,
+                bundleGroupId,
+              },
+              include: { package: true },
+            })
+            created.push(purchase)
+          }
+          continue
+        }
+
+        const purchase = await tx.purchase.create({
+          data: {
+            userId,
+            packageId: item.packageId,
+            classesRemaining: item.package.classCount,
+            expiresAt: svExpiryEndOfDay(item.package.validityDays),
+            originalPrice,
+            finalPrice,
+            discountCode: discountCode || null,
+            status: 'ACTIVE',
+            paymentProviderId: `${isTestMode ? 'test' : 'free'}_${batchId}_${item.packageId}_${i}`,
+          },
+          include: {
+            package: true,
+          },
+        })
+        created.push(purchase)
+      }
+    }
+
+    // Redención: upsert maneja una redención VOID previa del mismo código
+    // (antes el create chocaba con el unique y duplicaba purchases al reintentar)
+    if (discountCode && discountCodeId && created.length > 0) {
+      await tx.promoRedemption.upsert({
+        where: {
+          userId_discountCodeId: { userId, discountCodeId },
+        },
+        update: { status: 'APPLIED', purchaseId: created[0].id },
+        create: {
           userId,
           discountCodeId,
-          purchaseId: purchases[0].id,
+          purchaseId: created[0].id,
           status: 'APPLIED',
         },
-      }),
-    ])
+      })
+    }
 
-    console.log('[CHECKOUT API] Promo redemption recorded successfully')
-  }
+    return created
+  })
 
   console.log('[CHECKOUT API] Total purchases created:', purchases.length)
   return purchases
@@ -375,6 +417,13 @@ export async function POST(request: Request) {
       // 5. Call handleSuccessfulPayment() from webhook
     }
   } catch (error) {
+    if (error instanceof Error && error.message === 'DISCOUNT_EXHAUSTED') {
+      return NextResponse.json(
+        { error: 'Este código ya alcanzó su límite de usos.' },
+        { status: 400 }
+      )
+    }
+
     console.error('Error processing checkout:', error)
     return NextResponse.json(
       { error: 'Error al procesar la compra' },

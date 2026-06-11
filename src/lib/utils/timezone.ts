@@ -1,7 +1,22 @@
 import { toZonedTime, fromZonedTime, format } from 'date-fns-tz'
+import { addDays } from 'date-fns'
 import type { Locale } from 'date-fns'
 
 export const TZ = 'America/El_Salvador'
+
+/**
+ * Vencimiento de paquetes: fin del día calendario SV (23:59:59.999) que cae
+ * `validityDays` días después de `from`. Antes los paquetes vencían a la hora
+ * exacta de compra, pero la UI promete validez por fecha completa.
+ */
+export function svExpiryEndOfDay(validityDays: number, from: Date = new Date()): Date {
+  const svNow = toZonedTime(from, TZ)
+  const target = addDays(svNow, validityDays)
+  return fromZonedTime(
+    new Date(target.getFullYear(), target.getMonth(), target.getDate(), 23, 59, 59, 999),
+    TZ
+  )
+}
 
 /**
  * Convierte cualquier Date (UTC) a su equivalente en hora El Salvador.

@@ -48,7 +48,11 @@ export async function GET(request: Request) {
           _count: {
             select: {
               purchases: {
-                where: { status: 'ACTIVE' },
+                where: {
+                  status: 'ACTIVE',
+                  expiresAt: { gt: new Date() },
+                  classesRemaining: { gt: 0 },
+                },
               },
               reservations: {
                 where: { status: 'CONFIRMED' },
@@ -56,7 +60,13 @@ export async function GET(request: Request) {
             },
           },
           purchases: {
-            where: { status: 'ACTIVE' },
+            // "activo" real: no vencido y con saldo — no existe job
+            // ACTIVE->EXPIRED, el status por sí solo miente
+            where: {
+              status: 'ACTIVE',
+              expiresAt: { gt: new Date() },
+              classesRemaining: { gt: 0 },
+            },
             include: {
               package: {
                 select: {

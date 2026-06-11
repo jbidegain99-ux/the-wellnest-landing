@@ -212,8 +212,11 @@ describe('markOrderPaidAndCreatePurchase — bundle packages', () => {
     const data = txMock.purchase.create.mock.calls[0][0].data
     const expiresAt = new Date(data.expiresAt as Date).getTime()
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
+    const oneDayMs = 24 * 60 * 60 * 1000
+    // El vencimiento es fin del día calendario SV de now+30d: cae entre
+    // now+30d (exacto) y now+31d (si la compra fue justo a medianoche SV)
     expect(expiresAt).toBeGreaterThanOrEqual(before + thirtyDaysMs - 1000)
-    expect(expiresAt).toBeLessThanOrEqual(after + thirtyDaysMs + 1000)
+    expect(expiresAt).toBeLessThanOrEqual(after + thirtyDaysMs + oneDayMs)
   })
 
   it('does NOT trigger bundle branch for normal packages', async () => {

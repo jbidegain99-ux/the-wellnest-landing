@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { EXCLUDED_USER_IDS } from '@/lib/constants'
 import { getExcludedPurchaseIds } from '@/lib/excluded-purchases'
 import { svLocalToUTC } from '@/lib/utils/timezone'
+import { classifyPayment } from '@/lib/finance/calculate'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,20 +37,35 @@ export async function GET(request: Request) {
       ...(excludedPurchaseIds.length > 0 && { id: { notIn: excludedPurchaseIds } }),
     }
 
-    // Search by user email/name or package name
+    // Search by user email/name or package name (en AND para no chocar con
+    // el OR del filtro de método de pago)
     if (search) {
-      where.OR = [
-        { user: { email: { contains: search, mode: 'insensitive' } } },
-        { user: { name: { contains: search, mode: 'insensitive' } } },
-        { package: { name: { contains: search, mode: 'insensitive' } } },
+      where.AND = [
+        {
+          OR: [
+            { user: { email: { contains: search, mode: 'insensitive' } } },
+            { user: { name: { contains: search, mode: 'insensitive' } } },
+            { package: { name: { contains: search, mode: 'insensitive' } } },
+          ],
+        },
       ]
     }
 
-    // Filter by payment method (skip if empty or "all")
-    if (paymentMethod === 'Offline') {
-      where.paymentProviderId = null
-    } else if (paymentMethod === 'PayWay') {
-      where.paymentProviderId = { not: null }
+    // Filter by payment method (skip if empty or "all").
+    // PayWay = solo ids payway_*; antes "not null" clasificaba pos_manual,
+    // manual_payment, trials y cortesías como si fueran PayWay.
+    if (paymentMethod === 'PayWay') {
+      where.paymentProviderId = { startsWith: 'payway_' }
+    } else if (paymentMethod === 'Offline') {
+      where.AND = [
+        ...(where.AND ?? []),
+        {
+          OR: [
+            { paymentProviderId: null },
+            { NOT: { paymentProviderId: { startsWith: 'payway_' } } },
+          ],
+        },
+      ]
     }
     // "all" or empty string: no filter applied
 
@@ -93,7 +109,13 @@ export async function GET(request: Request) {
       amount: p.finalPrice,
       createdAt: p.createdAt.toISOString(),
       status: p.status.toLowerCase(),
-      paymentMethod: p.paymentProviderId ? 'PayWay' : 'Offline',
+      paymentMethod: ((m) =>
+        m === 'PAYWAY' ? 'PayWay'
+        : m === 'POS' ? 'POS'
+        : m === 'MANUAL' ? 'Transferencia/Manual'
+        : m === 'TRIAL' ? 'Prueba gratis'
+        : m === 'GIFT' ? 'Cortesía'
+        : 'Offline')(classifyPayment(p.paymentProviderId)),
       notes: p.discountCode || null,
     }))
 

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { sendToFacturador } from '@/lib/facturador'
 import { z } from 'zod'
+import { svExpiryEndOfDay } from '@/lib/utils/timezone'
 
 /**
  * Payment source for admin-assigned packages. Determines how the Purchase
@@ -111,8 +112,8 @@ export async function POST(
         )
       }
     } else {
-      expiresAt = new Date()
-      expiresAt.setDate(expiresAt.getDate() + pkg.validityDays)
+      // Fin del día calendario SV — la UI promete validez por fecha completa
+      expiresAt = svExpiryEndOfDay(pkg.validityDays)
     }
 
     // Create the purchase (assign package to user)

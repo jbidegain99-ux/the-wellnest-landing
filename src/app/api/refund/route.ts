@@ -58,17 +58,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
     }
 
-    // Check if there's already a pending refund request
+    // Solo compras activas: una EXPIRED/REFUNDED no es reembolsable de nuevo
+    if (purchase.status !== 'ACTIVE' && purchase.status !== 'DEPLETED') {
+      return NextResponse.json(
+        { error: 'Esta compra no es elegible para reembolso (estado no activo)' },
+        { status: 400 }
+      )
+    }
+
+    // Check if there's already a refund request (incluye REFUNDED: antes solo
+    // PENDING/PROCESSING, permitiendo solicitar un segundo reembolso)
     const existingRequest = await prisma.refundRequest.findFirst({
       where: {
         purchaseId,
-        status: { in: ['PENDING', 'PROCESSING'] },
+        status: { in: ['PENDING', 'PROCESSING', 'REFUNDED'] },
       },
     })
 
     if (existingRequest) {
       return NextResponse.json(
-        { error: 'Ya existe una solicitud de reembolso pendiente para esta compra' },
+        { error: 'Ya existe una solicitud de reembolso para esta compra' },
         { status: 400 }
       )
     }
@@ -77,9 +86,12 @@ export async function POST(request: Request) {
     const cancellationHours = await getCancellationHours()
     const eligible = isWithinPolicy(purchase.createdAt, cancellationHours)
 
-    // Calculate refund amount based on classes used
-    const classesUsed = purchase.package.classCount - purchase.classesRemaining
-    const percentageUsed = classesUsed / purchase.package.classCount
+    // Calculate refund amount based on classes used.
+    // Denominador: las clases realmente asignadas a ESTA purchase — en
+    // paquetes compartidos classCount del catálogo no aplica (classesAllocated)
+    const classesTotal = purchase.classesAllocated ?? purchase.package.classCount
+    const classesUsed = Math.max(0, classesTotal - purchase.classesRemaining)
+    const percentageUsed = classesTotal > 0 ? classesUsed / classesTotal : 1
     let refundAmount = purchase.finalPrice
 
     // If some classes were used, calculate proportional refund
@@ -91,6 +103,12 @@ export async function POST(request: Request) {
     if (!eligible) {
       refundAmount = 0
     }
+
+    // Clamp: nunca negativo ni mayor a lo pagado, redondeado a centavos
+    refundAmount = Math.min(
+      Math.max(0, Math.round(refundAmount * 100) / 100),
+      purchase.finalPrice
+    )
 
     // Create refund request
     const refundRequest = await prisma.refundRequest.create({

@@ -155,11 +155,27 @@ async function getFinanzasData(period: Period) {
     }))
     .sort((a, b) => b.revenue - a.revenue)
 
+  // Reembolsos aprobados en el periodo — sin restarlos, las cifras quedan
+  // sobreestimadas (ese dinero volvió al cliente)
+  const refundsAgg = await prisma.refundRequest.aggregate({
+    where: {
+      status: 'REFUNDED',
+      refundedAt: { gte: start, lte: end },
+      purchase: { userId: { notIn: EXCLUDED_USER_IDS } },
+    },
+    _sum: { amount: true },
+    _count: { _all: true },
+  })
+
   return {
     totals: aggregatePurchases(rows, config),
     daily: groupByDaySV(rows, config),
     detailsByDay,
     disciplines,
+    refunds: {
+      total: Math.round((refundsAgg._sum.amount ?? 0) * 100) / 100,
+      count: refundsAgg._count._all,
+    },
     range: { start, end },
     config,
   }
@@ -175,7 +191,7 @@ export default async function FinanzasPage({
     ? rawPeriod
     : 'month'
 
-  const { totals, daily, detailsByDay, disciplines, range, config } =
+  const { totals, daily, detailsByDay, disciplines, refunds, range, config } =
     await getFinanzasData(period)
 
   return (
@@ -226,8 +242,12 @@ export default async function FinanzasPage({
         <MetricCard
           icon={<Landmark className="h-5 w-5 text-emerald-600" />}
           label="Dinero al banco (est.)"
-          value={formatPrice(totals.neto)}
-          hint="Bruto − comisiones Cuscatlán"
+          value={formatPrice(totals.neto - refunds.total)}
+          hint={
+            refunds.total > 0
+              ? `Bruto − comisiones − ${formatPrice(refunds.total)} en ${refunds.count} reembolso(s)`
+              : 'Bruto − comisiones Cuscatlán'
+          }
           tone="positive"
         />
         <MetricCard
