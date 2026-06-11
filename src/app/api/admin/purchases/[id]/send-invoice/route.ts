@@ -98,8 +98,12 @@ export async function POST(
       )
     }
 
+    // Misma referencia que el envio original (orderId_purchaseId) para que
+    // el facturador pueda deduplicar reintentos
+    const providerMatch = /^(?:payway|wompi)_([^_]+)_/.exec(purchase.paymentProviderId ?? '')
     const result = await sendToFacturador({
       purchaseId: purchase.id,
+      orderId: providerMatch?.[1],
       user: purchase.user,
       pkg: purchase.package,
       originalPrice,

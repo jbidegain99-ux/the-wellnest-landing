@@ -3,7 +3,7 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
-import { checkRateLimit } from './rateLimit'
+import { checkRateLimit, resetRateLimit } from './rateLimit'
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -59,6 +59,9 @@ export const authOptions: NextAuthOptions = {
         if (!isPasswordValid) {
           throw new Error('Email o contraseña incorrectos')
         }
+
+        // Login exitoso: no debe contar contra el limite de fuerza bruta
+        resetRateLimit(`login:${normalizedEmail}`)
 
         return {
           id: user.id,

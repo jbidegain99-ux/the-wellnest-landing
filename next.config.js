@@ -24,6 +24,12 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
       },
+      {
+        // Fallbacks de DEFAULT_ASSETS (lib/assets.ts) cuando el BrandAsset
+        // no existe en BD o la consulta falla
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
     ],
   },
 }

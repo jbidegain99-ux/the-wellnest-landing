@@ -40,6 +40,7 @@ function LoginForm() {
   const [showPassword, setShowPassword] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState('')
+  const passwordChanged = searchParams.get('passwordChanged') === '1'
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -87,6 +88,11 @@ function LoginForm() {
       </div>
 
       <div className="bg-white rounded-2xl p-8 shadow-sm">
+        {passwordChanged && !error && (
+          <div className="mb-4 p-3 rounded-lg bg-primary/10 text-sm text-foreground">
+            Tu contraseña fue actualizada. Inicia sesión con la nueva contraseña.
+          </div>
+        )}
         {error && (
           <div className="mb-6 p-4 bg-[var(--color-error)]/10 text-[var(--color-error)] rounded-lg text-sm">
             {error}

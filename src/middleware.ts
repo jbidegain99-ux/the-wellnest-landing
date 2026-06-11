@@ -21,9 +21,11 @@ export default withAuth(
         )
         const isAdminRoute = req.nextUrl.pathname.startsWith('/admin')
 
-        // Require auth for protected routes
+        // Require auth for protected routes. token?.id (no solo token): una
+        // sesión invalidada por cambio de contraseña conserva el token pero
+        // sin id — debe redirigir a login, no quedar "zombie" con 401s.
         if (isAuthRoute || isAdminRoute) {
-          return !!token
+          return !!token?.id
         }
 
         return true

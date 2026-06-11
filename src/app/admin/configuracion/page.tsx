@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Save, Globe, CreditCard, Loader2, CheckCircle } from 'lucide-react'
+import { Save, Globe, Loader2, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -13,8 +13,6 @@ interface Settings {
   phone: string
   email: string
   address: string
-  stripePublicKey: string
-  stripeSecretKey: string
   cancellationHours: string
   defaultCapacity: string
   cancellationPolicy: string
@@ -26,11 +24,9 @@ const defaultSettings: Settings = {
   phone: '+503 1234 5678',
   email: 'hola@thewellnest.sv',
   address: 'Presidente Plaza, Colonia San Benito, San Salvador, El Salvador',
-  stripePublicKey: 'pk_test_...',
-  stripeSecretKey: 'sk_test_...',
-  cancellationHours: '8',
+  cancellationHours: '4',
   defaultCapacity: '15',
-  cancellationPolicy: 'Puedes cancelar tu reserva hasta 8 horas antes del inicio de la clase sin penalización. Las cancelaciones tardías o no asistencias resultarán en la pérdida de la clase de tu paquete.',
+  cancellationPolicy: 'Puedes cancelar tu reserva hasta 4 horas antes del inicio de la clase sin penalización. Las cancelaciones tardías o no asistencias resultarán en la pérdida de la clase de tu paquete.',
 }
 
 export default function AdminConfiguracionPage() {
@@ -167,34 +163,9 @@ export default function AdminConfiguracionPage() {
       </Card>
 
       {/* Payment Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Configuración de Pagos
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Input
-            label="Clave Pública"
-            value={settings.stripePublicKey}
-            onChange={(e) => handleChange('stripePublicKey', e.target.value)}
-          />
-          <Input
-            label="Clave Secreta"
-            type="password"
-            value={settings.stripeSecretKey}
-            onChange={(e) => handleChange('stripeSecretKey', e.target.value)}
-          />
-          <div className="p-4 bg-beige rounded-lg text-sm text-gray-600">
-            <p>
-              <strong>Nota:</strong> Para aceptar pagos en El Salvador, asegúrate
-              de que tu cuenta de pagos esté configurada correctamente y cumpla
-              con las regulaciones locales.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* La sección de claves Stripe se eliminó: el gateway es PayWay y el
+          API de settings descarta esas claves (un secreto no vive en
+          SiteSettings). Configuración de PayWay: variables de entorno. */}
 
       {/* Cancellation Policy */}
       <Card>

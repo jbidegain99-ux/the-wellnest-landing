@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { Camera, Edit2, Save, X, Check, AlertCircle, Lock, CreditCard, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UserQRCode } from '@/components/UserQRCode'
@@ -184,6 +184,12 @@ export default function PerfilPage() {
       if (response.ok) {
         setPasswordSuccess(true)
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+        // La sesion actual queda invalidada por el cambio de contraseña
+        // (passwordChangedAt): cerrar sesion limpio y pedir re-login en vez
+        // de dejar al usuario "zombie" con 401 en todas las APIs
+        setTimeout(() => {
+          signOut({ callbackUrl: '/login?passwordChanged=1' })
+        }, 2500)
       } else {
         setPasswordError(data.error || 'Error al cambiar la contraseña')
       }

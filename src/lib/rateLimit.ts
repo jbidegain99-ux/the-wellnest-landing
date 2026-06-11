@@ -51,3 +51,8 @@ export function requestIp(request: Request): string {
   const fwd = request.headers.get('x-forwarded-for')
   return fwd ? fwd.split(',')[0].trim() : 'unknown'
 }
+
+/** Resetea el contador (p.ej. tras un login exitoso) */
+export function resetRateLimit(key: string): void {
+  windows.delete(key)
+}

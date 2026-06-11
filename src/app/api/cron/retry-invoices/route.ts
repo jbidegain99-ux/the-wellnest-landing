@@ -8,6 +8,18 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 /**
+ * El envío original (markOrderPaid) usa la referencia `${orderId}_${purchaseId}`
+ * hacia el facturador. Los reintentos DEBEN reproducir la misma referencia o
+ * el facturador no puede deduplicar y emite un segundo DTE. El orderId se
+ * recupera del paymentProviderId (`payway_{orderId}_{itemId}_{i}[_{slug}]`).
+ */
+function orderIdFromProviderId(providerId: string | null): string | undefined {
+  if (!providerId) return undefined
+  const match = /^(?:payway|wompi)_([^_]+)_/.exec(providerId)
+  return match?.[1]
+}
+
+/**
  * GET /api/cron/retry-invoices — corre cada hora (vercel.json).
  *
  * La emisión de DTE es una obligación fiscal con plazos: un fallo transitorio
@@ -37,10 +49,12 @@ export async function GET(req: NextRequest) {
   const oneHourAgo = new Date(now - 60 * 60 * 1000)
   const sixHoursAgo = new Date(now - 6 * 60 * 60 * 1000)
 
-  // 1. Reintentar DTEs fallidos
+  // 1. Reintentar DTEs fallidos — incluye 'processing' estancado (>1h):
+  // si la lambda murió entre el claim y el update final, la purchase quedaba
+  // huérfana en 'processing' para siempre
   const failed = await prisma.purchase.findMany({
     where: {
-      invoiceStatus: 'failed',
+      invoiceStatus: { in: ['failed', 'processing'] },
       finalPrice: { gt: 0 },
       createdAt: { gte: fourteenDaysAgo },
       // backoff: el claim de abajo solo toma las que no se tocaron en 1h
@@ -71,7 +85,7 @@ export async function GET(req: NextRequest) {
     const claimed = await prisma.purchase.updateMany({
       where: {
         id: purchase.id,
-        invoiceStatus: 'failed',
+        invoiceStatus: { in: ['failed', 'processing'] },
         OR: [{ invoiceSentAt: null }, { invoiceSentAt: { lt: oneHourAgo } }],
       },
       data: { invoiceStatus: 'processing', invoiceSentAt: new Date() },
@@ -82,6 +96,7 @@ export async function GET(req: NextRequest) {
     try {
       const result = await sendToFacturador({
         purchaseId: purchase.id,
+        orderId: orderIdFromProviderId(purchase.paymentProviderId),
         user: purchase.user,
         pkg: purchase.package,
         originalPrice: purchase.originalPrice > 0 ? purchase.originalPrice : purchase.finalPrice,
