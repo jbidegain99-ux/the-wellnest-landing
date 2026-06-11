@@ -15,7 +15,11 @@ export async function GET() {
     }
 
     const waitlistEntries = await prisma.waitlist.findMany({
-      where: { userId: session.user.id },
+      // Solo clases futuras: las entradas de clases pasadas son ruido
+      where: {
+        userId: session.user.id,
+        class: { dateTime: { gt: new Date() } },
+      },
       include: {
         class: {
           include: {
@@ -127,22 +131,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get current highest position
-    const lastEntry = await prisma.waitlist.findFirst({
-      where: { classId },
-      orderBy: { position: 'desc' },
+    // Posición asignada DENTRO de una transacción con lock de la clase:
+    // dos joins concurrentes ya no obtienen la misma posición
+    const waitlistEntry = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Class" WHERE id = ${classId} FOR UPDATE`
+      const lastEntry = await tx.waitlist.findFirst({
+        where: { classId },
+        orderBy: { position: 'desc' },
+      })
+      return tx.waitlist.create({
+        data: {
+          userId: session.user.id,
+          classId,
+          position: (lastEntry?.position || 0) + 1,
+        },
+      })
     })
-
-    const newPosition = (lastEntry?.position || 0) + 1
-
-    // Create waitlist entry
-    const waitlistEntry = await prisma.waitlist.create({
-      data: {
-        userId: session.user.id,
-        classId,
-        position: newPosition,
-      },
-    })
+    const newPosition = waitlistEntry.position
 
     console.log('[WAITLIST API] User joined waitlist:', {
       userId: session.user.id,

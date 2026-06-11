@@ -206,15 +206,32 @@ export async function POST(request: Request) {
           guestCancelled = guestClaim.count
         }
 
-        // 3. Return exactly the classes actually cancelled in THIS transaction
-        // to the SPECIFIC package that was used
-        const actualRefunded = 1 + guestCancelled
-        const updatedPurchase = await tx.purchase.update({
+        // 3. Devolver cada reserva a SU propio paquete: tras una transferencia
+        // de la reserva del host, el invitado puede seguir colgado de otro
+        // purchase — acreditar todo al del host descuadraba ambos paquetes.
+        await tx.purchase.update({
           where: { id: reservation.purchaseId },
-          data: {
-            classesRemaining: { increment: actualRefunded },
-            ...(reservation.purchase.status === 'DEPLETED' ? { status: 'ACTIVE' as const } : {}),
-          },
+          data: { classesRemaining: { increment: 1 } },
+        })
+        if (guestCancelled > 0 && guestReservation) {
+          await tx.purchase.update({
+            where: { id: guestReservation.purchaseId },
+            data: { classesRemaining: { increment: 1 } },
+          })
+        }
+
+        // Reactivar cualquiera de los paquetes tocados que estuviera DEPLETED
+        const touchedPurchaseIds = Array.from(
+          new Set([reservation.purchaseId, ...(guestCancelled > 0 && guestReservation ? [guestReservation.purchaseId] : [])])
+        )
+        await tx.purchase.updateMany({
+          where: { id: { in: touchedPurchaseIds }, status: 'DEPLETED', classesRemaining: { gt: 0 } },
+          data: { status: 'ACTIVE' },
+        })
+
+        const actualRefunded = 1 + guestCancelled
+        const updatedPurchase = await tx.purchase.findUniqueOrThrow({
+          where: { id: reservation.purchaseId },
         })
 
         return { updatedPurchase, actualRefunded }

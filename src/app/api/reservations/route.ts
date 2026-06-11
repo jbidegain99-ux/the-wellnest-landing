@@ -423,6 +423,15 @@ export async function POST(request: Request) {
       if (existingReservation.status === 'CANCELLED') {
         console.log('[RESERVATIONS API] Found cancelled reservation, will reactivate:', existingReservation.id)
 
+        // La reactivación no soporta invitado — antes lo ignoraba en silencio
+        // y el usuario creía haber reservado para dos
+        if (guestData?.email) {
+          return NextResponse.json({
+            error: 'Ya tuviste una reserva en esta clase. Reserva primero tu cupo y luego agrega al invitado desde "Mis Reservas".',
+            code: ERROR_CODES.UNKNOWN_ERROR,
+          }, { status: 400 })
+        }
+
         // Find purchase to use
         let purchase
         if (requestedPurchaseId) {

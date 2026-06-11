@@ -149,6 +149,17 @@ export async function PATCH(
       )
     }
 
+    // El paquete debe seguir vigente en la fecha agendada (antes se podía
+    // confirmar una sesión para después del vencimiento)
+    if (sessionRequest.purchase.expiresAt <= scheduledAt) {
+      return NextResponse.json(
+        {
+          error: `El paquete del usuario vence el ${sessionRequest.purchase.expiresAt.toLocaleDateString('es-SV', { timeZone: 'America/El_Salvador' })}, antes de la fecha propuesta. Elige una fecha anterior al vencimiento.`,
+        },
+        { status: 400 }
+      )
+    }
+
     const [discipline, instructor] = await Promise.all([
       prisma.discipline.findUnique({ where: { id: data.disciplineId } }),
       prisma.instructor.findUnique({ where: { id: data.instructorId } }),
@@ -158,6 +169,35 @@ export async function PATCH(
     }
     if (!instructor) {
       return NextResponse.json({ error: 'Instructor no encontrado' }, { status: 400 })
+    }
+
+    // Choque de horario del instructor: buscar clases suyas que se solapen
+    // con [scheduledAt, scheduledAt + duration)
+    const MAX_DURATION_MS = 4 * 60 * 60 * 1000
+    const sessionEnd = new Date(scheduledAt.getTime() + data.duration * 60000)
+    const instructorClasses = await prisma.class.findMany({
+      where: {
+        instructorId: data.instructorId,
+        isCancelled: false,
+        dateTime: {
+          lt: sessionEnd,
+          gt: new Date(scheduledAt.getTime() - MAX_DURATION_MS),
+        },
+      },
+      select: { id: true, dateTime: true, duration: true, discipline: { select: { name: true } } },
+    })
+    const clash = instructorClasses.find((c) => {
+      const cStart = new Date(c.dateTime)
+      const cEnd = new Date(cStart.getTime() + c.duration * 60000)
+      return scheduledAt < cEnd && sessionEnd > cStart
+    })
+    if (clash) {
+      return NextResponse.json(
+        {
+          error: `El instructor ya tiene ${clash.discipline.name} a las ${new Date(clash.dateTime).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', timeZone: 'America/El_Salvador' })} ese día. Elige otro horario.`,
+        },
+        { status: 409 }
+      )
     }
 
     const result = await prisma.$transaction(async (tx) => {

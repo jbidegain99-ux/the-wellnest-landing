@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { addDays, startOfDay } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
+import { svLocalToUTC, TZ } from '@/lib/utils/timezone'
 
 // El Salvador is UTC-6. To store times that display correctly for El Salvador users,
 // we need to add 6 hours to the desired local time to get UTC.
@@ -254,7 +256,10 @@ export async function POST(request: Request) {
       isRecurring: boolean
     }> = []
 
-    const today = startOfDay(new Date())
+    // "Hoy" y el día de semana se calculan en el calendario de El Salvador.
+    // Con el reloj UTC del servidor, entre 6pm y medianoche SV "hoy" ya era
+    // mañana y toda la serie recurrente se corría una semana.
+    const today = startOfDay(toZonedTime(new Date(), TZ))
     const weeksAhead = data.isRecurring ? data.weeksAhead : 1
 
     // Find the next occurrence of the selected day of week
@@ -262,15 +267,14 @@ export async function POST(request: Request) {
       for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
         const currentDate = addDays(today, week * 7 + dayOffset)
         if (currentDate.getDay() === data.dayOfWeek) {
-          // Create date in UTC that represents the correct El Salvador local time
-          // e.g., 10:00 AM El Salvador = 16:00 UTC (10:00 + 6 hours offset)
-          const classDateTime = new Date(Date.UTC(
+          // Día calendario SV + hora SV → UTC
+          const classDateTime = svLocalToUTC(
             currentDate.getFullYear(),
             currentDate.getMonth(),
             currentDate.getDate(),
-            hours + EL_SALVADOR_UTC_OFFSET,
+            hours,
             minutes
-          ))
+          )
 
           // Only create if date is in the future
           if (classDateTime > new Date()) {
