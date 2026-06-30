@@ -105,3 +105,31 @@ export function getDisciplineHexColor(slug: string): string {
   const normalizedSlug = slug.toLowerCase().replace(/\s+/g, '-')
   return DISCIPLINE_COLORS[normalizedSlug] || '#9CAF88'
 }
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const value = hex.replace('#', '')
+  const full = value.length === 3
+    ? value.split('').map((c) => c + c).join('')
+    : value
+  return {
+    r: parseInt(full.slice(0, 2), 16),
+    g: parseInt(full.slice(2, 4), 16),
+    b: parseInt(full.slice(4, 6), 16),
+  }
+}
+
+/**
+ * Tinte sutil de fondo para una disciplina (Opción C — "color sutil integrado").
+ * Mezcla el color oficial hacia el blanco para obtener una superficie sólida y
+ * tenue, sin transparencias, que se eleva sobre el fondo crema del horario.
+ * Fuente única: se deriva de getDisciplineHexColor (mismo fallback neutral).
+ *
+ * @param slug - Slug de la disciplina
+ * @param amount - Proporción del color de marca (0-1). Default 0.15 (~15%).
+ * @returns Color rgb() listo para usar en `style.backgroundColor`
+ */
+export function getDisciplineTintColor(slug: string, amount = 0.15): string {
+  const { r, g, b } = hexToRgb(getDisciplineHexColor(slug))
+  const mix = (channel: number) => Math.round(channel * amount + 255 * (1 - amount))
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`
+}

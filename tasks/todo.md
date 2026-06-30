@@ -1,72 +1,76 @@
-# Wellnest: Correcciones — Card refresh + classType display + Horarios BD
+# Rediseño cards Horarios (mobile) + días colapsados
 
-## PROBLEMA 1: Card no se actualiza después de editar hora
-- [x] Causa raíz: bug de timezone en PUT endpoint (`setHours`/`setMinutes` de date-fns usa timezone local del servidor)
-- [x] Fix: `src/app/api/admin/classes/[id]/route.ts` — reconstruir dateTime con `Date.UTC()` + `EL_SALVADOR_UTC_OFFSET`
-- [x] Removido import de `setHours`/`setMinutes` de date-fns
-- [x] Ahora PUT usa mismo patrón que POST: `hours + EL_SALVADOR_UTC_OFFSET`
+## FASE 0 — Hallazgos de investigación
 
-## PROBLEMA 2: "test" → "Clase de Prueba" en UI
-- [x] Helper `formatClassType()` creado en `src/lib/utils.ts`
-- [x] Aplicado en `src/app/admin/horarios/page.tsx` (calendar cards)
-- [x] Aplicado en `src/app/horarios/page.tsx` (mobile + desktop cards)
-- [x] Aplicado en `src/app/admin/asistencias/page.tsx` (lista de clases)
-- [x] Aplicado en `src/app/admin/asistencias/[classId]/page.tsx` (detalle)
+Todo el horario público vive en **un solo archivo**: `src/app/horarios/page.tsx` (726 líneas, `'use client'`).
+Colores por disciplina: `src/config/disciplineColors.ts` (fuente central ya existente).
 
-## PROBLEMA 3: Horarios incorrectos en BD
-- [x] Causa raíz: scripts usaban `Date.UTC(y,m,d,hh,mm)` sin offset → 6 horas tarde
-- [x] Fix: `hh + 6` en los 3 scripts (load-test, week9-14, week16-21)
-- [x] Recargadas 86 clases con timezone correcto
-- [x] 12 test classes verificadas contra Excel ✓
-- [x] Total: 94 clases en BD (8 pre-existentes + 86 scripts)
+| Concern | Ubicación |
+|---|---|
+| `MobileClassCard` (card mobile) | `horarios/page.tsx:66-168` |
+| `MobileDayAccordion` (acordeón día) | `horarios/page.tsx:171-263` |
+| Render mobile (mapea `weekDates`) | `horarios/page.tsx:524-536` (`md:hidden`) |
+| Render desktop (grid 7 col, cards rellenas) | `horarios/page.tsx:538-639` (`hidden md:block`) |
+| **Acento lateral** | línea **86** (`border-l-4 ... shadow-sm`) + **88** (`disciplineBorderColors[slug]`) |
+| **Estado expansión** | línea **186**: `useState(isToday \|\| classes.length > 0)` — local por acordeón |
+| Status (finalizada/lleno/cupos) | líneas 75-79 + 148-164 |
+| Key del acordeón | línea **527**: `key={index}` (no remonta al navegar) |
 
-## VERIFICACIÓN
-- [x] Build sin errores
-- [x] 12 test classes coinciden con Excel (horas SV correctas)
-- [x] tasks/lessons.md actualizado
+**Decisiones de diseño validadas contra el design system real (NO contra el prompt):**
+- **Fuentes:** el config real mapea `sans/serif/logo` -> **Quicksand** (NO Cormorant/Jost; el README esta desactualizado). El subtitulo de clase ya usa `italic` -> se conserva. No se introducen fuentes nuevas.
+- **Colores de marca reales:** `primary #9CAF88`, `accent #C4A77D`, bg crema `#FFF8EF`, lista mobile `#F5F3EF`. (Los hex del prompt #639922/#E8DCC8/#FAF9F6 no existen -> gana el design system.)
+- **Radio:** sin tokens custom; convencion de cards = `rounded-2xl` (primitive `Card`). Card mobile pasa de `rounded-xl` -> `rounded-2xl`.
+- **Elevacion:** el sitio **usa sombras** (`Card` = `shadow-sm` rest / `shadow-md` hover). Opcion C -> `shadow-sm` (misma escala), **sin borde**. Separacion por elevacion + tinte.
+- **Color por disciplina:** ya hay fuente central (`disciplineColors.ts` + `getDisciplineHexColor`). `Discipline` NO tiene campo `color`. Memoria `project_db_push_danger` advierte NO correr `prisma db push` -> un campo en DB exige migracion riesgosa y fuera de scope. **Recomendacion: extender la constante central existente** (helper de tinte) en vez de migrar schema.
 
----
+## TAREA 1 — Card Opcion C (mobile)
+1. `disciplineColors.ts`: agregar `getDisciplineTintColor(slug, amount)` (mezcla el hex hacia blanco -> superficie solida tintada) construido sobre `getDisciplineHexColor` (mismo fallback neutral `#9CAF88`). Fuente unica.
+2. `MobileClassCard` (86-93): **eliminar `border-l-4` y `disciplineBorderColors[...]`**; quitar `bg-white`; aplicar `rounded-2xl shadow-sm` + `style={{ backgroundColor: getDisciplineTintColor(slug) }}`; `isPast` -> `opacity-60`.
+3. Fila de disciplina (98-120): reemplazar el pill solido por **punto de color** + nombre en texto sobrio. Igual para la complementaria (`+ • nombre`).
+4. Conservar TODO: tipo de clase (italic), hora+duracion, instructor, status box (cupos/lleno/finalizada con su icono). "Finalizada" queda atenuada por `opacity-60` + caja stone.
+5. Tinte: default ~10-12%; **ajustar con screenshots** para contraste sobre `#F5F3EF`.
+6. **Desktop intacto** (render separado, no comparte componente).
 
-# Extensión de Vigencia Pre-Marzo + Deducción de Paquetes Admin
+## TAREA 2 — Dias colapsados (mobile)
+7. Linea 186: `useState(isToday || classes.length > 0)` -> `useState(false)`.
+8. Header (198-240): agregar `aria-expanded={isOpen}` + `aria-controls`. Chevron ya refleja estado.
+9. Animacion de altura suave: envolver la lista en wrapper `grid grid-rows-[0fr]/[1fr] transition-[grid-template-rows] duration-300` + inner `overflow-hidden` (tecnica CSS sin medir JS), renderizando la lista siempre. Counter "N clases" ya visible colapsado.
+10. Key del acordeon (527): `key={index}` -> `key={format(date,'yyyy-MM-dd')}` para que al navegar mes/semana remonte y quede colapsado. Filtro de disciplina no cambia fechas -> permanece colapsado.
+11. Apertura multiple (estado local por dia) se conserva.
 
-## Vigencia Pre-Marzo
-- [x] Audit script: identificar compras antes de 2026-03-09T06:00:00Z
-- [x] Migration script: extender expiresAt a 2026-04-09T23:59:59 SV (idempotente)
+## Verificacion
+`npm run lint` -> `npm run build` -> `npm run dev` viewport 375px -> screenshots a `tasks/prompts/Assets/horarios-cards-final/`.
 
-## Deducción de Paquetes
-- [x] API endpoint: POST /api/admin/users/[id]/deduct-package (con validación y logging)
-- [x] API endpoint: GET /api/admin/users/[id]/purchases (para poblar dropdown)
-- [x] Admin UI: modal de deducción en página de usuarios (con confirmación visual)
+## Review — COMPLETADO
 
-## Testing
-- [ ] Ejecutar audit script y verificar output
-- [ ] Ejecutar migration script en --dry-run primero
-- [ ] Probar deducción via UI: caso exitoso, balance insuficiente
-- [ ] Verificar que deducción a 0 marca Purchase como DEPLETED
+**Archivos tocados (2):**
+- `src/config/disciplineColors.ts`: + `hexToRgb()` + `getDisciplineTintColor(slug, amount=0.15)` (deriva el tinte de `getDisciplineHexColor`, misma fuente única + fallback `#9CAF88`).
+- `src/app/horarios/page.tsx`: card mobile rediseñada + acordeón colapsado/animado + key por fecha. Desktop intacto.
 
----
+**Decisiones finales:**
+- Fuente de color: **constante central existente** (sin migración DB) — confirmado por el usuario.
+- Scope: **solo mobile** — confirmado por el usuario; desktop usa render separado (verificado sin regresión).
+- Elevación: `shadow-sm` (convención real del sitio, primitive `Card`), **sin borde**.
+- Tinte: 15% (sólido, mezcla hacia blanco) — subido desde 8-10% de referencia porque sobre el fondo crema `#F5F3EF` 10% era casi imperceptible. El punto de color es la señal primaria.
+- Radio: `rounded-2xl` (alineado al primitive `Card`).
+- `inert` se renderiza como string `""` (React 18.3 no lo tiene en su allowlist booleana; un boolean dispara warning de consola).
 
-# Fix Búsqueda Usuarios + Reset Contraseña Admin
+**Criterios de aceptación:**
+- [x] No hay barra/acento lateral (eliminado `border-l-4` + `disciplineBorderColors`).
+- [x] Opción C: sin borde, tinte por disciplina, punto de color.
+- [x] Elevación coherente (`shadow-sm`) — documentada.
+- [x] Tokens reutilizados (hex de `DISCIPLINE_COLORS`, `rounded-2xl`, `text-foreground`).
+- [x] Color desde UNA fuente con fallback neutral; no hardcodeado por card.
+- [x] Conserva disciplina, nombre clase (italic), hora, duración, instructor, estado.
+- [x] "Finalizada" atenuada (opacity-60 + caja stone); "N cupos" con icono.
+- [x] Cohesivo con header/dropdown/leyenda.
+- [x] Días inician colapsados; ninguno abierto (ni Hoy).
+- [x] Abrir/cerrar con animación (grid 0fr→1fr) + `aria-expanded`/`aria-controls` + `inert`.
+- [x] Counter "N clases" visible colapsado.
+- [x] Navegar semana mantiene colapsados (key por fecha → remonta); filtro no auto-expande.
+- [x] Desktop sin regresiones (verificado a 1280px).
+- [x] `tsc` + `build` pasan; consola sin errores (solo warning pre-existente de meta tag).
 
-## Fix Barra de Búsqueda (Admin/Usuarios)
-- [x] Causa raíz: `isLoading` reemplazaba toda la página con spinner, desmontando el input de búsqueda
-- [x] Fix: separar `isLoading` (solo carga inicial) de `isSearching` (búsqueda/paginación)
-- [x] Indicador de búsqueda: icono de Search cambia a Loader2 animado durante búsqueda
-- [x] El input nunca pierde foco — la tabla se actualiza sin desmontar el search
+**Screenshots:** `tasks/prompts/Assets/horarios-cards-final/` (01 colapsados, 02 cards activas zoom, 03 día expandido hoy, 04 desktop).
 
-## Reset de Contraseña desde Admin
-- [x] API endpoint: POST /api/admin/users/[id]/reset-password
-- [x] Genera contraseña temporal legible (formato WnSt-XXXXXXXX, sin caracteres ambiguos)
-- [x] Hashea con bcryptjs (12 rounds, mismo método del sistema de auth)
-- [x] Envía email con contraseña temporal via Microsoft Graph API (template con branding Wellnest)
-- [x] Contraseña temporal NO aparece en response de API ni en logs
-- [x] Validación de rol ADMIN en endpoint
-- [x] Botón "Resetear" en tabla de usuarios + botón en modal de detalle
-- [x] Modal de confirmación con nombre y email del usuario
-- [x] Toast de éxito/error
-
-## Verificación
-- [ ] Escribir en barra de búsqueda sin perder foco
-- [ ] Resetear contraseña de usuario de prueba → verificar email
-- [ ] Login con contraseña temporal → debe funcionar
-- [ ] Contraseña anterior ya no funciona
+**Nota lint:** `npm run lint` no está configurado en el repo (prompt interactivo de setup); se usó `npx tsc --noEmit` + `npm run build` para type-check.

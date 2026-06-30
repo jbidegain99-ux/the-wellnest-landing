@@ -193,3 +193,27 @@ Si hay problemas: cambiar `PAYWAY_ENV=TEST` en Vercel Production y redeploy
 - `src/app/horarios/page.tsx` — same fix
 - `src/app/admin/horarios/page.tsx` — replaced `getNowInSV()` with `new Date()`
 - `src/components/admin/MobileScheduleView.tsx` — same fix
+
+---
+
+## Rediseño cards Horarios mobile (2026-06-29)
+
+### React 18.3 + atributo `inert`
+- `@types/react@18` tipa `inert` como `boolean | undefined`, PERO el runtime de React 18.3.1 NO lo tiene en su allowlist de atributos booleanos. Pasar `inert={true/false}` dispara el warning de consola "Received `true` for a non-boolean attribute `inert`".
+- **Patrón correcto:** renderizarlo como string `""` cuando está activo y `undefined` cuando no. Como el tipo exige boolean, castear: `const v = (cond ? '' : undefined) as unknown as boolean | undefined`. Evita el warning y mantiene `tsc` verde.
+- Nunca pasar `inert={false}` literal: en runtimes viejos se renderiza `inert="false"` (atributo presente = activo) → bug silencioso. Usar `undefined` para omitirlo.
+
+### Animación de acordeón accesible (altura auto)
+- Técnica sin medir JS: wrapper `grid grid-rows-[0fr]/[1fr] transition-[grid-template-rows]` + hijo `overflow-hidden`. Anima a altura natural.
+- **Caveat de a11y:** el contenido queda en el DOM aun colapsado → los botones internos siguen en el tab order (regresión vs `{isOpen && ...}`). Agregar `inert` + `aria-hidden` al panel cuando está cerrado para sacarlos del foco.
+- `aria-expanded`/`aria-controls` van en el botón trigger, no en el panel.
+
+### Tinte sutil sobre fondo cálido
+- Referencia genérica de "8-10%" de tinte se vuelve casi imperceptible sobre un fondo crema (`#F5F3EF`), no sobre blanco puro. Validar SIEMPRE con screenshot contra el fondo real; subí a 15%. El punto de color es la señal primaria, el tinte es refuerzo.
+- Tinte sólido = mezclar el hex hacia blanco en JS (`canal*amount + 255*(1-amount)`) y pasarlo como `style.backgroundColor`. Evita problemas de purge de Tailwind con clases dinámicas y mantiene UNA sola fuente (helper sobre `getDisciplineHexColor`).
+
+### Design system real ≠ el del prompt
+- El prompt citaba Cormorant/Jost y hex #639922/#E8DCC8/#FAF9F6. El config real usa **Quicksand** para todo y `primary #9CAF88` / crema `#FFF8EF`. Regla: investigar `tailwind.config` + `globals.css` y dejar que **gane el design system real**, no los valores del brief.
+
+### `npm run lint` no está configurado
+- Lanza el prompt interactivo de setup de ESLint. Para verificar tipos usar `npx tsc --noEmit` + `npm run build`.
