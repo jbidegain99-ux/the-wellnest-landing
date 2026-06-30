@@ -25,8 +25,8 @@ import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   disciplineColors,
-  disciplineBorderColors,
-  disciplineBadgeColors,
+  getDisciplineHexColor,
+  getDisciplineTintColor,
 } from '@/config/disciplineColors'
 
 interface Discipline {
@@ -82,40 +82,40 @@ function MobileClassCard({
     <button
       onClick={onClick}
       disabled={isDisabled}
+      style={{ backgroundColor: getDisciplineTintColor(cls.discipline.slug) }}
       className={cn(
-        'w-full p-4 bg-white rounded-xl border-l-4 shadow-sm',
+        'w-full p-4 rounded-2xl shadow-sm',
         'text-left transition-all min-h-[88px]',
-        disciplineBorderColors[cls.discipline.slug] || 'border-l-primary',
         isPast
-          ? 'opacity-50 cursor-not-allowed'
+          ? 'opacity-60 cursor-not-allowed'
           : 'hover:shadow-md active:scale-[0.98] cursor-pointer'
       )}
     >
       <div className="flex items-start justify-between gap-3 min-w-0">
         {/* Left: Main info */}
         <div className="flex-1 min-w-0 space-y-2">
-          {/* Discipline badge */}
-          <div className="flex flex-wrap gap-1">
-            <span
-              className={cn(
-                'inline-block px-2 py-0.5 rounded text-xs font-medium',
-                disciplineBadgeColors[cls.discipline.slug] || 'bg-primary text-white'
-              )}
-            >
-              {cls.discipline.name}
+          {/* Discipline — punto de color + nombre (sutil) */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="h-2 w-2 flex-shrink-0 rounded-full"
+                style={{ backgroundColor: getDisciplineHexColor(cls.discipline.slug) }}
+              />
+              <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
+                {cls.discipline.name}
+              </span>
             </span>
             {cls.complementaryDiscipline && (
-              <>
-                <span className="text-xs text-gray-400">+</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-xs text-gray-300">+</span>
                 <span
-                  className={cn(
-                    'inline-block px-2 py-0.5 rounded text-xs font-medium',
-                    disciplineBadgeColors[cls.complementaryDiscipline.slug] || 'bg-primary text-white'
-                  )}
-                >
+                  className="h-2 w-2 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: getDisciplineHexColor(cls.complementaryDiscipline.slug) }}
+                />
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
                   {cls.complementaryDiscipline.name}
                 </span>
-              </>
+              </span>
             )}
           </div>
 
@@ -183,11 +183,16 @@ function MobileDayAccordion({
   now: Date
   onClassClick: (cls: ClassData) => void
 }) {
-  const [isOpen, setIsOpen] = React.useState(isToday || classes.length > 0)
+  const [isOpen, setIsOpen] = React.useState(false)
 
   const dayName = weekDays[date.getDay()]
   const dayNumber = date.getDate()
   const monthName = format(date, 'MMM', { locale: es })
+  const panelId = `day-panel-${format(date, 'yyyy-MM-dd')}`
+  // `inert` debe renderizarse como atributo string ("") y no como booleano:
+  // React 18.3 no lo tiene en su allowlist booleana y un valor boolean dispara
+  // un warning en consola. Cuando el día está abierto se omite (undefined).
+  const inertWhenClosed = (!isOpen ? '' : undefined) as unknown as boolean | undefined
 
   return (
     <div className={cn(
@@ -197,6 +202,8 @@ function MobileDayAccordion({
       {/* Day Header */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-controls={panelId}
         className={cn(
           'w-full flex items-center justify-between p-4',
           'min-h-[56px] transition-colors',
@@ -239,25 +246,35 @@ function MobileDayAccordion({
         </div>
       </button>
 
-      {/* Classes List */}
-      {isOpen && (
-        <div className="p-3 space-y-3 bg-[#F5F3EF]">
-          {classes.length === 0 ? (
-            <p className="text-center text-gray-500 py-4 text-sm">
-              No hay clases programadas
-            </p>
-          ) : (
-            classes.map((cls) => (
-              <MobileClassCard
-                key={cls.id}
-                cls={cls}
-                now={now}
-                onClick={() => onClassClick(cls)}
-              />
-            ))
-          )}
+      {/* Classes List — animación de altura suave (grid 0fr → 1fr) */}
+      <div
+        id={panelId}
+        aria-hidden={!isOpen}
+        inert={inertWhenClosed}
+        className={cn(
+          'grid transition-[grid-template-rows] duration-300 ease-out',
+          isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="p-3 space-y-3 bg-[#F5F3EF]">
+            {classes.length === 0 ? (
+              <p className="text-center text-gray-500 py-4 text-sm">
+                No hay clases programadas
+              </p>
+            ) : (
+              classes.map((cls) => (
+                <MobileClassCard
+                  key={cls.id}
+                  cls={cls}
+                  now={now}
+                  onClick={() => onClassClick(cls)}
+                />
+              ))
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -522,9 +539,9 @@ export default function HorariosPage() {
             <>
               {/* Mobile Agenda View - Only visible on < md */}
               <div className="md:hidden space-y-4">
-                {weekDates.map((date, index) => (
+                {weekDates.map((date) => (
                   <MobileDayAccordion
-                    key={index}
+                    key={format(date, 'yyyy-MM-dd')}
                     date={date}
                     classes={getClassesForDay(date)}
                     isToday={isToday(date)}
