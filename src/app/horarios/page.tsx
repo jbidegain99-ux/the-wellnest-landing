@@ -147,7 +147,7 @@ function MobileClassCard({
         {/* Right: Spots status */}
         <div className={cn(
           'flex-shrink-0 flex flex-col items-center justify-center',
-          'px-3 py-2 rounded-lg min-w-[70px]',
+          'px-3 py-2 rounded-lg min-w-[70px] max-w-[84px]',
           isPast ? 'bg-stone-100 text-stone-400' :
           isFull ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
         )}>
@@ -157,7 +157,7 @@ function MobileClassCard({
             <>
               <Users className="h-4 w-4 mb-1" />
               <span className="text-xs font-medium text-center">
-                {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                {isFull ? 'Lleno' : `${spotsLeft} ${spotsLeft === 1 ? 'cupo disponible' : 'cupos disponibles'}`}
               </span>
             </>
           )}
@@ -641,7 +641,7 @@ export default function HorariosPage() {
                                   ) : (
                                     <>
                                       <Users className="h-3 w-3 flex-shrink-0" />
-                                      {isFull ? 'Lleno' : `${spotsLeft} cupos`}
+                                      {isFull ? 'Lleno' : `${spotsLeft} ${spotsLeft === 1 ? 'cupo disponible' : 'cupos disponibles'}`}
                                     </>
                                   )}
                                 </p>
