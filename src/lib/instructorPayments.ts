@@ -164,6 +164,42 @@ export function weekBoundsFromMondaySV(mondayYmd: string): { start: Date; end: D
   return { start, end, label: formatWeekLabel(start, end) }
 }
 
+const MONTHS_ES_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+/**
+ * Computes the previous full calendar month in SV time, returned as UTC bounds.
+ * Month starts day 1 00:00 SV; ends day 1 of the next month 00:00 SV (exclusive).
+ * Example: called 2026-07-01 (SV) → [1 Jun 2026 00:00 SV, 1 Jul 2026 00:00 SV).
+ */
+export function previousMonthBoundsSV(now: Date = new Date()): { start: Date; end: Date; label: string } {
+  const nowSV = svLocal(now)
+  const y = nowSV.getUTCFullYear()
+  const mo = nowSV.getUTCMonth()
+  // SV midnight = 06:00 UTC; Date.UTC normalizes month -1 / month +0 overflow
+  const start = new Date(Date.UTC(y, mo - 1, 1, 6, 0, 0, 0))
+  const end = new Date(Date.UTC(y, mo, 1, 6, 0, 0, 0))
+  return { start, end, label: formatMonthLabel(start) }
+}
+
+/**
+ * Builds month bounds from an explicit YYYY-MM (SV calendar month).
+ */
+export function monthBoundsFromYmSV(ym: string): { start: Date; end: Date; label: string } {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym)
+  if (!m) throw new Error('month must be YYYY-MM')
+  const y = Number(m[1])
+  const mo = Number(m[2]) - 1
+  if (mo < 0 || mo > 11) throw new Error(`month ${ym} is not a valid YYYY-MM`)
+  const start = new Date(Date.UTC(y, mo, 1, 6, 0, 0, 0))
+  const end = new Date(Date.UTC(y, mo + 1, 1, 6, 0, 0, 0))
+  return { start, end, label: formatMonthLabel(start) }
+}
+
+function formatMonthLabel(start: Date): string {
+  const sv = svLocal(start)
+  return `${MONTHS_ES_FULL[sv.getUTCMonth()]} ${sv.getUTCFullYear()}`
+}
+
 function formatWeekLabel(start: Date, end: Date): string {
   const sStart = svLocal(start)
   const sEndInclusive = new Date(end.getTime() - 24 * 3600 * 1000) // Sunday of the week

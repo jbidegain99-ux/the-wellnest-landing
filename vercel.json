@@ -5,6 +5,10 @@
       "schedule": "0 12 * * 1"
     },
     {
+      "path": "/api/cron/instructor-payments-monthly",
+      "schedule": "0 12 1 * *"
+    },
+    {
       "path": "/api/cron/retry-invoices",
       "schedule": "23 13 * * *"
     }
