@@ -9,6 +9,10 @@
       "schedule": "0 12 1 * *"
     },
     {
+      "path": "/api/cron/sales-report",
+      "schedule": "30 12 1 * *"
+    },
+    {
       "path": "/api/cron/retry-invoices",
       "schedule": "23 13 * * *"
     }
