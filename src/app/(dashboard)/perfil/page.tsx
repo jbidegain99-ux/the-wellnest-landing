@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { Camera, Edit2, Save, X, Check, AlertCircle, Lock, CreditCard, Loader2 } from 'lucide-react'
+import { Camera, Edit2, Save, X, Check, AlertCircle, Lock, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { UserQRCode } from '@/components/UserQRCode'
 import { Input } from '@/components/ui/Input'
@@ -71,7 +71,6 @@ export default function PerfilPage() {
   const [isChangingPassword, setIsChangingPassword] = React.useState(false)
 
   // Payment modal state
-  const [showPaymentModal, setShowPaymentModal] = React.useState(false)
 
   // Fetch user profile on mount
   React.useEffect(() => {
@@ -415,7 +414,7 @@ export default function PerfilPage() {
             </h3>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between py-3 border-b border-beige">
+              <div className="flex items-center justify-between py-3">
                 <div>
                   <p className="font-medium text-foreground">Contraseña</p>
                   <p className="text-sm text-gray-500">
@@ -429,23 +428,6 @@ export default function PerfilPage() {
                 >
                   <Lock className="h-4 w-4 mr-2" />
                   Cambiar
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between py-3">
-                <div>
-                  <p className="font-medium text-foreground">
-                    Método de pago guardado
-                  </p>
-                  <p className="text-sm text-gray-500">Visa •••• 4242</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowPaymentModal(true)}
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Gestionar
                 </Button>
               </div>
             </div>
@@ -525,46 +507,6 @@ export default function PerfilPage() {
               </form>
             </>
           )}
-        </ModalContent>
-      </Modal>
-
-      {/* Payment Management Modal */}
-      <Modal open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-        <ModalContent>
-          <ModalHeader>
-            <ModalTitle>Gestionar Método de Pago</ModalTitle>
-            <ModalDescription>
-              Administra tu forma de pago guardada
-            </ModalDescription>
-          </ModalHeader>
-
-          <div className="py-6">
-            <div className="p-4 bg-beige rounded-xl mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-8 bg-white rounded flex items-center justify-center">
-                  <span className="text-xs font-bold text-blue-600">VISA</span>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">•••• •••• •••• 4242</p>
-                  <p className="text-sm text-gray-500">Expira 12/25</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm text-amber-800">
-                <strong>Próximamente:</strong> La gestión completa de métodos de pago
-                estará disponible pronto. Por ahora, si necesitas actualizar tu método
-                de pago, contáctanos por WhatsApp.
-              </p>
-            </div>
-          </div>
-
-          <ModalFooter>
-            <Button onClick={() => setShowPaymentModal(false)} className="w-full">
-              Entendido
-            </Button>
-          </ModalFooter>
         </ModalContent>
       </Modal>
     </div>
