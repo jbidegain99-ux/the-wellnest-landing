@@ -14,10 +14,12 @@
  *     → además envía el email con adjunto a los destinatarios
  */
 
+// Primero: .env.local trae AZURE_* y EMAIL_FROM, y emailService lee EMAIL_FROM
+// al cargarse. Debe ir antes de cualquier import que toque process.env.
+import './loadEnv'
+
 import * as fs from 'fs'
 import * as path from 'path'
-import { prisma } from '../src/lib/prisma'
-import { sendEmail } from '../src/lib/emailService'
 import {
   computeInstructorPayments,
   buildInstructorPaymentsExcel,
@@ -81,6 +83,17 @@ function printPreview(result: InstructorPaymentsResult, label: string, bounds: {
   }
   console.log(`  ${'TOTAL'.padEnd(28)}  ${String(result.classesCounted).padStart(6)}  $${result.totalBruto.toFixed(2).padStart(9)}  $${result.totalNeto.toFixed(2).padStart(9)}  $${result.totalRenta.toFixed(2).padStart(7)}`)
 
+  const adjusted = result.rows.filter(r => r.adjustmentReason)
+  if (adjusted.length > 0) {
+    console.log('\n═══ CORRECCIONES MANUALES DE ASISTENCIA APLICADAS ═══')
+    for (const r of adjusted) {
+      const sv = new Date(r.dateTime.getTime() - 6 * 3600 * 1000)
+      const fecha = sv.toISOString().slice(0, 10)
+      console.log(`  ${fecha}  ${r.instructorName} · ${r.disciplineName}  ${r.attendeesFromReservations} → ${r.attendees} asistentes  (bruto $${r.bruto.toFixed(2)}, tramo "${r.tierLabel}")`)
+      console.log(`    ${r.adjustmentReason}`)
+    }
+  }
+
   console.log('\n═══ DESGLOSE POR INSTRUCTOR Y DISCIPLINA ═══')
   for (const s of result.summaryByInstructor) {
     const disciplines = Array.from(s.byDiscipline.entries()).sort((a, b) => b[1].neto - a[1].neto)
@@ -99,6 +112,9 @@ async function main() {
     process.exit(1)
   }
   const bounds = monthBoundsFromYmSV(arg)
+
+  const { prisma } = await import('../src/lib/prisma')
+  const { sendEmail } = await import('../src/lib/emailService')
 
   const result = await computeInstructorPayments(prisma, bounds.start, bounds.end)
   printPreview(result, bounds.label, bounds)
@@ -154,6 +170,7 @@ async function main() {
 
 main().catch(async e => {
   console.error(e)
+  const { prisma } = await import('../src/lib/prisma')
   await prisma.$disconnect()
   process.exit(1)
 })

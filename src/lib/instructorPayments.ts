@@ -29,6 +29,7 @@ import * as XLSX from 'xlsx'
 // Una sola fuente de verdad: una copia local desincronizada afecta
 // directamente los pagos a instructores
 import { EXCLUDED_USER_IDS } from '@/lib/constants'
+import { getAttendanceAdjustment } from '@/lib/attendanceAdjustments'
 
 export interface PayTier {
   bruto: number
@@ -46,6 +47,10 @@ export interface ClassPaymentRow {
   instructorName: string
   capacity: number
   attendees: number
+  /** Conteo derivado de reservas, antes de aplicar una corrección manual. */
+  attendeesFromReservations: number
+  /** Motivo de la corrección manual de asistencia, si la clase tiene una. */
+  adjustmentReason?: string
   table: '6' | '10' | 'otro'
   tierLabel: string
   bruto: number
@@ -246,13 +251,16 @@ export async function computeInstructorPayments(
   })
 
   const rows: ClassPaymentRow[] = []
-  const summaryMap = new Map<string, InstructorSummaryRow>()
 
   for (const c of classes) {
     if (!c.instructor) continue
-    const attendees = c.reservations.filter(
+    const attendeesFromReservations = c.reservations.filter(
       r => r.status === ReservationStatus.ATTENDED || r.checkedIn,
     ).length
+    // Correcciones manuales: gente que entró a la clase sin quedar registrada
+    // en la plataforma. Ver src/lib/attendanceAdjustments.ts.
+    const adjustment = getAttendanceAdjustment(c.id)
+    const attendees = adjustment ? adjustment.attendeesReported : attendeesFromReservations
     const tier = calculatePayTier(c.maxCapacity, attendees)
     const table: '6' | '10' | 'otro' = c.maxCapacity <= 6 ? '6' : c.maxCapacity >= 7 ? '10' : 'otro'
     const disciplineName = c.discipline?.name ?? '(sin disciplina)'
@@ -266,6 +274,8 @@ export async function computeInstructorPayments(
       instructorName: c.instructor.name,
       capacity: c.maxCapacity,
       attendees,
+      attendeesFromReservations,
+      adjustmentReason: adjustment?.reason,
       table,
       tierLabel: tier.label,
       bruto: tier.bruto,
@@ -273,30 +283,44 @@ export async function computeInstructorPayments(
       renta: tier.renta,
     })
 
-    let summary = summaryMap.get(c.instructor.id)
+  }
+
+  return { periodStart, periodEnd, ...aggregateRows(rows) }
+}
+
+/**
+ * Agrega filas de clase en resumen por instructor y totales.
+ * Una sola implementación: `computeInstructorPayments` y
+ * `applyAttendanceOverrides` deben producir exactamente los mismos números.
+ */
+function aggregateRows(rows: ClassPaymentRow[]): Omit<InstructorPaymentsResult, 'periodStart' | 'periodEnd'> {
+  const summaryMap = new Map<string, InstructorSummaryRow>()
+
+  for (const row of rows) {
+    let summary = summaryMap.get(row.instructorId)
     if (!summary) {
       summary = {
-        instructorId: c.instructor.id,
-        instructorName: c.instructor.name,
+        instructorId: row.instructorId,
+        instructorName: row.instructorName,
         classes: 0,
         totalBruto: 0,
         totalNeto: 0,
         totalRenta: 0,
         byDiscipline: new Map(),
       }
-      summaryMap.set(c.instructor.id, summary)
+      summaryMap.set(row.instructorId, summary)
     }
     summary.classes += 1
-    summary.totalBruto += tier.bruto
-    summary.totalNeto += tier.neto
-    summary.totalRenta += tier.renta
+    summary.totalBruto += row.bruto
+    summary.totalNeto += row.neto
+    summary.totalRenta += row.renta
 
-    const discAgg = summary.byDiscipline.get(disciplineName) ?? { classes: 0, bruto: 0, neto: 0, renta: 0 }
+    const discAgg = summary.byDiscipline.get(row.disciplineName) ?? { classes: 0, bruto: 0, neto: 0, renta: 0 }
     discAgg.classes += 1
-    discAgg.bruto += tier.bruto
-    discAgg.neto += tier.neto
-    discAgg.renta += tier.renta
-    summary.byDiscipline.set(disciplineName, discAgg)
+    discAgg.bruto += row.bruto
+    discAgg.neto += row.neto
+    discAgg.renta += row.renta
+    summary.byDiscipline.set(row.disciplineName, discAgg)
   }
 
   const summaryByInstructor = Array.from(summaryMap.values())
@@ -308,19 +332,60 @@ export async function computeInstructorPayments(
     }))
     .sort((a, b) => b.totalNeto - a.totalNeto)
 
-  const totalBruto = round2(rows.reduce((s, r) => s + r.bruto, 0))
-  const totalNeto = round2(rows.reduce((s, r) => s + r.neto, 0))
-  const totalRenta = round2(rows.reduce((s, r) => s + r.renta, 0))
-
   return {
-    periodStart,
-    periodEnd,
     rows,
     summaryByInstructor,
-    totalBruto,
-    totalNeto,
-    totalRenta,
+    totalBruto: round2(rows.reduce((s, r) => s + r.bruto, 0)),
+    totalNeto: round2(rows.reduce((s, r) => s + r.neto, 0)),
+    totalRenta: round2(rows.reduce((s, r) => s + r.renta, 0)),
     classesCounted: rows.length,
+  }
+}
+
+/**
+ * Sobrescribe la asistencia de clases puntuales y recalcula tramo, resumen y
+ * totales. Es la vía para correcciones de un solo uso que todavía no están en
+ * `ATTENDANCE_ADJUSTMENTS`; las que ya están se aplican solas en
+ * `computeInstructorPayments` (y por lo tanto también en el cron).
+ *
+ * Lanza si algún classId no corresponde a una clase del período: un ajuste que
+ * silenciosamente no se aplica es peor que un error.
+ */
+export function applyAttendanceOverrides(
+  result: InstructorPaymentsResult,
+  overrides: { classId: string; attendees: number; note: string }[],
+): InstructorPaymentsResult {
+  if (overrides.length === 0) return result
+
+  const byId = new Map(overrides.map(o => [o.classId, o]))
+  const unmatched = new Set(byId.keys())
+
+  const rows = result.rows.map(row => {
+    const o = byId.get(row.classId)
+    if (!o) return row
+    unmatched.delete(row.classId)
+    const tier = calculatePayTier(row.capacity, o.attendees)
+    return {
+      ...row,
+      attendees: o.attendees,
+      adjustmentReason: o.note,
+      tierLabel: tier.label,
+      bruto: tier.bruto,
+      neto: tier.neto,
+      renta: tier.renta,
+    }
+  })
+
+  if (unmatched.size > 0) {
+    throw new Error(
+      `Ajustes que no corresponden a ninguna clase del período: ${Array.from(unmatched).join(', ')}`,
+    )
+  }
+
+  return {
+    periodStart: result.periodStart,
+    periodEnd: result.periodEnd,
+    ...aggregateRows(rows),
   }
 }
 
@@ -396,7 +461,7 @@ export function buildInstructorPaymentsExcel(result: InstructorPaymentsResult, p
     // Instructor header
     s2.push([`▸ ${summary.instructorName}`, '', '', '', '', '', '', '', '', `${summary.classes} clases`])
     // Column headers
-    s2.push(['Fecha', 'Hora', 'Instructor', 'Disciplina', 'Capacidad', 'Asistencia', '% Ocupación', 'Pago Bruto', '10% Retención', 'Pago Neto'])
+    s2.push(['Fecha', 'Hora', 'Instructor', 'Disciplina', 'Capacidad', 'Asistencia', '% Ocupación', 'Pago Bruto', '10% Retención', 'Pago Neto', 'Corrección de asistencia'])
 
     for (const r of classes) {
       const pct = r.capacity > 0 ? r.attendees / r.capacity : 0
@@ -412,6 +477,7 @@ export function buildInstructorPaymentsExcel(result: InstructorPaymentsResult, p
         r.bruto,
         r.renta,
         r.neto,
+        r.adjustmentReason ? `${r.attendeesFromReservations} → ${r.attendees}: ${r.adjustmentReason}` : '',
       ])
       s2PctCells.push({ r: rowIdx, c: 6 })
       s2CurrencyCells.push({ r: rowIdx, c: 7 }, { r: rowIdx, c: 8 }, { r: rowIdx, c: 9 })
@@ -441,6 +507,7 @@ export function buildInstructorPaymentsExcel(result: InstructorPaymentsResult, p
     { wch: 12 },  // Pago Bruto
     { wch: 14 },  // 10% Retención
     { wch: 12 },  // Pago Neto
+    { wch: 60 },  // Corrección de asistencia
   ]
   for (const { r, c } of s2PctCells) {
     const ref = XLSX.utils.encode_cell({ c, r })
@@ -458,8 +525,9 @@ export function buildInstructorPaymentsExcel(result: InstructorPaymentsResult, p
     [`Período: ${periodLabel}`],
     [`Reglas: Capacidad ≤ 6 → tabla de 6 alumnos. Capacidad ≥ 7 → tabla de 10 alumnos.`],
     [`Asistentes = status=ATTENDED OR checkedIn=true (excluyendo usuarios de prueba).`],
+    [`Las clases con corrección manual de asistencia se listan en la hoja "Correcciones Asistencia".`],
     [],
-    ['#', 'Fecha', 'Hora', 'Instructor', 'Disciplina', 'Tipo', 'Cap.', 'Asist.', 'Tabla', 'Tramo', 'Bruto', 'Neto', 'Renta'],
+    ['#', 'Fecha', 'Hora', 'Instructor', 'Disciplina', 'Tipo', 'Cap.', 'Asist.', 'Tabla', 'Tramo', 'Bruto', 'Neto', 'Renta', 'Asist. sistema', 'Corrección'],
     ...result.rows.map((r, i) => [
       i + 1,
       fmtDateSV(r.dateTime),
@@ -474,6 +542,8 @@ export function buildInstructorPaymentsExcel(result: InstructorPaymentsResult, p
       r.bruto,
       r.neto,
       r.renta,
+      r.adjustmentReason ? r.attendeesFromReservations : '',
+      r.adjustmentReason ?? '',
     ]),
     [],
     ['', '', '', '', '', '', '', '', '', 'TOTAL', result.totalBruto, result.totalNeto, result.totalRenta],
@@ -482,15 +552,56 @@ export function buildInstructorPaymentsExcel(result: InstructorPaymentsResult, p
   ws3['!cols'] = [
     { wch: 4 }, { wch: 12 }, { wch: 10 }, { wch: 26 }, { wch: 22 },
     { wch: 24 }, { wch: 6 }, { wch: 7 }, { wch: 10 }, { wch: 22 },
-    { wch: 10 }, { wch: 10 }, { wch: 10 },
+    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 13 }, { wch: 70 },
   ]
-  for (let r = 6; r < s3.length; r++) {
+  for (let r = 7; r < s3.length; r++) {
     for (const c of [10, 11, 12]) {
       const ref = XLSX.utils.encode_cell({ c, r })
       if (ws3[ref] && typeof ws3[ref].v === 'number') ws3[ref].z = '"$"#,##0.00'
     }
   }
   XLSX.utils.book_append_sheet(wb, ws3, 'Detalle por Clase')
+
+  // Sheet 4: Correcciones de asistencia aplicadas en el período
+  const adjustedRows = result.rows.filter(r => r.adjustmentReason)
+  if (adjustedRows.length > 0) {
+    const s4: (string | number)[][] = [
+      ['CORRECCIONES MANUALES DE ASISTENCIA'],
+      [`Período: ${periodLabel}`],
+      ['Asistencia real reportada por el equipo para clases donde entró gente que no quedó registrada en la plataforma.'],
+      ['El pago de estas clases se calculó con la asistencia corregida, no con el conteo del sistema.'],
+      [],
+      ['Fecha', 'Hora', 'Instructor', 'Disciplina', 'Asist. sistema', 'Asist. real', 'Bruto', 'Neto', 'Motivo', 'Reportado por', 'Registrado'],
+      ...adjustedRows.map(r => {
+        const adj = getAttendanceAdjustment(r.classId)
+        return [
+          fmtDateSV(r.dateTime),
+          fmtTimeSV(r.dateTime),
+          r.instructorName,
+          r.disciplineName,
+          r.attendeesFromReservations,
+          r.attendees,
+          r.bruto,
+          r.neto,
+          r.adjustmentReason ?? '',
+          adj?.reportedBy ?? '',
+          adj?.recordedAt ?? '',
+        ]
+      }),
+    ]
+    const ws4 = XLSX.utils.aoa_to_sheet(s4)
+    ws4['!cols'] = [
+      { wch: 12 }, { wch: 10 }, { wch: 24 }, { wch: 20 }, { wch: 13 },
+      { wch: 11 }, { wch: 10 }, { wch: 10 }, { wch: 70 }, { wch: 18 }, { wch: 12 },
+    ]
+    for (let r = 6; r < s4.length; r++) {
+      for (const c of [6, 7]) {
+        const ref = XLSX.utils.encode_cell({ c, r })
+        if (ws4[ref] && typeof ws4[ref].v === 'number') ws4[ref].z = '"$"#,##0.00'
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, ws4, 'Correcciones Asistencia')
+  }
 
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
   return buf as Buffer
