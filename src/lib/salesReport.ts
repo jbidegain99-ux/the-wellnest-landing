@@ -10,7 +10,7 @@
  *   3. Resumen Semanal (semanas Lunes-Domingo en hora SV, parciales al inicio/fin)
  *   4. Detalle Paquetes
  *   5. Top 10 Clientes
- *   6. % Ventas por Disciplina + Pagos a Instructores
+ *   6. Ingresos por Disciplina (por clase consumida) + Pagos a Instructores
  *   7. Ocupación por Clase (Disciplina × Semana + detalle por clase)
  *   8. Listado Completo de Ventas
  *
@@ -24,6 +24,23 @@
  * Excel manual de Downloads — se calculan desde la DB con la misma escala del
  * cron de pagos (src/lib/instructorPayments.ts), cubriendo a todos los
  * instructores.
+ *
+ * Atribución por disciplina (hoja 6) — cambio de método, sep 2026:
+ *   Antes: para cada compra del mes se repartía el finalPrice íntegro entre las
+ *   disciplinas según las reservas del comprador en ese mes calendario. Con
+ *   denominadores de 1-2 reservas el resultado se disparaba: en agosto 2026 un
+ *   trimestral de $355 comprado el día 25, con una sola reserva de yoga después,
+ *   puso $355 en Yoga (42% del total de la disciplina) pese a que el historial
+ *   de esa clienta es mayoritariamente Mat Pilates.
+ *
+ *   Ahora: cada reserva del mes se valora al precio unitario de la compra que la
+ *   originó (finalPrice / classCount del paquete) y se asigna a la disciplina de
+ *   su clase. Da un $/clase comparable al precio real de lista.
+ *
+ *   Consecuencia deliberada: el total de la hoja 6 NO cuadra con las ventas de
+ *   la hoja 1. Mide consumo, no caja — incluye clases de paquetes comprados en
+ *   meses anteriores y excluye el saldo vendido que aún no se usa. La hoja 6
+ *   muestra las dos cifras y su diferencia.
  */
 
 import type { PrismaClient } from '@prisma/client'
@@ -86,7 +103,13 @@ interface CustomerStat {
 
 interface DisciplineRevenueRow {
   name: string
+  /** Valor de las clases consumidas en el mes (precio unitario del paquete de origen). */
   revenue: number
+  reservations: number
+  paidReservations: number
+  courtesyReservations: number
+  /** revenue / paidReservations — comparable contra el precio real por clase. */
+  perPaidClass: number
 }
 
 interface PaymentMethodAgg {
@@ -154,9 +177,10 @@ export interface SalesReportData {
   packageDistribution: PkgStat[]
   topCustomers: CustomerStat[]
   discRevenueRows: DisciplineRevenueRow[]
-  unattributedRevenue: number
-  buyersWithReservations: number
-  buyersWithoutReservations: number
+  /** Suma de discRevenueRows.revenue — NO cuadra con totalGross (ver docblock). */
+  consumptionTotal: number
+  totalReservations: number
+  courtesyReservations: number
   byMethod: PaymentMethodAgg[]
   instrPayments: Map<string, InstructorPayByDiscipline>
   instrTotals: { monto: number; aPagar: number; rentaRetenida: number }
@@ -264,42 +288,33 @@ export async function computeSalesReport(prisma: PrismaClient, bounds: MonthBoun
     orderBy: { createdAt: 'asc' },
   })
 
-  // ── Atribución por disciplina (Opción A: reservas reales del comprador) ──
-  const buyerIds = Array.from(new Set(purchases.map(p => p.userId)))
-  const buyerReservations = buyerIds.length === 0
-    ? []
-    : await prisma.reservation.findMany({
-        where: {
-          userId: { in: buyerIds },
-          status: { in: [ReservationStatus.CONFIRMED, ReservationStatus.ATTENDED, ReservationStatus.NO_SHOW] },
-          class: {
-            dateTime: { gte: bounds.start, lt: bounds.end },
-            isCancelled: false,
-          },
-        },
+  // ── Consumo por disciplina (atribución por clase consumida) ──────────
+  // Cada reserva del mes se valora al precio unitario de la compra que la
+  // originó (finalPrice / classCount) y se le asigna a la disciplina de esa
+  // clase. Reemplaza el reparto por comprador, que asignaba el precio íntegro
+  // del paquete según las reservas del mes calendario y disparaba con
+  // denominadores de 1-2 reservas (ver docblock del archivo).
+  const consumptionReservations = await prisma.reservation.findMany({
+    where: {
+      userId: { notIn: EXCLUDED_USER_IDS },
+      status: { in: [ReservationStatus.CONFIRMED, ReservationStatus.ATTENDED, ReservationStatus.NO_SHOW] },
+      class: {
+        dateTime: { gte: bounds.start, lt: bounds.end },
+        isCancelled: false,
+        isPrivate: false,
+      },
+    },
+    select: {
+      class: { select: { disciplineId: true, complementaryDisciplineId: true } },
+      purchase: {
         select: {
-          userId: true,
-          class: { select: { disciplineId: true, complementaryDisciplineId: true } },
+          id: true,
+          finalPrice: true,
+          package: { select: { classCount: true } },
         },
-      })
-
-  const userDisciplineWeights = new Map<string, Map<string, number>>()
-  for (const r of buyerReservations) {
-    if (!userDisciplineWeights.has(r.userId)) {
-      userDisciplineWeights.set(r.userId, new Map())
-    }
-    const map = userDisciplineWeights.get(r.userId)!
-    const isDouble =
-      r.class.complementaryDisciplineId &&
-      r.class.complementaryDisciplineId !== r.class.disciplineId
-    const ids: string[] = [r.class.disciplineId]
-    if (isDouble) ids.push(r.class.complementaryDisciplineId!)
-    const weightPerDiscipline = isDouble ? 0.5 : 1
-    for (const id of ids) {
-      map.set(id, (map.get(id) ?? 0) + weightPerDiscipline)
-    }
-  }
-
+      },
+    },
+  })
   // ── Resumen ejecutivo ──
   const totalGross = round2(purchases.reduce((s, p) => s + p.finalPrice, 0))
   const totalNet = round2(totalGross / (1 + IVA_RATE))
@@ -394,34 +409,56 @@ export async function computeSalesReport(prisma: PrismaClient, bounds: MonthBoun
       pctTotal: totalGross > 0 ? round2((c.totalSpent / totalGross) * 100) : 0,
     }))
 
-  // ── % Ventas por disciplina ──
-  const discRevenueMap = new Map<string, number>()
-  for (const d of disciplines) discRevenueMap.set(d.id, 0)
-  let unattributedRevenue = 0
-  let buyersWithoutReservations = 0
-  let buyersWithReservations = 0
-  for (const p of purchases) {
-    const wMap = userDisciplineWeights.get(p.userId)
-    if (!wMap || wMap.size === 0) {
-      unattributedRevenue += p.finalPrice
-      buyersWithoutReservations++
-      continue
+  // ── Ingresos por disciplina (por clase consumida) ──
+  interface DiscAgg { revenue: number; reservations: number; paid: number; courtesy: number }
+  const discAgg = new Map<string, DiscAgg>()
+  for (const d of disciplines) discAgg.set(d.id, { revenue: 0, reservations: 0, paid: 0, courtesy: 0 })
+  const bump = (id: string): DiscAgg => {
+    let a = discAgg.get(id)
+    if (!a) {
+      a = { revenue: 0, reservations: 0, paid: 0, courtesy: 0 }
+      discAgg.set(id, a)
     }
-    buyersWithReservations++
-    const totalW = Array.from(wMap.values()).reduce((s, w) => s + w, 0)
-    if (totalW === 0) {
-      unattributedRevenue += p.finalPrice
-      continue
-    }
-    for (const [dId, w] of Array.from(wMap.entries())) {
-      const share = (w / totalW) * p.finalPrice
-      discRevenueMap.set(dId, (discRevenueMap.get(dId) ?? 0) + share)
+    return a
+  }
+  let courtesyReservations = 0
+  for (const r of consumptionReservations) {
+    const isDouble =
+      r.class.complementaryDisciplineId &&
+      r.class.complementaryDisciplineId !== r.class.disciplineId
+    const ids: string[] = [r.class.disciplineId]
+    if (isDouble) ids.push(r.class.complementaryDisciplineId!)
+    const split = isDouble ? 0.5 : 1
+
+    const pur = r.purchase
+    const isPaid =
+      pur !== null && pur.finalPrice > 0 && !excludedPurchaseIds.includes(pur.id)
+    // classCount 0 (paquetes ilimitados o mal cargados) caería en división por
+    // cero; se trata como 1 clase para no inflar el valor unitario.
+    const unitValue = isPaid ? pur.finalPrice / (pur.package.classCount || 1) : 0
+    if (!isPaid) courtesyReservations++
+
+    for (const id of ids) {
+      const a = bump(id)
+      a.reservations += split
+      a.revenue += unitValue * split
+      if (isPaid) a.paid += split
+      else a.courtesy += split
     }
   }
-  const discRevenueRows: DisciplineRevenueRow[] = Array.from(discRevenueMap.entries())
-    .map(([id, revenue]) => ({ name: discIdToName.get(id) ?? '(desconocido)', revenue }))
-    .filter(r => r.revenue > 0)
+  const discRevenueRows: DisciplineRevenueRow[] = Array.from(discAgg.entries())
+    .map(([id, a]) => ({
+      name: discIdToName.get(id) ?? '(desconocido)',
+      revenue: a.revenue,
+      reservations: a.reservations,
+      paidReservations: a.paid,
+      courtesyReservations: a.courtesy,
+      perPaidClass: a.paid > 0 ? a.revenue / a.paid : 0,
+    }))
+    .filter(r => r.reservations > 0)
     .sort((a, b) => b.revenue - a.revenue)
+  const consumptionTotal = round2(discRevenueRows.reduce((s, r) => s + r.revenue, 0))
+  const totalReservations = consumptionReservations.length
 
   // ── Ingresos por método de pago ──
   const methodMap = new Map<string, { revenue: number; orders: number }>()
@@ -546,9 +583,9 @@ export async function computeSalesReport(prisma: PrismaClient, bounds: MonthBoun
     packageDistribution,
     topCustomers,
     discRevenueRows,
-    unattributedRevenue: round2(unattributedRevenue),
-    buyersWithReservations,
-    buyersWithoutReservations,
+    consumptionTotal,
+    totalReservations,
+    courtesyReservations,
     byMethod,
     instrPayments,
     instrTotals,
@@ -561,8 +598,8 @@ export function buildSalesReportExcel(data: SalesReportData): Buffer {
   const {
     bounds, weeks, totalGross, totalIva, totalNet, orderCount, uniqueCustomers,
     avgTicket, monthOccPct, dailyAgg, weeklyAgg, packageDistribution, topCustomers,
-    discRevenueRows, unattributedRevenue, buyersWithReservations,
-    buyersWithoutReservations, byMethod, instrPayments, instrTotals, occupancy, sales,
+    discRevenueRows, consumptionTotal, totalReservations, courtesyReservations,
+    byMethod, instrPayments, instrTotals, occupancy, sales,
   } = data
   const label = bounds.label
   const labelUpper = label.toUpperCase()
@@ -600,9 +637,15 @@ export function buildSalesReportExcel(data: SalesReportData): Buffer {
     ['Paquete', 'Ingresos', 'Unidades', '% del Total'],
     ...top3Pkgs.map(p => [p.packageName, `$${p.totalRevenue.toFixed(2)}`, p.unitsSold, `${p.pctTotal}%`]),
     [],
-    ['TOP 3 DISCIPLINAS POR INGRESOS (atribución por reservas)'],
-    ['Disciplina', 'Ingresos', '% del Total'],
-    ...top3Disc.map(d => [d.name, `$${round2(d.revenue).toFixed(2)}`, totalGross > 0 ? `${round2((d.revenue / totalGross) * 100)}%` : '0%']),
+    ['TOP 3 DISCIPLINAS POR CONSUMO (valor de las clases usadas en el mes)'],
+    ['Disciplina', 'Ingresos Consumidos', '% del Consumo', 'Reservas'],
+    ...top3Disc.map(d => [
+      d.name,
+      `$${round2(d.revenue).toFixed(2)}`,
+      consumptionTotal > 0 ? `${round2((d.revenue / consumptionTotal) * 100)}%` : '0%',
+      round2(d.reservations),
+    ]),
+    ['', 'No suma las ventas del mes: mide consumo, no caja. Detalle en la hoja 6.'],
   ]
   const ws1 = XLSX.utils.aoa_to_sheet(s1)
   ws1['!cols'] = [{ wch: 38 }, { wch: 18 }, { wch: 12 }, { wch: 12 }]
@@ -695,58 +738,83 @@ export function buildSalesReportExcel(data: SalesReportData): Buffer {
   }
   XLSX.utils.book_append_sheet(wb, ws5, 'Top 10 Clientes')
 
-  // ── Sheet 6: % Ventas por Disciplina + Pagos Instructores ──────────
+  // ── Sheet 6: Ingresos por Disciplina + Pagos Instructores ──────────
   const blank = ''
   const s6: (string | number)[][] = [
-    [`% VENTAS POR DISCIPLINA + PAGOS A INSTRUCTORES - ${labelUpper}`],
-    ['Ingresos: atribución proporcional al uso real: para cada compra se reparte'],
-    ['finalPrice entre las disciplinas según las reservas activas del comprador'],
-    ['en el mes. Reservas con disciplina complementaria cuentan 0.5 en cada una.'],
-    ['"Sin uso en el mes" = compras de usuarios sin reservas activas en el mes.'],
+    [`INGRESOS POR DISCIPLINA + PAGOS A INSTRUCTORES - ${labelUpper}`],
+    ['Ingresos: atribución por clase consumida. Cada reserva del mes se valora al'],
+    ['precio unitario de la compra que la originó (finalPrice / clases del paquete)'],
+    ['y se asigna a la disciplina de esa clase. Reservas con disciplina'],
+    ['complementaria cuentan 0.5 en cada una.'],
+    ['OJO: el total NO cuadra con las ventas del mes (hoja 1). Mide consumo, no caja:'],
+    ['incluye clases de paquetes comprados en meses anteriores y excluye el saldo'],
+    ['de paquetes vendidos que aún no se usa. Reservas de cortesía valen $0.'],
+    ['$/clase pagada = ingresos / reservas pagadas; comparable al precio real por clase.'],
     [],
     ['Pagos: calculados desde la base de datos con la escala de pago vigente'],
     ['(11 May 2026), todos los instructores. Excluye clases canceladas, privadas'],
     ['(1:1) y reservas de usuarios de prueba.'],
     ['Renta = 10% retenida de Sujeto Excluido (Monto - A pagar = Renta).'],
     [],
-    ['#', 'Disciplina', 'Ingresos Atribuidos', '% del Total', 'Monto Instructor', 'A pagar (neto)', 'Renta retenida (10%)'],
+    ['#', 'Disciplina', 'Ingresos Consumidos', '% del Consumo', 'Reservas', 'Pagadas', 'Cortesía', '$/clase pagada', 'Monto Instructor', 'A pagar (neto)', 'Renta retenida (10%)'],
     ...discRevenueRows.map((r, i) => {
       const pay = instrPayments.get(r.name)
       return [
         i + 1,
         r.name,
         round2(r.revenue),
-        totalGross > 0 ? r.revenue / totalGross : 0,
+        consumptionTotal > 0 ? r.revenue / consumptionTotal : 0,
+        round2(r.reservations),
+        round2(r.paidReservations),
+        round2(r.courtesyReservations),
+        round2(r.perPaidClass),
         pay ? round2(pay.monto) : blank,
         pay ? round2(pay.aPagar) : blank,
         pay ? round2(pay.rentaRetenida) : blank,
       ]
     }),
-    ...(unattributedRevenue > 0
-      ? [['', '(Sin uso en el mes)', round2(unattributedRevenue), totalGross > 0 ? unattributedRevenue / totalGross : 0, blank, blank, blank]]
-      : []),
     [],
-    ['', 'TOTAL', round2(totalGross), 1, round2(instrTotals.monto), round2(instrTotals.aPagar), round2(instrTotals.rentaRetenida)],
+    [
+      '', 'TOTAL', consumptionTotal, 1, totalReservations,
+      totalReservations - courtesyReservations, courtesyReservations,
+      totalReservations - courtesyReservations > 0
+        ? round2(consumptionTotal / (totalReservations - courtesyReservations))
+        : 0,
+      round2(instrTotals.monto), round2(instrTotals.aPagar), round2(instrTotals.rentaRetenida),
+    ],
     [],
-    ['Validación atribución', `${buyersWithReservations} compras con uso, ${buyersWithoutReservations} compras sin uso`],
+    ['Ventas del mes (caja)', round2(totalGross)],
+    ['Consumo atribuido', consumptionTotal],
+    ['Diferencia', round2(totalGross - consumptionTotal)],
+    ['', 'La diferencia es saldo vendido y no consumido menos consumo de paquetes previos.'],
+    ['Reservas cortesía / $0', `${courtesyReservations} de ${totalReservations}`],
     ['Disciplinas con pago', Array.from(instrPayments.keys()).join(', ') || '(sin datos)'],
   ]
   const ws6 = XLSX.utils.aoa_to_sheet(s6)
   ws6['!cols'] = [
-    { wch: 4 }, { wch: 26 }, { wch: 18 }, { wch: 12 },
+    { wch: 4 }, { wch: 26 }, { wch: 19 }, { wch: 14 },
+    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 15 },
     { wch: 16 }, { wch: 16 }, { wch: 20 },
   ]
-  for (let r = 12; r < s6.length; r++) {
+  // La cabecera de la tabla está en la fila 16 (índice 15); el formato de
+  // moneda/porcentaje aplica solo de ahí para abajo.
+  for (let r = 16; r < s6.length; r++) {
     const pctRef = XLSX.utils.encode_cell({ c: 3, r })
     if (ws6[pctRef] && typeof ws6[pctRef].v === 'number' && ws6[pctRef].v <= 1) {
       ws6[pctRef].z = '0.0%'
     }
-    for (const c of [2, 4, 5, 6]) {
+    for (const c of [2, 7, 8, 9, 10]) {
       const ref = XLSX.utils.encode_cell({ c, r })
       if (ws6[ref] && typeof ws6[ref].v === 'number') ws6[ref].z = '"$"#,##0.00'
     }
   }
-  XLSX.utils.book_append_sheet(wb, ws6, '% Ventas Disciplina')
+  // Las 3 filas de conciliación (Ventas/Consumo/Diferencia) llevan su monto en
+  // la columna B, no en la C.
+  for (let r = 16; r < s6.length; r++) {
+    const ref = XLSX.utils.encode_cell({ c: 1, r })
+    if (ws6[ref] && typeof ws6[ref].v === 'number') ws6[ref].z = '"$"#,##0.00'
+  }
+  XLSX.utils.book_append_sheet(wb, ws6, 'Ingresos Disciplina')
 
   // ── Sheet 7: Ocupación por Clase ───────────────────────────────────
   const s7: (string | number)[][] = [
@@ -936,8 +1004,8 @@ export function buildSalesEmailHtml(data: SalesReportData): string {
     .join('')
   const discRows = data.discRevenueRows.slice(0, 3)
     .map(d => {
-      const pct = data.totalGross > 0 ? round2((d.revenue / data.totalGross) * 100) : 0
-      return `<li style="margin:2px 0;font-size:13px;color:#374151;">${d.name} — $${round2(d.revenue).toFixed(2)} (${pct}%)</li>`
+      const pct = data.consumptionTotal > 0 ? round2((d.revenue / data.consumptionTotal) * 100) : 0
+      return `<li style="margin:2px 0;font-size:13px;color:#374151;">${d.name} — $${round2(d.revenue).toFixed(2)} (${pct}% del consumo, ${round2(d.reservations)} reservas)</li>`
     })
     .join('')
 
@@ -959,7 +1027,7 @@ export function buildSalesEmailHtml(data: SalesReportData): string {
           <ul style="margin:0 0 12px;padding-left:18px;">${methodRows}</ul>
           <p style="margin:12px 0 4px;font-size:13px;color:#1F2937;font-weight:600;">Top paquetes por ingresos</p>
           <ul style="margin:0 0 12px;padding-left:18px;">${pkgRows}</ul>
-          <p style="margin:12px 0 4px;font-size:13px;color:#1F2937;font-weight:600;">Top disciplinas por ingresos</p>
+          <p style="margin:12px 0 4px;font-size:13px;color:#1F2937;font-weight:600;">Top disciplinas por consumo</p>
           <ul style="margin:0 0 12px;padding-left:18px;">${discRows}</ul>
           <p style="color:#6B7280;font-size:13px;line-height:1.5;margin:16px 0 0;">Reporte del mes cerrado de ${data.bounds.label.toLowerCase()}, hora El Salvador. El detalle completo (diario, semanal, paquetes, top clientes, % por disciplina con pagos a instructores, ocupación por clase y listado de ventas) va en el Excel adjunto.</p>
         </td></tr>

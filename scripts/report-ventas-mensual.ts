@@ -86,16 +86,27 @@ async function main() {
     console.log(`  ${String(p.rank).padStart(2)}. ${p.packageName.padEnd(32).slice(0, 32)}  ${String(p.unitsSold).padStart(3)} u.  $${p.totalRevenue.toFixed(2).padStart(9)}  ${String(p.pctTotal).padStart(5)}%`)
   }
 
-  console.log('\n═══ % VENTAS POR DISCIPLINA + PAGOS A INSTRUCTORES (DB) ═══')
+  console.log('\n═══ INGRESOS POR DISCIPLINA (clase consumida) + PAGOS A INSTRUCTORES (DB) ═══')
+  console.log(`  ${'Disciplina'.padEnd(22)} ${'Ingresos'.padStart(10)} ${'%'.padStart(6)} ${'Res'.padStart(5)} ${'Pag'.padStart(5)} ${'Cort'.padStart(5)} ${'$/clase'.padStart(8)}   Pago instructor`)
   for (const r of data.discRevenueRows) {
-    const pct = data.totalGross > 0 ? ((r.revenue / data.totalGross) * 100).toFixed(1) : '0.0'
+    const pct = data.consumptionTotal > 0 ? ((r.revenue / data.consumptionTotal) * 100).toFixed(1) : '0.0'
     const pay = data.instrPayments.get(r.name)
     const pagoStr = pay ? `monto $${pay.monto.toFixed(2)}  a pagar $${pay.aPagar.toFixed(2)}  renta $${pay.rentaRetenida.toFixed(2)}` : '—'
-    console.log(`  ${r.name.padEnd(24)}  $${r.revenue.toFixed(2).padStart(9)}  ${pct.padStart(5)}%   ${pagoStr}`)
+    console.log(
+      `  ${r.name.padEnd(22)} $${r.revenue.toFixed(2).padStart(9)} ${pct.padStart(5)}% ` +
+      `${String(r.reservations).padStart(5)} ${String(r.paidReservations).padStart(5)} ${String(r.courtesyReservations).padStart(5)} ` +
+      `$${r.perPaidClass.toFixed(2).padStart(7)}   ${pagoStr}`,
+    )
   }
-  if (data.unattributedRevenue > 0) {
-    console.log(`  ${'(Sin uso en el mes)'.padEnd(24)}  $${data.unattributedRevenue.toFixed(2).padStart(9)}`)
-  }
+  const paidRes = data.totalReservations - data.courtesyReservations
+  console.log(
+    `  ${'TOTAL'.padEnd(22)} $${data.consumptionTotal.toFixed(2).padStart(9)} ${'100.0'.padStart(5)}% ` +
+    `${String(data.totalReservations).padStart(5)} ${String(paidRes).padStart(5)} ${String(data.courtesyReservations).padStart(5)} ` +
+    `$${(paidRes > 0 ? data.consumptionTotal / paidRes : 0).toFixed(2).padStart(7)}`,
+  )
+  console.log(`\n  Ventas del mes (caja):  $${data.totalGross.toFixed(2)}`)
+  console.log(`  Consumo atribuido:      $${data.consumptionTotal.toFixed(2)}`)
+  console.log(`  Diferencia:             $${(data.totalGross - data.consumptionTotal).toFixed(2)}  (saldo vendido sin usar menos consumo de paquetes previos)`)
   console.log(`  TOTAL pagos instructores: monto $${data.instrTotals.monto.toFixed(2)}  a pagar $${data.instrTotals.aPagar.toFixed(2)}  renta $${data.instrTotals.rentaRetenida.toFixed(2)}`)
 
   console.log('\n═══ OCUPACIÓN MENSUAL POR DISCIPLINA ═══')
