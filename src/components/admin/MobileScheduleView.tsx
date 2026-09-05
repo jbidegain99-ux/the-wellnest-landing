@@ -29,8 +29,8 @@ interface MobileScheduleViewProps {
   getClassesForDay: (date: Date) => ClassItem[]
   getDisciplineColorForClass: (disciplineName: string) => string
   onEditClass: (cls: ClassItem) => void
-  onAddClass: (dayOfWeek: number) => void
-  isDuplicateMode?: boolean
+  onAddClass: (date: Date) => void
+  isSelectionMode?: boolean
   selectedClassIds?: Set<string>
   onToggleClass?: (classId: string) => void
   onSelectAllForDay?: (dayOfWeek: number) => void
@@ -43,7 +43,7 @@ export default function MobileScheduleView({
   getDisciplineColorForClass,
   onEditClass,
   onAddClass,
-  isDuplicateMode,
+  isSelectionMode,
   selectedClassIds,
   onToggleClass,
   onSelectAllForDay,
@@ -101,7 +101,7 @@ export default function MobileScheduleView({
               className="w-full flex items-center justify-between p-4 text-left"
             >
               <div className="flex items-center gap-3">
-                {isDuplicateMode && onSelectAllForDay && (
+                {isSelectionMode && onSelectAllForDay && (
                   <input
                     type="checkbox"
                     checked={dayClasses.filter(c => !c.isCancelled).length > 0 && dayClasses.filter(c => !c.isCancelled).every(c => selectedClassIds?.has(c.id))}
@@ -149,7 +149,7 @@ export default function MobileScheduleView({
                 ) : (
                   dayClasses.map((cls) => {
                     const isPast = new Date(cls.dateTime) < new Date()
-                    const isEligible = isDuplicateMode && !cls.isCancelled
+                    const isEligible = isSelectionMode && !cls.isCancelled
                     const isSelected = selectedClassIds?.has(cls.id)
                     return (
                       <div
@@ -157,7 +157,7 @@ export default function MobileScheduleView({
                         onClick={() => {
                           if (isEligible && onToggleClass) {
                             onToggleClass(cls.id)
-                          } else if (!isDuplicateMode) {
+                          } else if (!isSelectionMode) {
                             onEditClass(cls)
                           }
                         }}
@@ -212,13 +212,15 @@ export default function MobileScheduleView({
                   })
                 )}
 
-                <button
-                  onClick={() => onAddClass(date.getDay())}
-                  className="w-full border-2 border-dashed border-stone-300 rounded-lg py-2.5 text-stone-400 text-sm hover:border-primary hover:text-primary transition-colors"
-                >
-                  <Plus className="h-4 w-4 inline mr-1" />
-                  Agregar clase
-                </button>
+                {!isSelectionMode && (
+                  <button
+                    onClick={() => onAddClass(date)}
+                    className="w-full border-2 border-dashed border-stone-300 rounded-lg py-2.5 text-stone-400 text-sm hover:border-primary hover:text-primary transition-colors"
+                  >
+                    <Plus className="h-4 w-4 inline mr-1" />
+                    Agregar clase
+                  </button>
+                )}
               </div>
             )}
           </div>

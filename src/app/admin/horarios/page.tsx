@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Check, AlertCircle, Copy } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, Loader2, Check, AlertCircle, CheckSquare } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -22,9 +22,9 @@ import {
 import { cn, getWeekDays, getMonthName, formatClassType } from '@/lib/utils'
 import { disciplineColors, getDisciplineColor } from '@/config/disciplineColors'
 import MobileScheduleView from '@/components/admin/MobileScheduleView'
-import { useDuplicateMode } from '@/components/admin/duplicate/useDuplicateMode'
-import DuplicateToolbar from '@/components/admin/duplicate/DuplicateToolbar'
-import DuplicateConfigModal from '@/components/admin/duplicate/DuplicateConfigModal'
+import SelectionToolbar from '@/components/admin/schedule/SelectionToolbar'
+import BulkDeleteModal, { type ClassToDelete } from '@/components/admin/schedule/BulkDeleteModal'
+import ClassDatePicker from '@/components/admin/schedule/ClassDatePicker'
 
 interface Discipline {
   id: string
@@ -69,14 +69,22 @@ export default function AdminHorariosPage() {
   const [classes, setClasses] = React.useState<ClassItem[]>([])
   const [isModalOpen, setIsModalOpen] = React.useState(false)
   const [editingClass, setEditingClass] = React.useState<ClassItem | null>(null)
-  const [selectedDay, setSelectedDay] = React.useState<number | null>(null)
+
+  // Fechas en las que se crearán las clases (YYYY-MM-DD, calendario SV)
+  const [selectedDates, setSelectedDates] = React.useState<string[]>([])
+  const [datePickerInitialDate, setDatePickerInitialDate] = React.useState<string | undefined>()
+
+  // Modo selección múltiple (para eliminar varias clases de una vez)
+  const [isSelectionMode, setIsSelectionMode] = React.useState(false)
+  const [selectedClassIds, setSelectedClassIds] = React.useState<Set<string>>(new Set())
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false)
+  const [isBulkDeleting, setIsBulkDeleting] = React.useState(false)
 
   // Controlled state for form selects (Radix Select + FormData is unreliable)
   const [selectedDisciplineId, setSelectedDisciplineId] = React.useState<string>('')
   const [hasComplementary, setHasComplementary] = React.useState(false)
   const [selectedComplementaryId, setSelectedComplementaryId] = React.useState<string>('')
   const [selectedInstructorId, setSelectedInstructorId] = React.useState<string>('')
-  const [selectedDayOfWeek, setSelectedDayOfWeek] = React.useState<string>('')
   const [isLoading, setIsLoading] = React.useState(false)
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null)
@@ -93,10 +101,10 @@ export default function AdminHorariosPage() {
     return monday
   })
 
-  const showSuccess = (message: string) => {
+  const showSuccess = (message: string, durationMs = 3000) => {
     setSuccessMessage(message)
     setErrorMessage(null)
-    setTimeout(() => setSuccessMessage(null), 3000)
+    setTimeout(() => setSuccessMessage(null), durationMs)
   }
 
   const showError = (message: string) => {
@@ -129,15 +137,29 @@ export default function AdminHorariosPage() {
     }
   }, [currentWeekStart])
 
-  // Duplicate mode hook
-  const dup = useDuplicateMode({
-    classes,
-    currentWeekStart,
-    showSuccess,
-    showError,
-    fetchClasses,
-    setCurrentWeekStart,
-  })
+  // --- Modo selección múltiple ---
+  const enterSelectionMode = () => {
+    setIsSelectionMode(true)
+    setSelectedClassIds(new Set())
+  }
+
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false)
+    setSelectedClassIds(new Set())
+    setIsBulkDeleteOpen(false)
+  }
+
+  const toggleClassSelection = (classId: string) => {
+    setSelectedClassIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(classId)) {
+        next.delete(classId)
+      } else {
+        next.add(classId)
+      }
+      return next
+    })
+  }
 
   // Fetch disciplines and instructors from database
   React.useEffect(() => {
@@ -224,6 +246,38 @@ export default function AdminHorariosPage() {
     return filtered.sort((a, b) => a.time.localeCompare(b.time))
   }
 
+  // Solo se pueden seleccionar clases que no estén canceladas.
+  const selectableClassesForDay = (date: Date) =>
+    getClassesForDay(date).filter((cls) => !cls.isCancelled)
+
+  const selectAllForDay = (dayOfWeek: number) => {
+    const date = weekDates.find((d) => d.getDay() === dayOfWeek)
+    if (!date) return
+    const ids = selectableClassesForDay(date).map((c) => c.id)
+    setSelectedClassIds((prev) => {
+      const next = new Set(prev)
+      ids.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  const selectAllWeek = () => {
+    const ids = weekDates.flatMap((date) => selectableClassesForDay(date).map((c) => c.id))
+    setSelectedClassIds(new Set(ids))
+  }
+
+  // Las clases seleccionadas, con el detalle que necesita el modal de confirmación.
+  const selectedClassesDetail: ClassToDelete[] = classes
+    .filter((cls) => selectedClassIds.has(cls.id))
+    .map((cls) => ({
+      id: cls.id,
+      discipline: cls.discipline,
+      classType: cls.classType,
+      time: cls.time,
+      dateStr: getElSalvadorDateStr(cls.dateTime),
+      reservationsCount: cls.reservationsCount || 0,
+    }))
+
   const getDisciplineColorForClass = (disciplineName: string) => {
     // First try exact match with loaded disciplines
     const discipline = disciplines.find(d => d.name === disciplineName)
@@ -269,27 +323,31 @@ export default function AdminHorariosPage() {
     return 'bg-gray-600'
   }
 
-  const handleCreate = (dayOfWeek?: number) => {
+  // `date` es el día del calendario donde se pulsó "+ Agregar"; queda preseleccionado.
+  const handleCreate = (date?: Date) => {
     setEditingClass(null)
-    setSelectedDay(dayOfWeek ?? null)
     // Reset controlled state for new class
     setSelectedDisciplineId('')
     setHasComplementary(false)
     setSelectedComplementaryId('')
     setSelectedInstructorId('')
-    setSelectedDayOfWeek(dayOfWeek !== undefined ? dayOfWeek.toString() : '')
+    const initialDate = date
+      ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      : undefined
+    setDatePickerInitialDate(initialDate)
+    setSelectedDates(initialDate ? [initialDate] : [])
     setIsModalOpen(true)
   }
 
   const handleEdit = (cls: ClassItem) => {
     setEditingClass(cls)
-    setSelectedDay(null)
     // Set controlled state from existing class
     setSelectedDisciplineId(cls.disciplineId)
     setHasComplementary(!!cls.complementaryDisciplineId)
     setSelectedComplementaryId(cls.complementaryDisciplineId || '')
     setSelectedInstructorId(cls.instructorId)
-    setSelectedDayOfWeek(cls.dayOfWeek.toString())
+    setSelectedDates([])
+    setDatePickerInitialDate(undefined)
     setIsModalOpen(true)
   }
 
@@ -303,7 +361,6 @@ export default function AdminHorariosPage() {
     // Use controlled state instead of FormData for Select values (Radix Select + FormData is unreliable)
     const disciplineId = selectedDisciplineId
     const instructorId = selectedInstructorId
-    const dayOfWeek = selectedDayOfWeek
 
     // Validate that we have the required IDs
     if (!disciplineId) {
@@ -316,8 +373,8 @@ export default function AdminHorariosPage() {
       setIsLoading(false)
       return
     }
-    if (!editingClass && !dayOfWeek) {
-      showError('Error: Debes seleccionar un día de la semana')
+    if (!editingClass && selectedDates.length === 0) {
+      showError('Error: Debes seleccionar al menos una fecha')
       setIsLoading(false)
       return
     }
@@ -360,13 +417,11 @@ export default function AdminHorariosPage() {
             disciplineId,
             complementaryDisciplineId,
             instructorId,
-            dayOfWeek: parseInt(dayOfWeek),
+            dates: selectedDates,
             time: formData.get('time') as string,
             duration: parseInt(formData.get('duration') as string),
             maxCapacity: parseInt(formData.get('maxCapacity') as string),
             classType: (formData.get('classType') as string) || null,
-            isRecurring: formData.get('isRecurring') === 'on',
-            weeksAhead: formData.get('isRecurring') === 'on' ? 8 : 1,
           }),
         })
 
@@ -377,7 +432,18 @@ export default function AdminHorariosPage() {
           return
         }
 
-        showSuccess(data.message || 'Clase creada correctamente')
+        // El servidor omite fechas pasadas y choques de horario del instructor.
+        const skipped: Array<{ label: string; reason: string }> = data.skipped || []
+        if (skipped.length > 0) {
+          const detail = skipped
+            .slice(0, 3)
+            .map((s) => `${s.label} (${s.reason})`)
+            .join(', ')
+          const extra = skipped.length > 3 ? ` y ${skipped.length - 3} más` : ''
+          showSuccess(`${data.message} Omitidas: ${detail}${extra}.`, 8000)
+        } else {
+          showSuccess(data.message || 'Clase creada correctamente')
+        }
       }
 
       // Refresh classes
@@ -421,6 +487,51 @@ export default function AdminHorariosPage() {
     }
   }
 
+  const handleBulkDelete = async () => {
+    setIsBulkDeleting(true)
+    setErrorMessage(null)
+
+    try {
+      const response = await fetch('/api/admin/classes/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classIds: Array.from(selectedClassIds) }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        showError(data.error || 'Error al eliminar las clases')
+        return
+      }
+
+      const skipped: Array<{ label: string; reservationsCount: number }> = data.skipped || []
+      const deletedMsg = `Se ${data.deleted === 1 ? 'eliminó' : 'eliminaron'} ${data.deleted} clase(s).`
+
+      if (skipped.length > 0) {
+        const detail = skipped
+          .slice(0, 3)
+          .map((s) => `${s.label} (${s.reservationsCount} reservas)`)
+          .join(', ')
+        const extra = skipped.length > 3 ? ` y ${skipped.length - 3} más` : ''
+        showSuccess(
+          `${deletedMsg} ${skipped.length} no se ${skipped.length === 1 ? 'pudo' : 'pudieron'} eliminar por tener reservas activas: ${detail}${extra}.`,
+          10000
+        )
+      } else {
+        showSuccess(deletedMsg)
+      }
+
+      await fetchClasses()
+      exitSelectionMode()
+    } catch (error) {
+      console.error('Error bulk deleting classes:', error)
+      showError('Error de conexión')
+    } finally {
+      setIsBulkDeleting(false)
+    }
+  }
+
   if (isDataLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -430,7 +541,7 @@ export default function AdminHorariosPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className={cn('space-y-8', isSelectionMode && 'pb-24')}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -442,11 +553,11 @@ export default function AdminHorariosPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {!dup.isDuplicateMode && (
+          {!isSelectionMode && (
             <>
-              <Button variant="outline" onClick={dup.enterDuplicateMode}>
-                <Copy className="h-4 w-4 mr-2" />
-                Duplicar Clases
+              <Button variant="outline" onClick={enterSelectionMode}>
+                <CheckSquare className="h-4 w-4 mr-2" />
+                Seleccionar
               </Button>
               <Button onClick={() => handleCreate()}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -454,8 +565,10 @@ export default function AdminHorariosPage() {
               </Button>
             </>
           )}
-          {dup.isDuplicateMode && (
-            <span className="text-sm text-gray-500 italic">Selecciona las clases a duplicar</span>
+          {isSelectionMode && (
+            <span className="text-sm text-gray-500 italic">
+              Selecciona las clases que quieres eliminar
+            </span>
           )}
         </div>
       </div>
@@ -479,8 +592,7 @@ export default function AdminHorariosPage() {
       <div className="flex items-center justify-center gap-4">
         <button
           onClick={goToPreviousWeek}
-          disabled={dup.isDuplicateMode}
-          className="p-2 rounded-full hover:bg-beige transition-colors disabled:opacity-30"
+          className="p-2 rounded-full hover:bg-beige transition-colors"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -489,8 +601,7 @@ export default function AdminHorariosPage() {
         </span>
         <button
           onClick={goToNextWeek}
-          disabled={dup.isDuplicateMode}
-          className="p-2 rounded-full hover:bg-beige transition-colors disabled:opacity-30"
+          className="p-2 rounded-full hover:bg-beige transition-colors"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -522,8 +633,8 @@ export default function AdminHorariosPage() {
                 >
                   {dayClasses.map((cls) => {
                     const isPast = new Date(cls.dateTime) < new Date()
-                    const isEligibleForDuplicate = dup.isDuplicateMode && !cls.isCancelled
-                    const isSelected = dup.selectedClassIds.has(cls.id)
+                    const isSelectable = isSelectionMode && !cls.isCancelled
+                    const isSelected = selectedClassIds.has(cls.id)
                     return (
                       <div
                         key={cls.id}
@@ -534,23 +645,23 @@ export default function AdminHorariosPage() {
                           isSelected && 'ring-2 ring-primary ring-offset-1'
                         )}
                         onClick={() => {
-                          if (isEligibleForDuplicate) {
-                            dup.toggleClass(cls.id)
-                          } else if (!dup.isDuplicateMode) {
+                          if (isSelectable) {
+                            toggleClassSelection(cls.id)
+                          } else if (!isSelectionMode) {
                             handleEdit(cls)
                           }
                         }}
                       >
-                        {isEligibleForDuplicate && (
+                        {isSelectable && (
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => dup.toggleClass(cls.id)}
+                            onChange={() => toggleClassSelection(cls.id)}
                             onClick={(e) => e.stopPropagation()}
                             className="absolute top-1.5 left-1.5 h-3.5 w-3.5 rounded border-white accent-primary z-10"
                           />
                         )}
-                        <p className={cn("font-medium", isEligibleForDuplicate && "ml-5")}>
+                        <p className={cn("font-medium", isSelectable && "ml-5")}>
                           {cls.discipline}
                           {cls.complementaryDiscipline && ` + ${cls.complementaryDiscipline}`}
                         </p>
@@ -572,12 +683,14 @@ export default function AdminHorariosPage() {
                       </div>
                     )
                   })}
-                  <button
-                    onClick={() => handleCreate(date.getDay())}
-                    className="w-full p-2 border-2 border-dashed border-beige-dark rounded-lg text-gray-400 hover:border-primary hover:text-primary transition-colors text-xs"
-                  >
-                    + Agregar
-                  </button>
+                  {!isSelectionMode && (
+                    <button
+                      onClick={() => handleCreate(date)}
+                      className="w-full p-2 border-2 border-dashed border-beige-dark rounded-lg text-gray-400 hover:border-primary hover:text-primary transition-colors text-xs"
+                    >
+                      + Agregar
+                    </button>
+                  )}
                 </div>
               )
             })}
@@ -594,10 +707,10 @@ export default function AdminHorariosPage() {
           getDisciplineColorForClass={getDisciplineColorForClass}
           onEditClass={handleEdit}
           onAddClass={handleCreate}
-          isDuplicateMode={dup.isDuplicateMode}
-          selectedClassIds={dup.selectedClassIds}
-          onToggleClass={dup.toggleClass}
-          onSelectAllForDay={dup.selectAllForDay}
+          isSelectionMode={isSelectionMode}
+          selectedClassIds={selectedClassIds}
+          onToggleClass={toggleClassSelection}
+          onSelectAllForDay={selectAllForDay}
         />
       </div>
 
@@ -695,24 +808,13 @@ export default function AdminHorariosPage() {
               {!editingClass && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Día de la semana
+                    Fechas
                   </label>
-                  <Select
-                    value={selectedDayOfWeek}
-                    onValueChange={setSelectedDayOfWeek}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar día" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {weekDays.map((day, index) => (
-                        <SelectItem key={index} value={index.toString()}>
-                          {day}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ClassDatePicker
+                    value={selectedDates}
+                    onChange={setSelectedDates}
+                    initialDate={datePickerInitialDate}
+                  />
                 </div>
               )}
 
@@ -759,18 +861,6 @@ export default function AdminHorariosPage() {
                 </p>
               </div>
 
-              {!editingClass && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="isRecurring"
-                    defaultChecked={true}
-                    className="rounded border-beige-dark text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm">Clase recurrente (crear para las próximas 8 semanas / 2 meses)</span>
-                </label>
-              )}
-
               {editingClass && editingClass.reservationsCount && editingClass.reservationsCount > 0 && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
                   <AlertCircle className="h-4 w-4 inline mr-2" />
@@ -800,8 +890,12 @@ export default function AdminHorariosPage() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" isLoading={isLoading}>
-                {editingClass ? 'Guardar Cambios' : 'Crear Clase'}
+              <Button type="submit" isLoading={isLoading} disabled={!editingClass && selectedDates.length === 0}>
+                {editingClass
+                  ? 'Guardar Cambios'
+                  : selectedDates.length > 1
+                    ? `Crear ${selectedDates.length} clases`
+                    : 'Crear Clase'}
               </Button>
             </ModalFooter>
           </form>
@@ -839,37 +933,26 @@ export default function AdminHorariosPage() {
         </ModalContent>
       </Modal>
 
-      {/* Duplicate Mode: Toolbar */}
-      {dup.isDuplicateMode && dup.step === 'select' && (
-        <DuplicateToolbar
-          selectedCount={dup.selectedClassIds.size}
+      {/* Modo selección: barra de acciones */}
+      {isSelectionMode && (
+        <SelectionToolbar
+          selectedCount={selectedClassIds.size}
           weekDates={weekDates}
           weekDays={weekDays}
-          onSelectDay={dup.selectAllForDay}
-          onSelectAll={dup.selectAllWeek}
-          onCancel={dup.exitDuplicateMode}
-          onNext={dup.proceedToConfig}
+          onSelectDay={selectAllForDay}
+          onSelectAll={selectAllWeek}
+          onCancel={exitSelectionMode}
+          onDelete={() => setIsBulkDeleteOpen(true)}
         />
       )}
 
-      {/* Duplicate Mode: Config Modal */}
-      <DuplicateConfigModal
-        open={dup.step === 'configure'}
-        onOpenChange={(open) => { if (!open) dup.exitDuplicateMode() }}
-        entries={dup.entries}
-        conflicts={dup.conflicts}
-        duplicateMode={dup.duplicateMode}
-        onModeChange={dup.handleModeChange}
-        targetWeekStart={dup.targetWeekStart}
-        onTargetWeekChange={dup.handleTargetWeekChange}
-        targetDate={dup.targetDate}
-        onTargetDateChange={dup.handleTargetDateChange}
-        sourceWeekMonday={dup.sourceWeekMonday}
-        instructors={instructors}
-        onUpdateEntry={dup.updateEntry}
-        onSubmit={dup.submit}
-        isSubmitting={dup.isSubmitting}
-        selectionSpansMultipleDays={dup.selectionSpansMultipleDays}
+      {/* Modo selección: confirmación de borrado */}
+      <BulkDeleteModal
+        open={isBulkDeleteOpen}
+        onOpenChange={setIsBulkDeleteOpen}
+        classes={selectedClassesDetail}
+        onConfirm={handleBulkDelete}
+        isDeleting={isBulkDeleting}
       />
     </div>
   )
