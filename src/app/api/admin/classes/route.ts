@@ -3,9 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { addDays, startOfDay } from 'date-fns'
-import { toZonedTime } from 'date-fns-tz'
-import { svLocalToUTC, TZ } from '@/lib/utils/timezone'
+import { svLocalToUTC } from '@/lib/utils/timezone'
+import { MAX_DATES_PER_BATCH, formatDateShort, getTodaySV } from '@/lib/schedule/classDates'
 
 // El Salvador is UTC-6. To store times that display correctly for El Salvador users,
 // we need to add 6 hours to the desired local time to get UTC.
@@ -15,13 +14,14 @@ const classSchema = z.object({
   disciplineId: z.string().min(1, 'Debe seleccionar una disciplina'),
   complementaryDisciplineId: z.string().nullable().optional(),
   instructorId: z.string().min(1, 'Debe seleccionar un instructor'),
-  dayOfWeek: z.number().min(0).max(6),
+  dates: z
+    .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'))
+    .min(1, 'Debe seleccionar al menos una fecha')
+    .max(MAX_DATES_PER_BATCH, `No se pueden crear más de ${MAX_DATES_PER_BATCH} clases a la vez`),
   time: z.string().regex(/^\d{2}:\d{2}$/, 'Formato de hora inválido'),
   duration: z.number().min(15, 'La duración mínima es 15 minutos'),
   maxCapacity: z.number().min(1, 'La capacidad mínima es 1'),
   classType: z.string().nullable().optional(),
-  isRecurring: z.boolean().default(true),
-  weeksAhead: z.number().min(1).max(12).default(4), // How many weeks to create classes for
 })
 
 // Helper to convert UTC date to El Salvador local time string (HH:MM)
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
     console.log('[ADMIN CLASSES API] Validated data:', {
       disciplineId: data.disciplineId,
       instructorId: data.instructorId,
-      dayOfWeek: data.dayOfWeek,
+      dates: data.dates,
       time: data.time,
     })
 
@@ -244,7 +244,58 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create classes for the specified number of weeks
+    // Dedupe y orden cronológico: la UI ya lo hace, pero la API no confía en eso.
+    const requestedDates = Array.from(new Set(data.dates)).sort()
+    const todaySV = getTodaySV()
+    const now = new Date()
+
+    const skipped: Array<{ date: string; label: string; reason: string }> = []
+    const candidates: Array<{ date: string; dateTime: Date }> = []
+
+    for (const date of requestedDates) {
+      if (date < todaySV) {
+        skipped.push({ date, label: formatDateShort(date), reason: 'La fecha ya pasó' })
+        continue
+      }
+
+      const [year, month, day] = date.split('-').map(Number)
+      const classDateTime = svLocalToUTC(year, month - 1, day, hours, minutes)
+
+      // Hoy mismo a una hora que ya pasó: la clase nacería vencida.
+      if (classDateTime <= now) {
+        skipped.push({ date, label: formatDateShort(date), reason: 'La hora ya pasó' })
+        continue
+      }
+
+      candidates.push({ date, dateTime: classDateTime })
+    }
+
+    if (candidates.length === 0) {
+      return NextResponse.json(
+        { error: 'Ninguna de las fechas seleccionadas es válida. Todas ya pasaron.' },
+        { status: 400 }
+      )
+    }
+
+    // Choques de horario del mismo instructor: una sola consulta para todo el rango.
+    const rangeStart = candidates[0].dateTime
+    const rangeEnd = candidates[candidates.length - 1].dateTime
+    const existingClasses = await prisma.class.findMany({
+      where: {
+        instructorId: data.instructorId,
+        isCancelled: false,
+        dateTime: {
+          gte: new Date(rangeStart.getTime() - 24 * 60 * 60 * 1000),
+          lte: new Date(rangeEnd.getTime() + 24 * 60 * 60 * 1000),
+        },
+      },
+      select: { dateTime: true, duration: true },
+    })
+
+    const newStartMs = (dt: Date) => dt.getTime()
+    const overlaps = (startA: number, durA: number, startB: number, durB: number) =>
+      startA < startB + durB * 60000 && startB < startA + durA * 60000
+
     const classesToCreate: Array<{
       disciplineId: string
       complementaryDisciplineId: string | null
@@ -256,107 +307,69 @@ export async function POST(request: Request) {
       isRecurring: boolean
     }> = []
 
-    // "Hoy" y el día de semana se calculan en el calendario de El Salvador.
-    // Con el reloj UTC del servidor, entre 6pm y medianoche SV "hoy" ya era
-    // mañana y toda la serie recurrente se corría una semana.
-    const today = startOfDay(toZonedTime(new Date(), TZ))
-    const weeksAhead = data.isRecurring ? data.weeksAhead : 1
+    // Las clases del propio lote también pueden chocar entre sí (misma hora, misma fecha).
+    const acceptedSlots: Array<{ start: number; duration: number }> = existingClasses.map((c) => ({
+      start: c.dateTime.getTime(),
+      duration: c.duration,
+    }))
 
-    // Find the next occurrence of the selected day of week
-    for (let week = 0; week < weeksAhead; week++) {
-      for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-        const currentDate = addDays(today, week * 7 + dayOffset)
-        if (currentDate.getDay() === data.dayOfWeek) {
-          // Día calendario SV + hora SV → UTC
-          const classDateTime = svLocalToUTC(
-            currentDate.getFullYear(),
-            currentDate.getMonth(),
-            currentDate.getDate(),
-            hours,
-            minutes
-          )
+    for (const candidate of candidates) {
+      const start = newStartMs(candidate.dateTime)
+      const hasConflict = acceptedSlots.some((slot) =>
+        overlaps(start, data.duration, slot.start, slot.duration)
+      )
 
-          // Only create if date is in the future
-          if (classDateTime > new Date()) {
-            classesToCreate.push({
-              disciplineId: data.disciplineId,
-              complementaryDisciplineId: data.complementaryDisciplineId || null,
-              instructorId: data.instructorId,
-              dateTime: classDateTime,
-              duration: data.duration,
-              maxCapacity: data.maxCapacity,
-              classType: data.classType || null,
-              isRecurring: data.isRecurring,
-            })
-          }
-          break // Found the day for this week, move to next week
-        }
+      if (hasConflict) {
+        skipped.push({
+          date: candidate.date,
+          label: formatDateShort(candidate.date),
+          reason: 'El instructor ya tiene una clase a esa hora',
+        })
+        continue
       }
+
+      acceptedSlots.push({ start, duration: data.duration })
+      classesToCreate.push({
+        disciplineId: data.disciplineId,
+        complementaryDisciplineId: data.complementaryDisciplineId || null,
+        instructorId: data.instructorId,
+        dateTime: candidate.dateTime,
+        duration: data.duration,
+        maxCapacity: data.maxCapacity,
+        classType: data.classType || null,
+        // La recurrencia ahora se expresa eligiendo fechas, no con una bandera.
+        isRecurring: false,
+      })
     }
 
     if (classesToCreate.length === 0) {
       return NextResponse.json(
-        { error: 'No se pudieron crear clases. Verifica la fecha seleccionada.' },
+        {
+          error: 'No se creó ninguna clase.',
+          skipped,
+        },
         { status: 400 }
       )
     }
 
-    // Create all classes
     console.log('[ADMIN CLASSES API] Creating classes:', classesToCreate.length)
-    if (classesToCreate.length > 0) {
-      console.log('[ADMIN CLASSES API] First class to create:', {
-        ...classesToCreate[0],
-        dateTimeISO: classesToCreate[0].dateTime.toISOString(),
-        dateTimeElSalvador: getElSalvadorTime(classesToCreate[0].dateTime),
-      })
-    }
 
     const result = await prisma.class.createMany({
       data: classesToCreate,
     })
 
-    console.log('[ADMIN CLASSES API] Classes created successfully:', result.count)
+    console.log('[ADMIN CLASSES API] Classes created successfully:', result.count, 'skipped:', skipped.length)
 
-    // VERIFICACIÓN POST-CREACIÓN: Confirmar que las clases existen en DB
-    if (classesToCreate.length > 0) {
-      const firstClassDate = classesToCreate[0].dateTime
-      const verifyClasses = await prisma.class.findMany({
-        where: {
-          disciplineId: data.disciplineId,
-          instructorId: data.instructorId,
-          dateTime: {
-            gte: new Date(firstClassDate.getTime() - 60000), // 1 min tolerance
-            lte: new Date(firstClassDate.getTime() + 60000),
-          },
-        },
-        include: {
-          discipline: { select: { id: true, name: true, slug: true } },
-          instructor: { select: { id: true, name: true } },
-        },
-      })
-      console.log('[ADMIN CLASSES API] === VERIFICACIÓN POST-CREACIÓN ===')
-      console.log('[ADMIN CLASSES API] Clases encontradas con mismo disciplineId/instructorId/fecha:', verifyClasses.length)
-      if (verifyClasses.length > 0) {
-        console.log('[ADMIN CLASSES API] Primera clase verificada:', {
-          id: verifyClasses[0].id,
-          disciplineId: verifyClasses[0].disciplineId,
-          disciplineName: verifyClasses[0].discipline.name,
-          disciplineSlug: verifyClasses[0].discipline.slug,
-          instructorId: verifyClasses[0].instructorId,
-          instructorName: verifyClasses[0].instructor.name,
-          dateTime: verifyClasses[0].dateTime.toISOString(),
-        })
-      }
-    }
+    const message =
+      skipped.length > 0
+        ? `Se ${result.count === 1 ? 'creó' : 'crearon'} ${result.count} clase(s). ${skipped.length} fecha(s) se omitieron.`
+        : `Se ${result.count === 1 ? 'creó' : 'crearon'} ${result.count} clase(s) correctamente`
 
     return NextResponse.json({
-      message: `Se crearon ${result.count} clase(s) correctamente`,
+      message,
       count: result.count,
-      debug: {
-        disciplineId: data.disciplineId,
-        instructorId: data.instructorId,
-        firstClassDate: classesToCreate[0]?.dateTime.toISOString(),
-      },
+      created: result.count,
+      skipped,
     })
   } catch (error) {
     console.error('[ADMIN CLASSES API] Error creating class:', error)

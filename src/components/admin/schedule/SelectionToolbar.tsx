@@ -2,27 +2,27 @@
 
 import * as React from 'react'
 import { Button } from '@/components/ui/Button'
-import { X, ChevronRight } from 'lucide-react'
+import { X, Trash2 } from 'lucide-react'
 
-interface DuplicateToolbarProps {
+interface SelectionToolbarProps {
   selectedCount: number
   weekDates: Date[]
   weekDays: string[]
   onSelectDay: (dayOfWeek: number) => void
   onSelectAll: () => void
   onCancel: () => void
-  onNext: () => void
+  onDelete: () => void
 }
 
-export default function DuplicateToolbar({
+export default function SelectionToolbar({
   selectedCount,
   weekDates,
   weekDays,
   onSelectDay,
   onSelectAll,
   onCancel,
-  onNext,
-}: DuplicateToolbarProps) {
+  onDelete,
+}: SelectionToolbarProps) {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-beige shadow-lg">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -63,9 +63,14 @@ export default function DuplicateToolbar({
             <X className="h-4 w-4 mr-1" />
             Cancelar
           </Button>
-          <Button size="sm" onClick={onNext} disabled={selectedCount === 0}>
-            Siguiente
-            <ChevronRight className="h-4 w-4 ml-1" />
+          <Button
+            size="sm"
+            onClick={onDelete}
+            disabled={selectedCount === 0}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Eliminar {selectedCount > 0 ? `(${selectedCount})` : ''}
           </Button>
         </div>
       </div>
