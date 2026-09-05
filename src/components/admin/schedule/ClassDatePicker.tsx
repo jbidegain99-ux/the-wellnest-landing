@@ -120,10 +120,10 @@ export default function ClassDatePicker({ value, onChange, initialDate }: ClassD
   return (
     <div className="space-y-4">
       {/* Patrón semanal */}
-      <div className="rounded-lg border border-beige p-3 space-y-3">
+      <div className="rounded-lg border border-beige p-2.5 sm:p-3 space-y-3">
         <div>
           <p className="text-sm font-medium text-gray-700">Se repite los días</p>
-          <div className="flex gap-1.5 mt-2">
+          <div className="flex gap-1 sm:gap-1.5 mt-2">
             {WEEKDAY_INITIALS.map((initial, day) => {
               const isOn = weekdays.includes(day)
               return (
@@ -134,7 +134,7 @@ export default function ClassDatePicker({ value, onChange, initialDate }: ClassD
                   aria-pressed={isOn}
                   aria-label={DAY_NAMES_SHORT[day]}
                   className={cn(
-                    'h-9 w-9 rounded-full text-sm font-medium transition-colors',
+                    'h-8 w-8 sm:h-9 sm:w-9 shrink-0 rounded-full text-sm font-medium transition-colors',
                     isOn
                       ? 'bg-primary text-white'
                       : 'bg-beige/60 text-gray-600 hover:bg-beige'
@@ -149,7 +149,7 @@ export default function ClassDatePicker({ value, onChange, initialDate }: ClassD
 
         {weekdays.length > 0 && (
           <div className="grid grid-cols-2 gap-3">
-            <label className="block">
+            <label className="block min-w-0">
               <span className="block text-xs text-gray-500 mb-1">Desde</span>
               <input
                 type="date"
@@ -160,7 +160,7 @@ export default function ClassDatePicker({ value, onChange, initialDate }: ClassD
                 className="w-full px-2 py-1.5 border border-beige rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <span className="block text-xs text-gray-500 mb-1">Hasta</span>
               <input
                 type="date"
@@ -175,7 +175,7 @@ export default function ClassDatePicker({ value, onChange, initialDate }: ClassD
       </div>
 
       {/* Calendario mensual */}
-      <div className="rounded-lg border border-beige p-3">
+      <div className="rounded-lg border border-beige p-2.5 sm:p-3">
         <div className="flex items-center justify-between mb-2">
           <button
             type="button"
@@ -224,7 +224,7 @@ export default function ClassDatePicker({ value, onChange, initialDate }: ClassD
                 disabled={isPast || isBlockedByLimit}
                 aria-pressed={isSelected}
                 className={cn(
-                  'h-9 rounded-lg text-sm transition-colors',
+                  'h-9 min-w-0 rounded-lg text-sm transition-colors',
                   isSelected
                     ? 'bg-primary text-white font-medium'
                     : 'hover:bg-beige text-gray-700',
@@ -260,7 +260,7 @@ export default function ClassDatePicker({ value, onChange, initialDate }: ClassD
         </div>
 
         {value.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
             {value.map((dateStr) => (
               <span
                 key={dateStr}
