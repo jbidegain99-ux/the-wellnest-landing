@@ -541,7 +541,7 @@ export default function AdminHorariosPage() {
   }
 
   return (
-    <div className={cn('space-y-8', isSelectionMode && 'pb-24')}>
+    <div className={cn('space-y-8', isSelectionMode && 'pb-32')}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -716,15 +716,15 @@ export default function AdminHorariosPage() {
 
       {/* Create/Edit Modal */}
       <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <ModalContent className="max-w-lg">
-          <ModalHeader>
+        <ModalContent className="max-w-lg flex flex-col overflow-hidden p-0 gap-0">
+          <ModalHeader className="shrink-0 px-4 sm:px-6 pt-6 pb-3">
             <ModalTitle>
               {editingClass ? 'Editar Clase' : 'Nueva Clase'}
             </ModalTitle>
           </ModalHeader>
 
-          <form onSubmit={handleSave}>
-            <div className="space-y-4 py-4">
+          <form onSubmit={handleSave} className="flex flex-col min-h-0 flex-1">
+            <div className="space-y-4 px-4 sm:px-6 py-2 overflow-y-auto flex-1 min-h-0">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Disciplina
@@ -869,7 +869,7 @@ export default function AdminHorariosPage() {
               )}
             </div>
 
-            <ModalFooter>
+            <ModalFooter className="shrink-0 border-t border-beige px-4 sm:px-6 py-4 gap-2">
               {editingClass && (
                 <Button
                   type="button"

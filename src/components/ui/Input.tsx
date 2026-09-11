@@ -16,7 +16,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const inputId = id ?? generatedId
 
     return (
-      <div className="w-full">
+      // min-w-0: como item de grid/flex el mínimo automático es el ancho
+      // min-content del input, y un input de hora/fecha lo empuja fuera de su
+      // columna. Con min-w-0 el campo se queda dentro de su celda.
+      <div className="w-full min-w-0">
         {label && (
           <label
             htmlFor={inputId}

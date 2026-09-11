@@ -25,14 +25,15 @@ export default function SelectionToolbar({
 }: SelectionToolbarProps) {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-beige shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">
+      {/* En móvil se apila: los controles de selección arriba, las acciones abajo. */}
+      <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span className="inline-flex shrink-0 items-center bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">
             {selectedCount} {selectedCount === 1 ? 'clase' : 'clases'}
           </span>
 
           <select
-            className="text-sm border border-beige rounded-lg px-2 py-1.5"
+            className="text-sm border border-beige rounded-lg px-2 py-1.5 min-w-0 flex-1 sm:flex-none"
             defaultValue=""
             onChange={(e) => {
               if (e.target.value) {
@@ -52,14 +53,14 @@ export default function SelectionToolbar({
           <button
             type="button"
             onClick={onSelectAll}
-            className="text-sm text-primary hover:underline"
+            className="text-sm text-primary hover:underline whitespace-nowrap shrink-0"
           >
             Toda la semana
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="ghost" size="sm" onClick={onCancel} className="flex-1 sm:flex-none">
             <X className="h-4 w-4 mr-1" />
             Cancelar
           </Button>
@@ -67,7 +68,7 @@ export default function SelectionToolbar({
             size="sm"
             onClick={onDelete}
             disabled={selectedCount === 0}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white whitespace-nowrap"
           >
             <Trash2 className="h-4 w-4 mr-1" />
             Eliminar {selectedCount > 0 ? `(${selectedCount})` : ''}
