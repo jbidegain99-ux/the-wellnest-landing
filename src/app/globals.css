@@ -164,3 +164,27 @@ html {
   background-color: var(--color-primary);
   color: white;
 }
+
+/* Inputs de fecha/hora en iOS
+   Safari les da un tamaño intrínseco propio: ignoran height/padding y su ancho
+   mínimo puede ser mayor que la columna que los contiene, así que se desbordan
+   y se enciman con el campo de al lado (pasaba con "Hora" sobre "Duración" en
+   el modal de horarios). Quitarles el estilo nativo los devuelve al box model
+   normal y hace que valgan las clases de Tailwind del componente Input. */
+input[type='time'],
+input[type='date'],
+input[type='datetime-local'],
+input[type='month'] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+}
+
+/* iOS centra el valor dentro del input y lo deja descuadrado respecto a los
+   demás campos; esto lo alinea a la izquierda como el resto. */
+input[type='time']::-webkit-date-and-time-value,
+input[type='date']::-webkit-date-and-time-value,
+input[type='datetime-local']::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
