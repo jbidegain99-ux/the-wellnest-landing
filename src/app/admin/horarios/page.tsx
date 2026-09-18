@@ -25,6 +25,9 @@ import MobileScheduleView from '@/components/admin/MobileScheduleView'
 import SelectionToolbar from '@/components/admin/schedule/SelectionToolbar'
 import BulkDeleteModal, { type ClassToDelete } from '@/components/admin/schedule/BulkDeleteModal'
 import ClassDatePicker from '@/components/admin/schedule/ClassDatePicker'
+import DuplicateWeekModal, { type DuplicateResult } from '@/components/admin/schedule/DuplicateWeekModal'
+import { toDateStr } from '@/lib/schedule/classDates'
+import type { DuplicateSource } from '@/lib/schedule/duplicateWeek'
 
 interface Discipline {
   id: string
@@ -79,6 +82,7 @@ export default function AdminHorariosPage() {
   const [selectedClassIds, setSelectedClassIds] = React.useState<Set<string>>(new Set())
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = React.useState(false)
   const [isBulkDeleting, setIsBulkDeleting] = React.useState(false)
+  const [isDuplicateOpen, setIsDuplicateOpen] = React.useState(false)
 
   // Controlled state for form selects (Radix Select + FormData is unreliable)
   const [selectedDisciplineId, setSelectedDisciplineId] = React.useState<string>('')
@@ -147,6 +151,7 @@ export default function AdminHorariosPage() {
     setIsSelectionMode(false)
     setSelectedClassIds(new Set())
     setIsBulkDeleteOpen(false)
+    setIsDuplicateOpen(false)
   }
 
   const toggleClassSelection = (classId: string) => {
@@ -277,6 +282,58 @@ export default function AdminHorariosPage() {
       dateStr: getElSalvadorDateStr(cls.dateTime),
       reservationsCount: cls.reservationsCount || 0,
     }))
+
+  // --- Duplicar: solo una semana ---
+  // La selección puede cruzar semanas (sirve para borrar), pero duplicar solo
+  // acepta clases de la semana que se está viendo.
+  const selectedInWeek = classes.filter((cls) => selectedClassIds.has(cls.id) && !cls.isCancelled)
+  const duplicateDisabledReason =
+    selectedInWeek.length !== selectedClassIds.size
+      ? 'Para duplicar, selecciona clases de una sola semana (la que estás viendo).'
+      : null
+
+  const sourceMonday = toDateStr(
+    currentWeekStart.getFullYear(),
+    currentWeekStart.getMonth(),
+    currentWeekStart.getDate()
+  )
+
+  // Memoizado: el modal reinicia su vista previa cuando cambian las fuentes.
+  const duplicateSources: DuplicateSource[] = React.useMemo(
+    () =>
+      classes
+        .filter((cls) => selectedClassIds.has(cls.id) && !cls.isCancelled)
+        .sort((a, b) => a.dateTime.localeCompare(b.dateTime))
+        .map((cls) => ({
+          id: cls.id,
+          dateStr: getElSalvadorDateStr(cls.dateTime),
+          time: cls.time,
+          discipline: cls.discipline,
+          complementaryDiscipline: cls.complementaryDiscipline || null,
+          instructorId: cls.instructorId,
+          duration: cls.duration,
+          maxCapacity: cls.maxCapacity,
+        })),
+    // getElSalvadorDateStr es puro; no hace falta como dependencia.
+    [classes, selectedClassIds] // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  const handleDuplicateSuccess = (result: DuplicateResult) => {
+    const [y, m, d] = result.targetMonday.split('-').map(Number)
+    exitSelectionMode()
+    // Llevar a la admin a la semana donde quedaron las clases (refetch automático).
+    setCurrentWeekStart(new Date(y, m - 1, d))
+    if (result.skipped.length > 0) {
+      const detail = result.skipped
+        .slice(0, 3)
+        .map((s) => `${s.label} (${s.reason})`)
+        .join(', ')
+      const extra = result.skipped.length > 3 ? ` y ${result.skipped.length - 3} más` : ''
+      showSuccess(`${result.message} Omitidas: ${detail}${extra}.`, 10000)
+    } else {
+      showSuccess(result.message)
+    }
+  }
 
   const getDisciplineColorForClass = (disciplineName: string) => {
     // First try exact match with loaded disciplines
@@ -567,7 +624,7 @@ export default function AdminHorariosPage() {
           )}
           {isSelectionMode && (
             <span className="text-sm text-gray-500 italic">
-              Selecciona las clases que quieres eliminar
+              Selecciona las clases que quieres duplicar o eliminar
             </span>
           )}
         </div>
@@ -943,6 +1000,8 @@ export default function AdminHorariosPage() {
           onSelectAll={selectAllWeek}
           onCancel={exitSelectionMode}
           onDelete={() => setIsBulkDeleteOpen(true)}
+          onDuplicate={() => setIsDuplicateOpen(true)}
+          duplicateDisabledReason={duplicateDisabledReason}
         />
       )}
 
@@ -953,6 +1012,17 @@ export default function AdminHorariosPage() {
         classes={selectedClassesDetail}
         onConfirm={handleBulkDelete}
         isDeleting={isBulkDeleting}
+      />
+
+      {/* Modo selección: duplicar hacia una semana */}
+      <DuplicateWeekModal
+        open={isDuplicateOpen}
+        onOpenChange={setIsDuplicateOpen}
+        sources={duplicateSources}
+        sourceMonday={sourceMonday}
+        instructors={instructors}
+        onSuccess={handleDuplicateSuccess}
+        onError={showError}
       />
     </div>
   )

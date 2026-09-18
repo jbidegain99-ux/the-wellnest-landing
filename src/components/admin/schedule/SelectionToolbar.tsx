@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Button } from '@/components/ui/Button'
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Copy } from 'lucide-react'
 
 interface SelectionToolbarProps {
   selectedCount: number
@@ -12,6 +12,9 @@ interface SelectionToolbarProps {
   onSelectAll: () => void
   onCancel: () => void
   onDelete: () => void
+  onDuplicate: () => void
+  /** Si hay texto, "Duplicar" queda deshabilitado y se explica el motivo. */
+  duplicateDisabledReason?: string | null
 }
 
 export default function SelectionToolbar({
@@ -22,6 +25,8 @@ export default function SelectionToolbar({
   onSelectAll,
   onCancel,
   onDelete,
+  onDuplicate,
+  duplicateDisabledReason,
 }: SelectionToolbarProps) {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-beige shadow-lg">
@@ -59,10 +64,29 @@ export default function SelectionToolbar({
           </button>
         </div>
 
+        {duplicateDisabledReason && selectedCount > 0 && (
+          <p className="text-xs text-amber-700 sm:hidden">{duplicateDisabledReason}</p>
+        )}
+
         <div className="flex items-center gap-2 shrink-0">
+          {duplicateDisabledReason && selectedCount > 0 && (
+            <span className="hidden sm:inline text-xs text-amber-700 max-w-[220px]">
+              {duplicateDisabledReason}
+            </span>
+          )}
           <Button variant="ghost" size="sm" onClick={onCancel} className="flex-1 sm:flex-none">
             <X className="h-4 w-4 mr-1" />
             Cancelar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDuplicate}
+            disabled={selectedCount === 0 || !!duplicateDisabledReason}
+            className="flex-1 sm:flex-none whitespace-nowrap"
+          >
+            <Copy className="h-4 w-4 mr-1" />
+            Duplicar
           </Button>
           <Button
             size="sm"
