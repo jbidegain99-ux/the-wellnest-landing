@@ -119,6 +119,87 @@ export const ATTENDANCE_ADJUSTMENTS: AttendanceAdjustment[] = [
     reportedBy: 'Equipo Wellnest',
     recordedAt: '2026-08-31',
   },
+
+  // --- Septiembre 2026 ---
+  // Reportadas el 21-sep. Del mismo reporte, Pole de Kevin (1-sep 6pm, 5 personas),
+  // Yoga de Valeria (3-sep, 10) y Pole de Kevin (8-sep 6pm) ya cuadraban con el
+  // sistema y no necesitan corrección.
+  {
+    classId: 'cmtd63zz30009qgfh0hhg2gkh',
+    label: '2026-09-01 8:30 AM · Adriana Bidegain · Mat Pilates',
+    attendeesReported: 3,
+    attendeesInSystemAtRecord: 2,
+    reason: '2 inscritas en la plataforma y 3 personas en total en la clase.',
+    reportedBy: 'Equipo Wellnest',
+    recordedAt: '2026-09-21',
+  },
+  {
+    classId: 'cmtn80f19000rges67dk88as5',
+    label: '2026-09-09 6:00 PM · Nicole Urquilla · Aro',
+    attendeesReported: 3,
+    attendeesInSystemAtRecord: 2,
+    reason:
+      'Adriana Bidegain reservó para apartarle el cupo a Emilia, que sí asistió; la reserva quedó sin check-in. Reportada como "7 de septiembre": es la única clase de Aro de Nicole con esa reserva sin marcar.',
+    reportedBy: 'Equipo Wellnest',
+    recordedAt: '2026-09-21',
+  },
+  {
+    classId: 'cmt3jyv1200051ld24e97aghr',
+    label: '2026-09-18 7:15 PM · Eugenia Rivas · Telas',
+    attendeesReported: 6,
+    attendeesInSystemAtRecord: 3,
+    reason: '3 inscritas en la plataforma y 6 personas en total en la clase.',
+    reportedBy: 'Equipo Wellnest',
+    recordedAt: '2026-09-21',
+  },
+  // Reportadas el 30-sep. Del mismo reporte, Yoga de Valeria (3-sep) y Pole de
+  // Kevin (8-sep 6pm) ya incluyen a Adriana Bidegain como invitada en el sistema.
+  {
+    classId: 'cmu6e018f000bveq96sk3tj3i',
+    label: '2026-09-22 8:30 AM · Adriana Bidegain · Mat Pilates',
+    attendeesReported: 2,
+    attendeesInSystemAtRecord: 2,
+    reason:
+      'Reportada como 1 inscrita + Gloria Murra (crédito descontado a mano) = 2. El sistema cuenta 2 porque incluye una reserva de la propia Adriana; se fija el total en 2.',
+    reportedBy: 'Equipo Wellnest',
+    recordedAt: '2026-09-30',
+  },
+  {
+    classId: 'cmu74rlol0005q0ajimadwb3x',
+    label: '2026-09-23 6:00 PM · Nicole Urquilla · Aro',
+    attendeesReported: 6,
+    attendeesInSystemAtRecord: 5,
+    reason: '5 inscritas en la plataforma + Wendy Bautista = 6.',
+    reportedBy: 'Equipo Wellnest',
+    recordedAt: '2026-09-30',
+  },
+  {
+    classId: 'cmu72c951000acywtr3muo3pu',
+    label: '2026-09-23 8:00 PM · Denisse Soundy · Pole Fitness',
+    attendeesReported: 6,
+    attendeesInSystemAtRecord: 5,
+    reason: '5 inscritas en la plataforma + Gabriela Lucha = 6.',
+    reportedBy: 'Equipo Wellnest',
+    recordedAt: '2026-09-30',
+  },
+  {
+    classId: 'cmufzaypf0001grguq75oj4tf',
+    label: '2026-09-28 7:15 PM · Valeria Cortez · Yoga',
+    attendeesReported: 8,
+    attendeesInSystemAtRecord: 7,
+    reason: '7 inscritas en la plataforma + un invitado de Gloria Murra = 8.',
+    reportedBy: 'Equipo Wellnest',
+    recordedAt: '2026-09-30',
+  },
+  {
+    classId: 'cmug0hs400006nrjganw5xmo7',
+    label: '2026-09-29 10:00 AM · Valeria Cortez · Yoga',
+    attendeesReported: 6,
+    attendeesInSystemAtRecord: 5,
+    reason: '5 inscritas en la plataforma + la hermana de Esther Umanzor como invitada = 6.',
+    reportedBy: 'Equipo Wellnest',
+    recordedAt: '2026-09-30',
+  },
 ]
 
 const BY_CLASS_ID = new Map(ATTENDANCE_ADJUSTMENTS.map(a => [a.classId, a]))
