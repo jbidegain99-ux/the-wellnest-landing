@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { Prisma } from '@prisma/client'
 
 // Mock Prisma client used by markOrderPaid (hoisted so vi.mock factory can reference them)
 const { txMock, prismaMock } = vi.hoisted(() => {
@@ -304,5 +305,32 @@ describe('markOrderPaidAndCreatePurchase — bundle packages', () => {
     expect(result.alreadyPaid).toBe(true)
     expect(txMock.purchase.create).not.toHaveBeenCalled()
     expect(txMock.paymentTransaction.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('markOrderPaidAndCreatePurchase — DB connection failures', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('rethrows transient DB errors so the caller can retry (the atomic claim makes a retry safe)', async () => {
+    const dbDown = new Prisma.PrismaClientInitializationError(
+      'Too many database connections opened: FATAL: too many connections for role "prisma_migration"',
+      '5.22.0'
+    )
+    prismaMock.order.findUnique.mockRejectedValue(dbDown)
+
+    await expect(
+      markOrderPaidAndCreatePurchase({ orderId: 'order-db-down', provider: 'PAYWAY' })
+    ).rejects.toBe(dbDown)
+  })
+
+  it('still returns success:false (no throw) for non-transient errors', async () => {
+    prismaMock.order.findUnique.mockRejectedValue(new Error('unexpected'))
+
+    const result = await markOrderPaidAndCreatePurchase({ orderId: 'order-bug', provider: 'PAYWAY' })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('unexpected')
   })
 })
