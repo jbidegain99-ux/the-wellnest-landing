@@ -4,6 +4,9 @@
  *
  * This function is IDEMPOTENT - calling it multiple times with the same orderId
  * will not create duplicate purchases.
+ *
+ * Business failures come back as `{ success: false }`. Transient DB errors
+ * (see isTransientDbError) are THROWN so the caller can retry.
  */
 
 import { prisma } from '@/lib/prisma'
@@ -11,6 +14,7 @@ import { svExpiryEndOfDay } from '@/lib/utils/timezone'
 import type { PaymentProvider } from '@prisma/client'
 import { Prisma } from '@prisma/client'
 import { sendToFacturador } from '@/lib/facturador'
+import { isTransientDbError } from '@/lib/db/retry'
 import { randomUUID } from 'crypto'
 
 export interface MarkOrderPaidParams {
@@ -309,6 +313,11 @@ export async function markOrderPaidAndCreatePurchase({
       console.log('[PAYMENT] Order claimed by a concurrent invocation, returning alreadyPaid:', orderId)
       return { success: true, alreadyPaid: true }
     }
+
+    // Falla de conexión: nada quedó escrito (la transacción hizo rollback), así
+    // que se propaga para que el caller reintente con withDbRetry. Tragarla
+    // aquí convertía un hipo de la BD en un pago cobrado y nunca acreditado.
+    if (isTransientDbError(error)) throw error
 
     console.error('[PAYMENT] Error in markOrderPaidAndCreatePurchase:', error)
     return {
