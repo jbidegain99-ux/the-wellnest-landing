@@ -16,4 +16,7 @@ describe('normalizePhone', () => {
     if (!r.ok) expect(r.error).toBe('Escribí tu WhatsApp con código de país si no es de El Salvador')
   })
   it('waNumber quita el +', () => expect(waNumber('+50377923957')).toBe('50377923957'))
+  it.each(['+7792 3957', '+6123-4567', '00503 7792 3957', '0050377923957'])('SV mal escrito %s', (raw) =>
+    expect(normalizePhone(raw).ok && normalizePhone(raw)).toMatchObject({ e164: expect.stringMatching(/^\+503[267]\d{7}$/) }))
+  it('00 internacional se convierte en +', () => expect(normalizePhone('001 305 555 0101')).toEqual({ ok: true, e164: '+13055550101' }))
 })

@@ -2,16 +2,19 @@ import { prisma } from '@/lib/prisma'
 import { VILLAINS_BALL_SLUG } from '@/lib/events/config'
 import { ticketLabel } from '@/lib/events/codes'
 import { PrintButton } from './PrintButton'
+import { sortByLastName } from '@/lib/events/guestList'
 
 export const dynamic = 'force-dynamic'
 
 /** Lista de invitados para imprimir (respaldo si falla la señal en la puerta). */
 export default async function ListaPage() {
-  const tickets = await prisma.eventTicket.findMany({
+  const raw = await prisma.eventTicket.findMany({
     where: { order: { status: 'PAID' }, event: { slug: VILLAINS_BALL_SLUG } },
     orderBy: [{ order: { buyerName: 'asc' } }, { seq: 'asc' }],
     select: { seq: true, holderName: true, order: { select: { code: true, buyerName: true, buyerPhone: true } } },
   })
+  // Por apellido del comprador; las entradas de un mismo pedido quedan juntas
+  const tickets = sortByLastName(raw.map((t) => ({ ...t, buyerName: t.order.buyerName })))
   return (
     <div className="space-y-4">
       <style>{`@media print { aside, nav, header, .no-print { display: none !important; } main { padding: 0 !important; margin: 0 !important; } body { background: #fff !important; } }`}</style>

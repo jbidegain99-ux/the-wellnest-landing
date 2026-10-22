@@ -47,10 +47,16 @@ export async function POST(request: Request) {
     if (existingUser && existingUser.password === null) {
       // Cuenta creada al comprar una entrada (sin contraseña): en vez de
       // rechazar, mandarle el correo para que elija su contraseña.
-      await sendPasswordSetupEmail(
+      const sent = await sendPasswordSetupEmail(
         { email: existingUser.email, name: existingUser.name },
         { subject: 'Elegí tu contraseña - Wellnest' }
       )
+      if (!sent.success) {
+        return NextResponse.json(
+          { error: 'Ya tenés una cuenta, pero no pudimos enviarte el correo. Probá de nuevo en unos minutos.' },
+          { status: 500 }
+        )
+      }
       return NextResponse.json({
         message: 'Ya tenés una cuenta creada con tu entrada. Te mandamos un correo para que elijas tu contraseña.',
         passwordSetupSent: true,

@@ -276,3 +276,16 @@ describe('claimTicket', () => {
     expect(await claimTicket('tok', { ...CLAIM, phone: '12' }, NOW)).toMatchObject({ ok: false, status: 400 })
   })
 })
+
+describe('buildPaidOrdersCsv — fórmulas', () => {
+  it('neutraliza celdas que Excel interpretaría como fórmula', () => {
+    const csv = buildPaidOrdersCsv([{
+      code: 'HW-7K3P', buyerName: '=HYPERLINK("http://x","clic")', buyerEmail: '@x.com', buyerPhone: '+50377923957',
+      quantity: 1, amountCents: 1000, paidAt: new Date('2026-10-23T02:05:00Z'), confirmedBy: '-Jose',
+    }])
+    expect(csv).toContain(`"'=HYPERLINK(""http://x"",""clic"")"`)
+    expect(csv).toContain(`,'@x.com,`)
+    expect(csv).toContain(`,'-Jose\r\n`)
+    expect(csv).toContain(',+50377923957,')
+  })
+})

@@ -178,8 +178,11 @@ export type PaidOrderCsvRow = {
   quantity: number; amountCents: number; paidAt: Date; confirmedBy: string
 }
 
-function csvCell(v: string): string {
-  return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
+function csvCell(v: string, opts: { allowLeadingPlus?: boolean } = {}): string {
+  // Excel ejecuta como fórmula lo que empieza con = + - @ (los teléfonos E.164 sí empiezan con +)
+  const risky = /^[=\-@\t\r]/.test(v) || (!opts.allowLeadingPlus && v.startsWith('+'))
+  const safe = risky ? `'${v}` : v
+  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 
 /** CSV de pedidos pagados para la conciliación bancaria (Excel-friendly: BOM + CRLF). */
@@ -187,9 +190,10 @@ export function buildPaidOrdersCsv(rows: PaidOrderCsvRow[]): string {
   const header = 'codigo,comprador,correo,telefono,cantidad,monto,pagado_el,confirmado_por'
   const lines = rows.map((r) =>
     [
-      r.code, r.buyerName, r.buyerEmail, r.buyerPhone, String(r.quantity), (r.amountCents / 100).toFixed(2),
-      formatInTimeZone(r.paidAt, 'America/El_Salvador', 'yyyy-MM-dd HH:mm'), r.confirmedBy,
-    ].map(csvCell).join(',')
+      csvCell(r.code), csvCell(r.buyerName), csvCell(r.buyerEmail), csvCell(r.buyerPhone, { allowLeadingPlus: /^\+\d+$/.test(r.buyerPhone) }),
+      String(r.quantity), (r.amountCents / 100).toFixed(2),
+      formatInTimeZone(r.paidAt, 'America/El_Salvador', 'yyyy-MM-dd HH:mm'), csvCell(r.confirmedBy),
+    ].join(',')
   )
   return '\uFEFF' + [header, ...lines].join('\r\n') + '\r\n'
 }

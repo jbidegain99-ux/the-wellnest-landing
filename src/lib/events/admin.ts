@@ -28,7 +28,8 @@ export function adminOrdersWhere(eventId: string, tab: AdminTab, q: string, now:
       { buyerEmail: { contains: term, mode: 'insensitive' } },
     ]
     const digits = term.replace(/\D/g, '')
-    if (digits) or.push({ buyerPhone: { contains: digits } })
+    // Solo con 4+ dígitos: un código como HW-7K3P no debe traer todos los teléfonos con un 7
+    if (digits.length >= 4) or.push({ buyerPhone: { contains: digits } })
     and.push({ OR: or })
   }
   return { eventId, AND: and }
