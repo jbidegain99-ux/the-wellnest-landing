@@ -98,7 +98,7 @@ export async function listAdminOrders(
         whatsappUrl:
           o.status === 'PAID' && first
             ? waLink(
-                buyerTicketsMessage({ buyerName: o.buyerName.split(' ')[0] ?? o.buyerName, firstTicketToken: first.token, quantity: o.quantity }),
+                buyerTicketsMessage({ buyerName: o.buyerName.split(' ')[0] ?? o.buyerName, firstTicketToken: first.token, quantity: o.quantity, event }),
                 o.buyerPhone
               )
             : null,

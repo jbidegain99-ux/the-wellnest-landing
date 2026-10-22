@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { eventDateLine, eventDateSentence, eventHref, partitionEvents, eventTheme } from './format'
+import { eventDateLine, eventDateSentence, eventHref, partitionEvents, eventTheme, titleParts, morningAfterLine } from './format'
 
 const VB_START = new Date('2026-10-31T00:30:00Z') // 30-oct 6:30 p. m. en El Salvador
 
@@ -32,4 +32,17 @@ describe('partitionEvents', () => {
 describe('eventTheme', () => {
   it('villains', () => expect(eventTheme('villains')).toBe('villains'))
   it('cualquier otro → wellnest', () => expect(eventTheme('raro')).toBe('wellnest'))
+})
+
+describe('titleParts', () => {
+  it('pone en cursiva la palabra más larga (la primera si empatan)', () => {
+    expect(titleParts('The Villains Ball')).toEqual({ before: 'The ', accent: 'Villains', after: ' Ball' })
+    expect(titleParts('Vintage Pilates')).toEqual({ before: '', accent: 'Vintage', after: ' Pilates' })
+  })
+  it('una sola palabra', () => expect(titleParts('Gala')).toEqual({ before: '', accent: 'Gala', after: '' }))
+})
+
+describe('morningAfterLine', () => {
+  it('día siguiente al evento, en hora de El Salvador', () =>
+    expect(morningAfterLine(new Date('2026-10-31T00:30:00Z'))).toBe('31 DE OCTUBRE · LA MAÑANA SIGUIENTE'))
 })

@@ -16,10 +16,10 @@ export function PassInvitations({ others }: { others: Other[] }) {
       {open && (
         <ul className="flex flex-col gap-2">
           {others.map((o) => (
-            <li key={o.seq} className="flex items-center justify-between gap-3 border border-[#3A2C24] px-3 py-2">
+            <li key={o.seq} className="flex items-center justify-between gap-3 border border-[color:var(--ev-line)] px-3 py-2">
               <div className="flex flex-col">
                 <span className="ev-cinzel text-[12px] tracking-[0.14em]">{o.label}</span>
-                <span className="text-[15px] text-[#CDBFA8]">{o.holderName ? `Reclamada por ${o.holderName}` : 'Sin reclamar'}</span>
+                <span className="text-[15px] text-[color:var(--ev-muted-on-bg)]">{o.holderName ? `Reclamada por ${o.holderName}` : 'Sin reclamar'}</span>
               </div>
               {!o.holderName && (
                 <a href={o.shareUrl} target="_blank" rel="noopener noreferrer" className="ev-btn-outline min-h-[44px] px-3 text-[11px]">
@@ -29,7 +29,7 @@ export function PassInvitations({ others }: { others: Other[] }) {
             </li>
           ))}
           {pending > 0 && (
-            <li className="text-[14px] italic text-[#CDBFA8]">Cada acompañante abre su enlace y deja sus datos para recibir su QR.</li>
+            <li className="text-[14px] italic text-[color:var(--ev-muted-on-bg)]">Cada acompañante abre su enlace y deja sus datos para recibir su QR.</li>
           )}
         </ul>
       )}

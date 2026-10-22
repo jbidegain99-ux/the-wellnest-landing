@@ -31,3 +31,21 @@ export type EventTheme = 'villains' | 'wellnest'
 export function eventTheme(theme: string): EventTheme {
   return theme === 'villains' ? 'villains' : 'wellnest'
 }
+
+/** Divide el nombre para destacar en cursiva la palabra más larga ("The *Villains* Ball"). */
+export function titleParts(name: string): { before: string; accent: string; after: string } {
+  const words = name.trim().split(/\s+/)
+  let idx = 0
+  words.forEach((w, i) => { if (w.length > words[idx].length) idx = i })
+  return {
+    before: words.slice(0, idx).map((w) => w + ' ').join(''),
+    accent: words[idx] ?? '',
+    after: words.slice(idx + 1).map((w) => ' ' + w).join(''),
+  }
+}
+
+/** "31 DE OCTUBRE · LA MAÑANA SIGUIENTE": el día después del inicio, hora de El Salvador. */
+export function morningAfterLine(startsAt: Date): string {
+  const next = new Date(startsAt.getTime() + 24 * 3600 * 1000)
+  return `${formatInTimeZone(next, EVENT_TZ, "d 'de' MMMM", { locale: es }).toUpperCase()} · LA MAÑANA SIGUIENTE`
+}

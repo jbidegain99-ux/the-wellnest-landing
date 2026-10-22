@@ -22,6 +22,7 @@ const NOW = new Date('2026-10-22T15:00:00Z')
 const EVENT = {
   id: 'evt1', slug: 'villains-ball', name: 'The Villains Ball', priceCents: 1000, capacity: null as number | null,
   salesOpen: true, startsAt: new Date('2026-10-31T00:30:00Z'), endsAt: new Date('2026-10-31T05:59:00Z'), venue: 'x',
+  isActive: true, ticketsEnabled: true, codePrefix: 'HW-', thanksMessage: null as string | null, theme: 'villains', imageUrl: null as string | null,
 }
 const INPUT = { name: 'Ana Martínez', phone: '7792-3957', email: 'Ana@Gmail.com', quantity: 2, marketingOptIn: true }
 
@@ -59,6 +60,22 @@ describe('createEventOrder', () => {
     expect(await createEventOrder('villains-ball', INPUT, NOW)).toEqual({ ok: false, status: 409, error: 'La venta de entradas está cerrada' })
   })
 
+  it('evento desactivado → 409', async () => {
+    txMock.event.findUnique.mockResolvedValue({ ...EVENT, isActive: false })
+    expect(await createEventOrder('villains-ball', INPUT, NOW)).toEqual({ ok: false, status: 409, error: 'La venta de entradas está cerrada' })
+  })
+
+  it('evento sin venta de entradas → 409', async () => {
+    txMock.event.findUnique.mockResolvedValue({ ...EVENT, ticketsEnabled: false })
+    expect(await createEventOrder('villains-ball', INPUT, NOW)).toEqual({ ok: false, status: 409, error: 'La venta de entradas está cerrada' })
+  })
+
+  it('usa el prefijo de código del evento', async () => {
+    txMock.event.findUnique.mockResolvedValue({ ...EVENT, codePrefix: 'VP-' })
+    await createEventOrder('vintage-pilates', INPUT, NOW)
+    expect(txMock.eventOrder.create.mock.calls[0][0].data.code).toMatch(/^VP-[A-Z2-9]{4}$/)
+  })
+
   it('ya empezó el evento → 409', async () => {
     const r = await createEventOrder('villains-ball', INPUT, new Date('2026-10-31T00:30:00Z'))
     expect(r).toEqual({ ok: false, status: 409, error: 'La venta de entradas está cerrada' })
@@ -94,7 +111,7 @@ describe('createEventOrder', () => {
     })
     expect(data.code).toMatch(/^HW-[A-Z2-9]{4}$/)
     expect(data.accessToken).toMatch(/^[0-9a-f]{64}$/)
-    if (r.ok) expect(r).toEqual({ ok: true, accessToken: data.accessToken, code: data.code, amountCents: 2000 })
+    if (r.ok) expect(r).toEqual({ ok: true, accessToken: data.accessToken, code: data.code, amountCents: 2000, event: { name: 'The Villains Ball', startsAt: EVENT.startsAt, venue: 'x', thanksMessage: null } })
     expect(prismaMock.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'Serializable' })
   })
 

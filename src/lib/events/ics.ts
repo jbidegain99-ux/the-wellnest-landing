@@ -10,11 +10,11 @@ export function buildEventIcs(e: { name: string; startsAt: Date; endsAt: Date; v
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Wellnest//The Villains Ball//ES',
+    'PRODID:-//Wellnest//Eventos//ES',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    `UID:${icsDate(e.startsAt)}-villains-ball@wellneststudio.net`,
+    `UID:${icsDate(e.startsAt)}-${e.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}@wellneststudio.net`,
     `DTSTAMP:${icsDate(new Date())}`,
     `DTSTART:${icsDate(e.startsAt)}`,
     `DTEND:${icsDate(e.endsAt)}`,

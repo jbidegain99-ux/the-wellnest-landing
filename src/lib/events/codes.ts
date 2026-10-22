@@ -1,13 +1,12 @@
 import { randomBytes, randomInt } from 'crypto'
-import { EVENT_CODE_PREFIX } from './config'
 
 // Sin 0/O, 1/I/L: el código se escribe a mano en el concepto de la transferencia
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
-export function generateOrderCode(): string {
+export function generateOrderCode(prefix: string): string {
   let code = ''
   for (let i = 0; i < 4; i++) code += ALPHABET[randomInt(ALPHABET.length)]
-  return EVENT_CODE_PREFIX + code
+  return prefix + code
 }
 
 export function generateToken(): string {

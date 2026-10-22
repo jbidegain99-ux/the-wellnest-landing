@@ -12,10 +12,10 @@ export function FleurDeLis({ size = 16, className }: { size?: number; className?
 /** Línea – flor de lis – línea, en carmesí. */
 export function OrnamentDivider({ className = '' }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-[10px] text-[#8E1A24] ${className}`}>
-      <div className="h-px flex-1 bg-[rgba(142,26,36,0.5)]" />
+    <div className={`flex items-center gap-[10px] text-[color:var(--ev-accent)] ${className}`}>
+      <div className="h-px flex-1 ev-rule" />
       <FleurDeLis />
-      <div className="h-px flex-1 bg-[rgba(142,26,36,0.5)]" />
+      <div className="h-px flex-1 ev-rule" />
     </div>
   )
 }

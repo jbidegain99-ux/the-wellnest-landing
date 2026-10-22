@@ -1,0 +1,33 @@
+import type { Metadata } from 'next'
+import { notFound, redirect } from 'next/navigation'
+import { getPublicEvent } from '@/lib/events/catalog'
+import { eventDateSentence } from '@/lib/events/format'
+import { EventLanding } from '@/components/evento/EventLanding'
+
+export const dynamic = 'force-dynamic'
+
+type Props = { params: Promise<{ slug: string }> }
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params
+  const event = await getPublicEvent(slug)
+  if (!event || !event.isActive) return { title: 'Evento · Wellnest' }
+  const description = `${eventDateSentence(event.startsAt)} · ${event.venue}${event.summary ? `. ${event.summary}` : ''}`
+  return {
+    title: `${event.name} · Wellnest`,
+    description,
+    openGraph: {
+      title: event.name, description, type: 'website', locale: 'es_SV',
+      ...(event.imageUrl ? { images: [{ url: event.imageUrl, alt: event.name }] } : {}),
+    },
+  }
+}
+
+/** Página estándar de un evento. Si tiene landing propia, redirige ahí. Oculto → 404. */
+export default async function EventoPage({ params }: Props) {
+  const { slug } = await params
+  const event = await getPublicEvent(slug)
+  if (!event || !event.isActive) notFound()
+  if (event.pagePath && event.pagePath !== `/eventos/${slug}`) redirect(event.pagePath)
+  return <EventLanding event={event} />
+}
