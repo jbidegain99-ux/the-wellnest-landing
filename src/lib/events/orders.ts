@@ -2,6 +2,9 @@ import { Prisma, type EventOrderStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { EVENT_ORDER_HOLD_HOURS } from './config'
 import { generateOrderCode, generateToken } from './codes'
+import { findOrCreateUserByEmail } from './accounts'
+import { buyerTicketsMessage, waLink } from './whatsapp'
+import { formatInTimeZone } from 'date-fns-tz'
 import { normalizePhone } from './phone'
 import type { CreateOrderInput } from './schemas'
 
@@ -83,4 +86,110 @@ export async function createEventOrder(slug: string, input: CreateOrderInput, no
       throw e
     }
   }
+}
+
+export type ConfirmResult =
+  | {
+      ok: true
+      tickets: { seq: number; token: string }[]
+      overCapacity: boolean
+      whatsappUrl: string
+      order: { code: string; buyerName: string; buyerEmail: string }
+    }
+  | { ok: false; status: 404 | 409; error: string }
+
+/**
+ * Confirma el pago (después de verlo en el banco): PENDING → PAID atómico,
+ * crea las entradas (la 1 queda del comprador) y su cuenta.
+ * Un pedido vencido se puede confirmar: la transferencia pudo llegar tarde.
+ */
+export async function confirmEventOrder(orderId: string, adminId: string, now: Date = new Date()): Promise<ConfirmResult> {
+  return prisma.$transaction(async (tx): Promise<ConfirmResult> => {
+    const order = await tx.eventOrder.findUnique({ where: { id: orderId }, include: { event: true } })
+    if (!order) return { ok: false, status: 404, error: 'Pedido no encontrado' }
+    if (order.status === 'CANCELLED') return { ok: false, status: 409, error: 'Este pedido fue anulado' }
+
+    const claim = await tx.eventOrder.updateMany({
+      where: { id: orderId, status: 'PENDING' },
+      data: { status: 'PAID', paidAt: now, confirmedById: adminId },
+    })
+    if (claim.count === 0) return { ok: false, status: 409, error: 'Ya estaba confirmado' }
+
+    const taken = await seatsTaken(tx, order.eventId, now)
+    const overCapacity = order.event.capacity !== null && taken > order.event.capacity
+
+    const user = await findOrCreateUserByEmail(tx, { name: order.buyerName, email: order.buyerEmail, phone: order.buyerPhone })
+
+    const tickets = Array.from({ length: order.quantity }, (_, i) => {
+      const seq = i + 1
+      const base = { orderId: order.id, eventId: order.eventId, seq, token: generateToken() }
+      return seq === 1
+        ? {
+            ...base,
+            holderName: order.buyerName,
+            holderEmail: order.buyerEmail,
+            holderPhone: order.buyerPhone,
+            holderUserId: user.id,
+            marketingOptIn: order.marketingOptIn,
+            claimedAt: now,
+          }
+        : base
+    })
+    await tx.eventTicket.createMany({ data: tickets })
+    await tx.eventOrder.update({ where: { id: order.id }, data: { buyerUserId: user.id } })
+
+    const whatsappUrl = waLink(
+      buyerTicketsMessage({ buyerName: order.buyerName.split(' ')[0] ?? order.buyerName, firstTicketToken: tickets[0].token, quantity: order.quantity }),
+      order.buyerPhone
+    )
+    return {
+      ok: true,
+      tickets: tickets.map((t) => ({ seq: t.seq, token: t.token })),
+      overCapacity,
+      whatsappUrl,
+      order: { code: order.code, buyerName: order.buyerName, buyerEmail: order.buyerEmail },
+    }
+  })
+}
+
+export async function cancelEventOrder(
+  orderId: string,
+  adminId: string,
+  note: string | null,
+  now: Date = new Date()
+): Promise<{ ok: true } | { ok: false; status: 400 | 404 | 409; error: string }> {
+  const order = await prisma.eventOrder.findUnique({ where: { id: orderId }, select: { status: true } })
+  if (!order) return { ok: false, status: 404, error: 'Pedido no encontrado' }
+  if (order.status === 'CANCELLED') return { ok: false, status: 409, error: 'El pedido ya estaba anulado' }
+  const trimmed = note?.trim() || null
+  if (order.status === 'PAID' && !trimmed) return { ok: false, status: 400, error: 'Escribí el motivo de la anulación' }
+
+  const r = await prisma.eventOrder.updateMany({
+    where: { id: orderId, status: order.status },
+    data: { status: 'CANCELLED', cancelledAt: now, adminNote: trimmed },
+  })
+  if (r.count === 0) return { ok: false, status: 409, error: 'El pedido cambió mientras tanto. Recargá la página.' }
+  console.log(`[EVENTO] Pedido ${orderId} anulado por ${adminId} (estaba ${order.status})`)
+  return { ok: true }
+}
+
+export type PaidOrderCsvRow = {
+  code: string; buyerName: string; buyerEmail: string; buyerPhone: string
+  quantity: number; amountCents: number; paidAt: Date; confirmedBy: string
+}
+
+function csvCell(v: string): string {
+  return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
+}
+
+/** CSV de pedidos pagados para la conciliación bancaria (Excel-friendly: BOM + CRLF). */
+export function buildPaidOrdersCsv(rows: PaidOrderCsvRow[]): string {
+  const header = 'codigo,comprador,correo,telefono,cantidad,monto,pagado_el,confirmado_por'
+  const lines = rows.map((r) =>
+    [
+      r.code, r.buyerName, r.buyerEmail, r.buyerPhone, String(r.quantity), (r.amountCents / 100).toFixed(2),
+      formatInTimeZone(r.paidAt, 'America/El_Salvador', 'yyyy-MM-dd HH:mm'), r.confirmedBy,
+    ].map(csvCell).join(',')
+  )
+  return '\uFEFF' + [header, ...lines].join('\r\n') + '\r\n'
 }

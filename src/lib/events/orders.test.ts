@@ -16,7 +16,7 @@ const { txMock, prismaMock } = vi.hoisted(() => {
 })
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
-import { isOrderExpired, hasCapacity, createEventOrder } from './orders'
+import { isOrderExpired, hasCapacity, createEventOrder, confirmEventOrder, cancelEventOrder, buildPaidOrdersCsv } from './orders'
 
 const NOW = new Date('2026-10-22T15:00:00Z')
 const EVENT = {
@@ -113,5 +113,107 @@ describe('createEventOrder', () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(2)
     prismaMock.$transaction.mockReset()
     prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock))
+  })
+})
+
+const ORDER = {
+  id: 'o1', eventId: 'evt1', code: 'HW-7K3P', accessToken: 'acc', buyerName: 'Ana Martínez', buyerEmail: 'ana@gmail.com',
+  buyerPhone: '+50377923957', quantity: 3, amountCents: 3000, status: 'PENDING', marketingOptIn: true,
+  expiresAt: new Date('2026-10-23T15:00:00Z'), event: { ...EVENT },
+}
+
+describe('confirmEventOrder', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.env.NEXTAUTH_URL = 'https://wellneststudio.net'
+    txMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER })
+    txMock.eventOrder.updateMany.mockResolvedValue({ count: 1 })
+    txMock.eventOrder.aggregate.mockResolvedValue({ _sum: { quantity: 3 } })
+    txMock.eventOrder.update.mockResolvedValue({})
+    txMock.eventTicket.createMany.mockResolvedValue({ count: 3 })
+    txMock.user.findFirst.mockResolvedValue(null)
+    txMock.user.create.mockResolvedValue({ id: 'u9' })
+  })
+
+  it('carrera: si otro admin ya lo confirmó → 409 y no crea entradas', async () => {
+    txMock.eventOrder.updateMany.mockResolvedValue({ count: 0 })
+    expect(await confirmEventOrder('o1', 'admin1', NOW)).toEqual({ ok: false, status: 409, error: 'Ya estaba confirmado' })
+    expect(txMock.eventOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: 'o1', status: 'PENDING' }, data: { status: 'PAID', paidAt: NOW, confirmedById: 'admin1' },
+    })
+    expect(txMock.eventTicket.createMany).not.toHaveBeenCalled()
+  })
+
+  it('pedido anulado → 409', async () => {
+    txMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, status: 'CANCELLED' })
+    expect(await confirmEventOrder('o1', 'admin1', NOW)).toEqual({ ok: false, status: 409, error: 'Este pedido fue anulado' })
+  })
+
+  it('inexistente → 404', async () => {
+    txMock.eventOrder.findUnique.mockResolvedValue(null)
+    expect(await confirmEventOrder('x', 'admin1', NOW)).toEqual({ ok: false, status: 404, error: 'Pedido no encontrado' })
+  })
+
+  it('feliz: crea 3 entradas, la 1 del comprador, y arma el WhatsApp', async () => {
+    const r = await confirmEventOrder('o1', 'admin1', NOW)
+    expect(r.ok).toBe(true)
+    const rows = txMock.eventTicket.createMany.mock.calls[0][0].data as Array<Record<string, unknown>>
+    expect(rows.map((t) => t.seq)).toEqual([1, 2, 3])
+    expect(new Set(rows.map((t) => t.token)).size).toBe(3)
+    rows.forEach((t) => expect(t.token).toMatch(/^[0-9a-f]{64}$/))
+    expect(rows[0]).toMatchObject({ holderName: 'Ana Martínez', holderEmail: 'ana@gmail.com', holderPhone: '+50377923957', holderUserId: 'u9', claimedAt: NOW, marketingOptIn: true })
+    expect(rows[1].holderName).toBeUndefined()
+    expect(txMock.eventOrder.update).toHaveBeenCalledWith({ where: { id: 'o1' }, data: { buyerUserId: 'u9' } })
+    if (r.ok) {
+      expect(r.whatsappUrl.startsWith('https://wa.me/50377923957?text=')).toBe(true)
+      expect(decodeURIComponent(r.whatsappUrl)).toContain(`/entrada/${rows[0].token}`)
+      expect(r.overCapacity).toBe(false)
+      expect(r.order).toEqual({ code: 'HW-7K3P', buyerName: 'Ana Martínez', buyerEmail: 'ana@gmail.com' })
+    }
+  })
+
+  it('vencido y sobre el cupo: confirma igual y avisa', async () => {
+    txMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, expiresAt: new Date(0), event: { ...EVENT, capacity: 10 } })
+    txMock.eventOrder.aggregate.mockResolvedValue({ _sum: { quantity: 13 } })
+    const r = await confirmEventOrder('o1', 'admin1', NOW)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.overCapacity).toBe(true)
+  })
+})
+
+describe('cancelEventOrder', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    txMock.eventOrder.updateMany.mockResolvedValue({ count: 1 })
+  })
+  it('PAID sin nota → 400', async () => {
+    prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, status: 'PAID' })
+    expect(await cancelEventOrder('o1', 'admin1', '  ')).toEqual({ ok: false, status: 400, error: 'Escribí el motivo de la anulación' })
+  })
+  it('PAID con nota → CANCELLED', async () => {
+    prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, status: 'PAID' })
+    expect(await cancelEventOrder('o1', 'admin1', 'Reembolso', NOW)).toEqual({ ok: true })
+    expect(prismaMock.eventOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: 'o1', status: 'PAID' }, data: { status: 'CANCELLED', cancelledAt: NOW, adminNote: 'Reembolso' },
+    })
+  })
+  it('PENDING sin nota → ok', async () => {
+    prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER })
+    expect(await cancelEventOrder('o1', 'admin1', null, NOW)).toEqual({ ok: true })
+  })
+  it('ya anulado → 409', async () => {
+    prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, status: 'CANCELLED' })
+    expect(await cancelEventOrder('o1', 'admin1', 'x')).toEqual({ ok: false, status: 409, error: 'El pedido ya estaba anulado' })
+  })
+})
+
+describe('buildPaidOrdersCsv', () => {
+  it('BOM, encabezado, dólares y comillas', () => {
+    const csv = buildPaidOrdersCsv([{
+      code: 'HW-7K3P', buyerName: 'Martínez, Ana "La Condesa"', buyerEmail: 'ana@gmail.com', buyerPhone: '+50377923957',
+      quantity: 2, amountCents: 2000, paidAt: new Date('2026-10-23T02:05:00Z'), confirmedBy: 'Jose',
+    }])
+    expect(csv.startsWith('\uFEFFcodigo,comprador,correo,telefono,cantidad,monto,pagado_el,confirmado_por\r\n')).toBe(true)
+    expect(csv).toContain('HW-7K3P,"Martínez, Ana ""La Condesa""",ana@gmail.com,+50377923957,2,20.00,2026-10-22 20:05,Jose')
   })
 })

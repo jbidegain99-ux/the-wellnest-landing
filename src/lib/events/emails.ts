@@ -59,3 +59,22 @@ export function buildPaymentInstructionsEmail(p: {
 ${button(p.orderUrl, 'VER MI PEDIDO')}`
   )
 }
+
+export function buildTicketsEmail(p: { buyerName: string; tickets: { label: string; url: string }[] }): string {
+  const first = p.tickets[0]
+  const others = p.tickets.slice(1)
+  const otherList = others.length
+    ? `<p style="font-size:15px;line-height:1.5;margin-top:22px;">Tus otras invitaciones, para pasarlas a tus acompañantes:</p>
+<ul style="padding-left:18px;font-size:15px;line-height:1.7;">${others
+        .map((t) => `<li><a href="${escapeHtml(t.url)}" style="color:${C.crimson};">${escapeHtml(t.label)}</a></li>`)
+        .join('')}</ul>
+<p style="font-size:14px;color:${C.muted};">Cada acompañante abre su enlace y deja sus datos para recibir su QR.</p>`
+    : ''
+  return layout(
+    'Tu invitación está sellada',
+    `<p style="font-size:16px;line-height:1.5;">Hola ${escapeHtml(p.buyerName)}: tu pago está confirmado.</p>
+<p style="font-size:16px;line-height:1.5;">Esta es tu invitación (${escapeHtml(first?.label ?? '')}). Mostrá el QR en la puerta: es personal y solo se usa una vez.</p>
+${first ? button(first.url, 'ABRIR MI INVITACIÓN') : ''}
+${otherList}`
+  )
+}
