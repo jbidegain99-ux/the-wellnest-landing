@@ -1,8 +1,8 @@
 /**
- * Correo de agradecimiento de The Villains Ball (31-oct).
+ * Correo de agradecimiento después de un evento (por defecto The Villains Ball).
  *
  * Por defecto es DRY-RUN: solo lista a quién se le mandaría. Para enviar:
- *   npx tsx scripts/send-villains-ball-thanks.ts --send
+ *   npx tsx scripts/send-event-thanks.ts --evento villains-ball --send
  *
  * Destinatarios: titulares con correo y check-in, sin repetir correo.
  * Los enlaces apuntan a producción (no a NEXTAUTH_URL, que en local es localhost).
@@ -13,12 +13,18 @@ const PUBLIC_URL = 'https://wellneststudio.net'
 
 async function main() {
   const send = process.argv.includes('--send')
+  const i = process.argv.indexOf('--evento')
+  const slug = i > -1 ? process.argv[i + 1] : 'villains-ball'
   const { prisma } = await import('../src/lib/prisma')
   const { sendEmail } = await import('../src/lib/emailService')
   const { buildThanksEmail } = await import('../src/lib/events/emails')
 
+  const event = await prisma.event.findUnique({ where: { slug }, select: { name: true, startsAt: true, venue: true, thanksMessage: true } })
+  if (!event) throw new Error(`No existe el evento "${slug}"`)
+  console.log(`Evento: ${event.name}`)
+
   const tickets = await prisma.eventTicket.findMany({
-    where: { checkedInAt: { not: null }, holderEmail: { not: null }, order: { status: 'PAID' }, event: { slug: 'villains-ball' } },
+    where: { checkedInAt: { not: null }, holderEmail: { not: null }, order: { status: 'PAID' }, event: { slug } },
     orderBy: { checkedInAt: 'asc' },
     select: { token: true, holderEmail: true, holderName: true },
   })
@@ -45,8 +51,8 @@ async function main() {
     const firstName = (r.holderName ?? '').trim().split(/\s+/)[0] || 'de nuevo'
     const res = await sendEmail({
       to: r.holderEmail as string,
-      subject: 'Gracias por venir a The Villains Ball',
-      html: buildThanksEmail({ name: firstName, ticketUrl: `${PUBLIC_URL}/entrada/${r.token}` }),
+      subject: `Gracias por venir a ${event.name}`,
+      html: buildThanksEmail({ name: firstName, ticketUrl: `${PUBLIC_URL}/entrada/${r.token}`, event }),
     })
     if (res.success) ok++
     else failed.push(`${r.holderEmail}: ${res.error}`)

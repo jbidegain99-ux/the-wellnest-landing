@@ -1,4 +1,7 @@
 import { EVENT_BANK } from './config'
+import { eventDateSentence } from './format'
+
+export type EmailEvent = { name: string; startsAt: Date; venue: string; thanksMessage: string | null }
 
 export function escapeHtml(s: string): string {
   return s
@@ -16,16 +19,16 @@ export function formatUsd(cents: number): string {
 const C = { ink: '#0D0908', cream: '#EFE6D6', crimson: '#8E1A24', text: '#1A0F0D', muted: '#4A3B32' }
 
 /** Marco común: fondo oscuro, tarjeta crema con filete carmesí. `body` ya viene escapado. */
-function layout(title: string, body: string): string {
+function layout(event: EmailEvent, title: string, body: string): string {
   return `<!doctype html><html lang="es"><body style="margin:0;padding:0;background:${C.ink};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.ink};padding:32px 12px;">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:${C.cream};border:1px solid ${C.crimson};">
 <tr><td style="padding:32px 28px;font-family:Georgia,'Times New Roman',serif;color:${C.text};">
-<p style="margin:0 0 6px;font-size:11px;letter-spacing:4px;color:${C.crimson};text-align:center;">THE VILLAINS BALL</p>
+<p style="margin:0 0 6px;font-size:11px;letter-spacing:4px;color:${C.crimson};text-align:center;">${escapeHtml(event.name.toUpperCase())}</p>
 <h1 style="margin:0 0 20px;font-size:26px;font-weight:normal;text-align:center;">${title}</h1>
 ${body}
-<p style="margin:28px 0 0;font-size:12px;color:${C.muted};text-align:center;">Viernes 30 de octubre · 6:30 p. m. · Plaza Presidente, nivel 3 · San Salvador</p>
+<p style="margin:28px 0 0;font-size:12px;color:${C.muted};text-align:center;">${escapeHtml(`${eventDateSentence(event.startsAt)} · ${event.venue}`)}</p>
 </td></tr></table>
 </td></tr></table></body></html>`
 }
@@ -35,7 +38,7 @@ function button(url: string, label: string): string {
 }
 
 export function buildPaymentInstructionsEmail(p: {
-  buyerName: string; code: string; amountCents: number; quantity: number; orderUrl: string
+  buyerName: string; code: string; amountCents: number; quantity: number; orderUrl: string; event: EmailEvent
 }): string {
   const rows: [string, string][] = [
     ['Monto', formatUsd(p.amountCents)],
@@ -49,6 +52,7 @@ export function buildPaymentInstructionsEmail(p: {
     .join('')
   const lugares = p.quantity === 1 ? 'Tu lugar queda apartado' : `Tus ${p.quantity} lugares quedan apartados`
   return layout(
+    p.event,
     'Tu invitación espera su sello',
     `<p style="font-size:16px;line-height:1.5;">Hola ${escapeHtml(p.buyerName)}:</p>
 <p style="font-size:16px;line-height:1.5;">Al transferir, agregá este código en el campo <strong>“Concepto”</strong> de tu transferencia:</p>
@@ -60,7 +64,7 @@ ${button(p.orderUrl, 'VER MI PEDIDO')}`
   )
 }
 
-export function buildTicketsEmail(p: { buyerName: string; tickets: { label: string; url: string }[] }): string {
+export function buildTicketsEmail(p: { buyerName: string; tickets: { label: string; url: string }[]; event: EmailEvent }): string {
   const first = p.tickets[0]
   const others = p.tickets.slice(1)
   const otherList = others.length
@@ -71,7 +75,8 @@ export function buildTicketsEmail(p: { buyerName: string; tickets: { label: stri
 <p style="font-size:14px;color:${C.muted};">Cada acompañante abre su enlace y deja sus datos para recibir su QR.</p>`
     : ''
   return layout(
-    'Tu invitación está sellada',
+    p.event,
+    'Tu invitación está lista',
     `<p style="font-size:16px;line-height:1.5;">Hola ${escapeHtml(p.buyerName)}: tu pago está confirmado.</p>
 <p style="font-size:16px;line-height:1.5;">Esta es tu invitación (${escapeHtml(first?.label ?? '')}). Mostrá el QR en la puerta: es personal y solo se usa una vez.</p>
 ${first ? button(first.url, 'ABRIR MI INVITACIÓN') : ''}
@@ -79,10 +84,12 @@ ${otherList}`
   )
 }
 
-export function buildThanksEmail(p: { name: string; ticketUrl: string }): string {
+export function buildThanksEmail(p: { name: string; ticketUrl: string; event: EmailEvent }): string {
+  const thanks = p.event.thanksMessage ?? `Fue un honor tenerte en ${p.event.name}.`
   return layout(
+    p.event,
     `Gracias por venir, <em style="color:${C.crimson};">${escapeHtml(p.name)}</em>.`,
-    `<p style="font-size:16px;line-height:1.5;">Fue un honor tenerte en The Villains Ball. Lo que viste en escena se entrena en Wellnest: pole, aro y tela.</p>
+    `<p style="font-size:16px;line-height:1.5;">${escapeHtml(thanks)}</p>
 <p style="font-size:16px;line-height:1.5;">Tu cuenta ya está creada. Activala para ver los paquetes y reservar tus clases.</p>
 ${button(p.ticketUrl, 'ACTIVAR MI CUENTA')}
 <p style="text-align:center;font-size:14px;color:${C.muted};">Solo elegís una contraseña.</p>`

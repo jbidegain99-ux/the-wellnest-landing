@@ -17,6 +17,7 @@ const navigation = {
   estudio: [
     { name: 'Paquetes', href: '/paquetes' },
     { name: 'Horarios', href: '/horarios' },
+    { name: 'Eventos', href: '/eventos' },
     { name: 'Equipo', href: '/equipo' },
     { name: 'Contacto', href: '/contacto' },
   ],

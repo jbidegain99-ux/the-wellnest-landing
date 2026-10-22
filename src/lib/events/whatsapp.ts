@@ -1,5 +1,8 @@
 import { siteUrl } from './config'
 import { waNumber } from './phone'
+import { eventDateSentence } from './format'
+
+export type EventCopy = { name: string; startsAt: Date; venue: string }
 
 export function waLink(text: string, phoneE164?: string): string {
   const number = phoneE164 ? waNumber(phoneE164) : ''
@@ -10,9 +13,10 @@ export function ticketUrl(token: string): string {
   return `${siteUrl()}/entrada/${token}`
 }
 
-export function buyerTicketsMessage(p: { buyerName: string; firstTicketToken: string; quantity: number }): string {
+export function buyerTicketsMessage(p: { buyerName: string; firstTicketToken: string; quantity: number; event: EventCopy }): string {
+  const when = eventDateSentence(p.event.startsAt)
   const lines = [
-    `¡Hola ${p.buyerName}! Tu pago está confirmado. Esta es tu invitación para The Villains Ball (viernes 30 de octubre, 6:30 p. m., Plaza Presidente nivel 3):`,
+    `¡Hola ${p.buyerName}! Tu pago está confirmado. Esta es tu invitación para ${p.event.name} (${when.charAt(0).toLowerCase()}${when.slice(1)}, ${p.event.venue}):`,
     ticketUrl(p.firstTicketToken),
   ]
   if (p.quantity > 1) {
@@ -21,8 +25,8 @@ export function buyerTicketsMessage(p: { buyerName: string; firstTicketToken: st
   return lines.join('\n')
 }
 
-export function shareTicketMessage(p: { buyerName: string; token: string }): string {
-  return `${p.buyerName} te invita a The Villains Ball. Abrí tu invitación y dejá tus datos para recibir tu QR: ${ticketUrl(p.token)}`
+export function shareTicketMessage(p: { buyerName: string; token: string; eventName: string }): string {
+  return `${p.buyerName} te invita a ${p.eventName}. Abrí tu invitación y dejá tus datos para recibir tu QR: ${ticketUrl(p.token)}`
 }
 
 export function proofMessage(code: string): string {

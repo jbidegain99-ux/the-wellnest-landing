@@ -2,278 +2,123 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Search, Download, Loader2, ScanLine, Printer, MessageCircle, Check, X, Ticket as TicketIcon } from 'lucide-react'
+import { Plus, Loader2, Pencil, ListOrdered, ExternalLink, ScanLine } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
-import { Textarea } from '@/components/ui/Textarea'
-import { Modal, ModalContent, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '@/components/ui/Modal'
-import type { AdminOrderRow, AdminCounts, AdminTab } from '@/lib/events/admin'
+import { Badge } from '@/components/ui/Badge'
+import type { AdminEventRow } from '@/lib/events/adminEvents'
 
-const TABS: { id: AdminTab; label: string }[] = [
-  { id: 'pendientes', label: 'Pendientes' },
-  { id: 'pagados', label: 'Pagados' },
-  { id: 'otros', label: 'Vencidos y anulados' },
-]
-
-const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`
 const dt = (iso: string) =>
-  new Date(iso).toLocaleString('es-SV', { timeZone: 'America/El_Salvador', dateStyle: 'short', timeStyle: 'short' })
-const hm = (iso: string) =>
-  new Date(iso).toLocaleTimeString('es-SV', { timeZone: 'America/El_Salvador', hour: 'numeric', minute: '2-digit' })
+  new Date(iso).toLocaleString('es-SV', { timeZone: 'America/El_Salvador', dateStyle: 'medium', timeStyle: 'short' })
 
-type Dialog =
-  | { kind: 'confirm'; order: AdminOrderRow }
-  | { kind: 'confirmed'; order: AdminOrderRow; whatsappUrl: string; overCapacity: boolean; emailSent: boolean }
-  | { kind: 'cancel'; order: AdminOrderRow }
-  | { kind: 'tickets'; order: AdminOrderRow }
-  | null
+function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative h-6 w-11 flex-shrink-0 rounded-full transition-colors disabled:opacity-50 ${checked ? 'bg-primary' : 'bg-gray-300'}`}
+      >
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+      </button>
+      <span className="text-gray-700">{label}</span>
+    </label>
+  )
+}
 
 export default function AdminEventosPage() {
-  const [tab, setTab] = React.useState<AdminTab>('pendientes')
-  const [query, setQuery] = React.useState('')
-  const [debounced, setDebounced] = React.useState('')
-  const [orders, setOrders] = React.useState<AdminOrderRow[]>([])
-  const [counts, setCounts] = React.useState<AdminCounts | null>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [loadError, setLoadError] = React.useState('')
-  const [dialog, setDialog] = React.useState<Dialog>(null)
-  const [busy, setBusy] = React.useState(false)
-  const [actionError, setActionError] = React.useState('')
-  const [note, setNote] = React.useState('')
-  const seq = React.useRef(0)
-
-  React.useEffect(() => {
-    const t = setTimeout(() => setDebounced(query), 300)
-    return () => clearTimeout(t)
-  }, [query])
+  const [events, setEvents] = React.useState<AdminEventRow[] | null>(null)
+  const [error, setError] = React.useState('')
+  const [busyId, setBusyId] = React.useState<string | null>(null)
 
   const load = React.useCallback(async () => {
-    const mine = ++seq.current
-    setLoading(true)
-    setLoadError('')
     try {
-      const res = await fetch(`/api/admin/eventos/pedidos?${new URLSearchParams({ tab, q: debounced })}`)
-      if (mine !== seq.current) return
-      if (!res.ok) {
-        const data: { error?: string } = await res.json().catch(() => ({}))
-        setLoadError(data.error ?? `Error ${res.status} cargando los pedidos`)
-        return
-      }
-      const data: { orders: AdminOrderRow[]; counts: AdminCounts } = await res.json()
-      setOrders(data.orders)
-      setCounts(data.counts)
+      const res = await fetch('/api/admin/eventos')
+      const data: { events?: AdminEventRow[]; error?: string } = await res.json().catch(() => ({}))
+      if (!res.ok || !data.events) { setError(data.error ?? `Error ${res.status} cargando eventos`); return }
+      setEvents(data.events)
+      setError('')
     } catch {
-      if (mine === seq.current) setLoadError('No se pudo conectar. Recargá la página.')
-    } finally {
-      if (mine === seq.current) setLoading(false)
+      setError('No se pudo conectar. Recargá la página.')
     }
-  }, [tab, debounced])
+  }, [])
 
   React.useEffect(() => { load() }, [load])
 
-  function close() {
-    setDialog(null)
-    setActionError('')
-    setNote('')
-  }
-
-  async function confirm(order: AdminOrderRow) {
-    setBusy(true)
-    setActionError('')
+  async function setFlag(id: string, flags: { isActive?: boolean; salesOpen?: boolean }) {
+    setBusyId(id)
     try {
-      const res = await fetch(`/api/admin/eventos/pedidos/${order.id}/confirmar`, { method: 'POST' })
-      const data: { error?: string; whatsappUrl?: string; overCapacity?: boolean; emailSent?: boolean } = await res.json().catch(() => ({}))
-      if (!res.ok || !data.whatsappUrl) {
-        setActionError(data.error ?? 'No se pudo confirmar')
-        if (res.status === 409) load()
-        return
-      }
-      setDialog({ kind: 'confirmed', order, whatsappUrl: data.whatsappUrl, overCapacity: !!data.overCapacity, emailSent: !!data.emailSent })
-      load()
+      const res = await fetch(`/api/admin/eventos/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(flags) })
+      if (!res.ok) { const d: { error?: string } = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo guardar') }
+      await load()
+    } catch {
+      setError('No se pudo conectar. Probá de nuevo.')
     } finally {
-      setBusy(false)
+      setBusyId(null)
     }
-  }
-
-  async function cancel(order: AdminOrderRow) {
-    setBusy(true)
-    setActionError('')
-    try {
-      const res = await fetch(`/api/admin/eventos/pedidos/${order.id}/cancelar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note }),
-      })
-      const data: { error?: string } = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setActionError(data.error ?? 'No se pudo anular')
-        return
-      }
-      close()
-      load()
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  function sendWhatsapp(orderId: string, url: string) {
-    window.open(url, '_blank', 'noopener,noreferrer')
-    fetch(`/api/admin/eventos/pedidos/${orderId}/whatsapp`, { method: 'POST' }).then(() => load()).catch(() => {})
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-semibold text-foreground">The Villains Ball</h1>
-          <p className="mt-1 text-gray-600">Pedidos por transferencia · viernes 30 de octubre, 6:30 p. m.</p>
+          <h1 className="font-serif text-3xl font-semibold text-foreground">Eventos</h1>
+          <p className="mt-1 text-gray-600">Los eventos visibles aparecen en wellneststudio.net/eventos.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm"><Link href="/admin/eventos/checkin"><ScanLine className="mr-2 h-4 w-4" />Check-in</Link></Button>
-          <Button asChild variant="outline" size="sm"><Link href="/admin/eventos/lista"><Printer className="mr-2 h-4 w-4" />Lista imprimible</Link></Button>
-          <Button asChild variant="outline" size="sm"><a href="/api/admin/eventos/export"><Download className="mr-2 h-4 w-4" />Exportar CSV</a></Button>
+          <Button asChild size="sm"><Link href="/admin/eventos/nuevo"><Plus className="mr-2 h-4 w-4" />Nuevo evento</Link></Button>
         </div>
       </div>
 
-      {counts && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {[
-            ['Entradas pagadas', String(counts.paidTickets)],
-            ['Pendientes vigentes', String(counts.pendingTickets)],
-            ['Adentro', String(counts.checkedIn)],
-            ['Cupo', counts.capacity === null ? 'Sin tope' : `${counts.paidTickets + counts.pendingTickets} / ${counts.capacity}`],
-          ].map(([label, value]) => (
-            <Card key={label}><CardContent className="p-4"><p className="text-sm text-gray-600">{label}</p><p className="text-2xl font-semibold">{value}</p></CardContent></Card>
-          ))}
+      {error && <p role="alert" className="rounded-lg bg-[var(--color-error)]/10 p-3 text-sm text-[var(--color-error)]">{error}</p>}
+
+      {!events ? (
+        <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+      ) : events.length === 0 ? (
+        <Card><CardContent className="p-10 text-center text-gray-500">Todavía no hay eventos.</CardContent></Card>
+      ) : (
+        <div className="grid gap-4">
+          {events.map((e) => {
+            const ended = new Date(e.endsAt).getTime() < Date.now()
+            return (
+              <Card key={e.id}>
+                <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-medium text-foreground">{e.name}</h2>
+                      {ended ? <Badge variant="outline">Terminó</Badge> : e.isActive ? <Badge variant="success">Visible</Badge> : <Badge variant="warning">Oculto</Badge>}
+                      {!e.ticketsEnabled && <Badge variant="secondary">Sin venta de entradas</Badge>}
+                    </div>
+                    <p className="mt-1 text-sm text-gray-600">{dt(e.startsAt)} · {e.venue} · ${(e.priceCents / 100).toFixed(2)}</p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {e.paidTickets} pagadas · {e.pendingTickets} pendientes · {e.checkedIn} adentro{e.capacity !== null ? ` · cupo ${e.capacity}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-3 lg:items-end">
+                    <div className="flex flex-wrap gap-5">
+                      <Toggle label="Visible en el sitio" checked={e.isActive} disabled={busyId === e.id} onChange={(v) => setFlag(e.id, { isActive: v })} />
+                      {e.ticketsEnabled && <Toggle label="Venta abierta" checked={e.salesOpen} disabled={busyId === e.id} onChange={(v) => setFlag(e.id, { salesOpen: v })} />}
+                    </div>
+                    {!e.isActive && e.ticketsEnabled && e.salesOpen && (
+                      <p className="text-xs text-[var(--color-warning)]">Oculto: la venta queda cerrada aunque “Venta abierta” esté activo.</p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {e.ticketsEnabled && <Button asChild size="sm" variant="secondary"><Link href={`/admin/eventos/${e.slug}`}><ListOrdered className="mr-1 h-4 w-4" />Pedidos</Link></Button>}
+                      <Button asChild size="sm" variant="outline"><Link href={`/admin/eventos/${e.slug}/editar`}><Pencil className="mr-1 h-4 w-4" />Editar</Link></Button>
+                      <Button asChild size="sm" variant="ghost"><a href={e.pagePath ?? `/eventos/${e.slug}`} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-1 h-4 w-4" />Ver página</a></Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="flex gap-1 rounded-full bg-beige p-1" role="tablist">
-          {TABS.map((t) => (
-            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-              className={`rounded-full px-4 py-2 text-sm font-medium ${tab === t.id ? 'bg-white shadow-sm' : 'text-gray-600'}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
-          <Input aria-label="Buscar pedidos" placeholder="Código, nombre, correo o teléfono" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />
-        </div>
-      </div>
-
-      {loadError && <p role="alert" className="rounded-lg bg-[var(--color-error)]/10 p-3 text-sm text-[var(--color-error)]">{loadError}</p>}
-
-      <Card>
-        <CardContent className="overflow-x-auto p-0">
-          {loading && orders.length === 0 ? (
-            <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-          ) : orders.length === 0 ? (
-            <p className="p-10 text-center text-gray-500">No hay pedidos en esta pestaña.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="border-b bg-beige/50 text-left text-gray-600">
-                <tr><th className="p-3">Código</th><th className="p-3">Comprador</th><th className="p-3">Cant.</th><th className="p-3">Monto</th><th className="p-3">Fecha</th><th className="p-3">Estado</th><th className="p-3 text-right">Acciones</th></tr>
-              </thead>
-              <tbody>
-                {orders.map((o) => (
-                  <tr key={o.id} className="border-b last:border-0">
-                    <td className="p-3 font-mono font-semibold">{o.code}</td>
-                    <td className="p-3"><div className="font-medium">{o.buyerName}</div><div className="text-xs text-gray-500">{o.buyerPhone} · {o.buyerEmail}</div></td>
-                    <td className="p-3">{o.quantity}</td>
-                    <td className="p-3">{usd(o.amountCents)}</td>
-                    <td className="p-3 text-gray-600">{dt(o.paidAt ?? o.createdAt)}</td>
-                    <td className="p-3">
-                      {o.status === 'PAID' ? <Badge variant="success">Pagado{o.whatsappSentAt ? ' · WhatsApp ✓' : ''}</Badge>
-                        : o.status === 'CANCELLED' ? <Badge variant="error" title={o.adminNote ?? undefined}>Anulado</Badge>
-                        : o.expired ? <Badge variant="warning">Vencido</Badge> : <Badge>Pendiente</Badge>}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex justify-end gap-2">
-                        {o.status === 'PENDING' && <Button size="sm" onClick={() => setDialog({ kind: 'confirm', order: o })}><Check className="mr-1 h-4 w-4" />Confirmar pago</Button>}
-                        {o.status === 'PAID' && o.whatsappUrl && <Button size="sm" variant="secondary" onClick={() => sendWhatsapp(o.id, o.whatsappUrl as string)}><MessageCircle className="mr-1 h-4 w-4" />{o.whatsappSentAt ? 'Reenviar' : 'WhatsApp'}</Button>}
-                        {o.status === 'PAID' && <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: 'tickets', order: o })}><TicketIcon className="mr-1 h-4 w-4" />Entradas</Button>}
-                        {o.status !== 'CANCELLED' && <Button size="sm" variant="ghost" aria-label={o.status === 'PAID' ? 'Anular pedido' : 'Cancelar pedido'} onClick={() => setDialog({ kind: 'cancel', order: o })}><X className="h-4 w-4" /></Button>}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
-
-      <Modal open={dialog !== null} onOpenChange={(open) => !open && !busy && close()}>
-        <ModalContent className="sm:max-w-md">
-          {dialog?.kind === 'confirm' && (
-            <>
-              <ModalHeader>
-                <ModalTitle>Confirmar pago</ModalTitle>
-                <ModalDescription>
-                  ¿Viste <strong>{usd(dialog.order.amountCents)}</strong> con concepto <strong>{dialog.order.code}</strong> en el banco?
-                </ModalDescription>
-              </ModalHeader>
-              <p className="text-sm text-gray-600">{dialog.order.buyerName} · {dialog.order.quantity} entrada{dialog.order.quantity > 1 ? 's' : ''}{dialog.order.expired ? ' · el apartado está vencido' : ''}</p>
-              {actionError && <p role="alert" className="text-sm text-[var(--color-error)]">{actionError}</p>}
-              <ModalFooter>
-                <Button variant="ghost" onClick={close} disabled={busy}>Todavía no</Button>
-                <Button onClick={() => confirm(dialog.order)} isLoading={busy}>Sí, confirmar</Button>
-              </ModalFooter>
-            </>
-          )}
-          {dialog?.kind === 'confirmed' && (
-            <>
-              <ModalHeader>
-                <ModalTitle>Pago confirmado · {dialog.order.code}</ModalTitle>
-                <ModalDescription>Ahora mandale su invitación por WhatsApp.{dialog.emailSent ? ' También le llegó por correo.' : ' El correo no se pudo enviar.'}</ModalDescription>
-              </ModalHeader>
-              {dialog.overCapacity && <p className="rounded-lg bg-[var(--color-warning)]/10 p-3 text-sm">Atención: con este pedido el evento pasa el cupo.</p>}
-              <ModalFooter>
-                <Button variant="ghost" onClick={close}>Cerrar</Button>
-                <Button onClick={() => { sendWhatsapp(dialog.order.id, dialog.whatsappUrl); close() }}><MessageCircle className="mr-2 h-4 w-4" />Enviar por WhatsApp</Button>
-              </ModalFooter>
-            </>
-          )}
-          {dialog?.kind === 'cancel' && (
-            <>
-              <ModalHeader>
-                <ModalTitle>{dialog.order.status === 'PAID' ? 'Anular pedido pagado' : 'Cancelar pedido'} · {dialog.order.code}</ModalTitle>
-                <ModalDescription>
-                  {dialog.order.status === 'PAID'
-                    ? 'Sus entradas dejan de servir en la puerta. Escribí el motivo (error, reembolso…).'
-                    : 'El pedido deja de apartar lugares.'}
-                </ModalDescription>
-              </ModalHeader>
-              <Textarea label={dialog.order.status === 'PAID' ? 'Motivo (obligatorio)' : 'Nota (opcional)'} value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
-              {actionError && <p role="alert" className="text-sm text-[var(--color-error)]">{actionError}</p>}
-              <ModalFooter>
-                <Button variant="ghost" onClick={close} disabled={busy}>Volver</Button>
-                <Button variant="destructive" onClick={() => cancel(dialog.order)} isLoading={busy}>{dialog.order.status === 'PAID' ? 'Anular' : 'Cancelar pedido'}</Button>
-              </ModalFooter>
-            </>
-          )}
-          {dialog?.kind === 'tickets' && (
-            <>
-              <ModalHeader><ModalTitle>Entradas · {dialog.order.code}</ModalTitle></ModalHeader>
-              <ul className="divide-y text-sm">
-                {dialog.order.tickets.map((t) => (
-                  <li key={t.seq} className="flex justify-between gap-3 py-2">
-                    <span className="font-mono">{t.label}</span>
-                    <span className="text-right text-gray-600">
-                      {t.checkedInAt ? `Adentro · ${hm(t.checkedInAt)}` : t.claimed ? `Reclamada por ${t.holderName ?? '—'}` : 'Sin reclamar'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <ModalFooter><Button variant="ghost" onClick={close}>Cerrar</Button></ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
     </div>
   )
 }

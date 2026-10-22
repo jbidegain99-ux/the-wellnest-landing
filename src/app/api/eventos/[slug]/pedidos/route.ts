@@ -23,17 +23,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const result = await createEventOrder(slug, parsed.data)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
 
-  const orderUrl = `${siteUrl()}/halloween/pedido/${result.accessToken}`
+  const orderUrl = `${siteUrl()}/eventos/pedido/${result.accessToken}`
   try {
     const sent = await sendEmail({
       to: parsed.data.email.trim().toLowerCase(),
-      subject: `Tu pedido ${result.code} · The Villains Ball`,
+      subject: `Tu pedido ${result.code} · ${result.event.name}`,
       html: buildPaymentInstructionsEmail({
         buyerName: parsed.data.name.trim(),
         code: result.code,
         amountCents: result.amountCents,
         quantity: parsed.data.quantity,
         orderUrl,
+        event: result.event,
       }),
     })
     if (!sent.success) console.error(`[EVENTO] Correo de instrucciones falló para ${result.code}: ${sent.error}`)

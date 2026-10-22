@@ -7,6 +7,7 @@ import { buyerTicketsMessage, waLink, ticketUrl } from './whatsapp'
 import { formatInTimeZone } from 'date-fns-tz'
 import { normalizePhone } from './phone'
 import type { CreateOrderInput, ClaimTicketInput } from './schemas'
+import type { EmailEvent } from './emails'
 
 type Tx = Prisma.TransactionClient
 
@@ -28,7 +29,7 @@ export async function seatsTaken(db: Pick<Tx, 'eventOrder'>, eventId: string, no
 }
 
 export type CreateOrderResult =
-  | { ok: true; accessToken: string; code: string; amountCents: number }
+  | { ok: true; accessToken: string; code: string; amountCents: number; event: EmailEvent }
   | { ok: false; status: 400 | 404 | 409; error: string }
 
 function isKnown(e: unknown, code: string): e is Prisma.PrismaClientKnownRequestError {
@@ -49,7 +50,7 @@ export async function createEventOrder(slug: string, input: CreateOrderInput, no
     prisma.$transaction(async (tx): Promise<CreateOrderResult> => {
       const event = await tx.event.findUnique({ where: { slug } })
       if (!event) return { ok: false, status: 404, error: 'Evento no encontrado' }
-      if (!event.salesOpen || now.getTime() >= event.startsAt.getTime()) {
+      if (!event.isActive || !event.ticketsEnabled || !event.salesOpen || now.getTime() >= event.startsAt.getTime()) {
         return { ok: false, status: 409, error: 'La venta de entradas está cerrada' }
       }
       const taken = await seatsTaken(tx, event.id, now)
@@ -59,7 +60,7 @@ export async function createEventOrder(slug: string, input: CreateOrderInput, no
       const order = await tx.eventOrder.create({
         data: {
           eventId: event.id,
-          code: generateOrderCode(),
+          code: generateOrderCode(event.codePrefix),
           accessToken: generateToken(),
           buyerName: input.name.trim(),
           buyerEmail: input.email.trim().toLowerCase(),
@@ -70,7 +71,10 @@ export async function createEventOrder(slug: string, input: CreateOrderInput, no
           expiresAt: new Date(now.getTime() + EVENT_ORDER_HOLD_HOURS * 3600 * 1000),
         },
       })
-      return { ok: true, accessToken: order.accessToken, code: order.code, amountCents: order.amountCents }
+      return {
+        ok: true, accessToken: order.accessToken, code: order.code, amountCents: order.amountCents,
+        event: { name: event.name, startsAt: event.startsAt, venue: event.venue, thanksMessage: event.thanksMessage },
+      }
     }, { isolationLevel: 'Serializable' })
 
   let serializationRetried = false
@@ -95,6 +99,7 @@ export type ConfirmResult =
       overCapacity: boolean
       whatsappUrl: string
       order: { code: string; buyerName: string; buyerEmail: string }
+      event: EmailEvent
     }
   | { ok: false; status: 404 | 409; error: string }
 
@@ -139,7 +144,7 @@ export async function confirmEventOrder(orderId: string, adminId: string, now: D
     await tx.eventOrder.update({ where: { id: order.id }, data: { buyerUserId: user.id } })
 
     const whatsappUrl = waLink(
-      buyerTicketsMessage({ buyerName: order.buyerName.split(' ')[0] ?? order.buyerName, firstTicketToken: tickets[0].token, quantity: order.quantity }),
+      buyerTicketsMessage({ buyerName: order.buyerName.split(' ')[0] ?? order.buyerName, firstTicketToken: tickets[0].token, quantity: order.quantity, event: order.event }),
       order.buyerPhone
     )
     return {
@@ -148,6 +153,7 @@ export async function confirmEventOrder(orderId: string, adminId: string, now: D
       overCapacity,
       whatsappUrl,
       order: { code: order.code, buyerName: order.buyerName, buyerEmail: order.buyerEmail },
+      event: { name: order.event.name, startsAt: order.event.startsAt, venue: order.event.venue, thanksMessage: order.event.thanksMessage },
     }
   })
 }
@@ -199,6 +205,7 @@ export function buildPaidOrdersCsv(rows: PaidOrderCsvRow[]): string {
 }
 
 export type OrderView = {
+  event: { name: string; slug: string; startsAt: Date; venue: string; theme: string; imageUrl: string | null }
   state: 'pending' | 'expired' | 'paid' | 'cancelled'
   code: string
   quantity: number
@@ -211,7 +218,10 @@ export type OrderView = {
 export async function getOrderView(accessToken: string, now: Date = new Date()): Promise<OrderView | null> {
   const order = await prisma.eventOrder.findUnique({
     where: { accessToken },
-    include: { tickets: { select: { seq: true, token: true } } },
+    include: {
+      tickets: { select: { seq: true, token: true } },
+      event: { select: { name: true, slug: true, startsAt: true, venue: true, theme: true, imageUrl: true } },
+    },
   })
   if (!order) return null
   const state: OrderView['state'] =
@@ -220,7 +230,7 @@ export async function getOrderView(accessToken: string, now: Date = new Date()):
     state === 'paid'
       ? [...order.tickets].sort((a, b) => a.seq - b.seq).map((t) => ({ label: ticketLabel(order.code, t.seq), url: ticketUrl(t.token) }))
       : []
-  return { state, code: order.code, quantity: order.quantity, amountCents: order.amountCents, expiresAt: order.expiresAt, tickets }
+  return { event: order.event, state, code: order.code, quantity: order.quantity, amountCents: order.amountCents, expiresAt: order.expiresAt, tickets }
 }
 
 export type ClaimResult = { ok: true } | { ok: false; status: 400 | 404 | 409; error: string }

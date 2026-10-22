@@ -15,10 +15,7 @@ const playfair = Playfair_Display({
   variable: '--font-playfair',
 })
 
+/** Fuentes del tema noir; cada página elige su tema con <EventShell>. */
 export default function EventoLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className={`${cinzel.variable} ${cormorant.variable} ${playfair.variable} ev-root min-h-screen`}>
-      <div className="relative mx-auto min-h-screen max-w-[440px] overflow-hidden">{children}</div>
-    </div>
-  )
+  return <div className={`${cinzel.variable} ${cormorant.variable} ${playfair.variable}`}>{children}</div>
 }

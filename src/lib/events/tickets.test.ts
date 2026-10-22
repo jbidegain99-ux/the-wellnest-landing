@@ -6,7 +6,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 import { getTicketPage } from './tickets'
 
 const NOW = new Date('2026-10-25T15:00:00Z')
-const EVENT = { name: 'The Villains Ball', startsAt: new Date('2026-10-31T00:30:00Z'), endsAt: new Date('2026-10-31T05:59:00Z'), venue: 'Plaza' }
+const EVENT = { name: 'The Villains Ball', slug: 'villains-ball', startsAt: new Date('2026-10-31T00:30:00Z'), endsAt: new Date('2026-10-31T05:59:00Z'), venue: 'Plaza', theme: 'villains', imageUrl: null, thanksMessage: null, pagePath: '/halloween' }
 const ORDER = {
   code: 'HW-7K3P', quantity: 3, status: 'PAID', buyerName: 'Ana Martínez',
   tickets: [

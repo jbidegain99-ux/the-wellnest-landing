@@ -1,7 +1,10 @@
 'use client'
 
 import * as React from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { QRScanner } from '@/components/QRScanner'
+import type { AdminEventRow } from '@/lib/events/adminEvents'
+import { pickCheckinEvent } from '@/lib/events/format'
 import type { CheckInResult, TicketSearchRow } from '@/lib/events/checkin'
 
 type Result = Omit<CheckInResult, 'checkedInAt'> & { checkedInAt?: string }
@@ -12,6 +15,18 @@ const hm = (iso: string) =>
 const C = { ink: '#0D0908', cream: '#EFE6D6', muted: '#CDBFA8', green: '#1E5A3A', red: '#4A0D13', crimson: '#8E1A24' }
 
 export default function CheckinPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <CheckinScreen />
+    </React.Suspense>
+  )
+}
+
+function CheckinScreen() {
+  const router = useRouter()
+  const params = useSearchParams()
+  const [events, setEvents] = React.useState<AdminEventRow[]>([])
+  const evento = params.get('evento') ?? ''
   const [inside, setInside] = React.useState<number | null>(null)
   const [result, setResult] = React.useState<Result | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -22,9 +37,25 @@ export default function CheckinPage() {
   const [, tick] = React.useState(0)
   const [searchNonce, setSearchNonce] = React.useState(0)
 
+  // Eventos con venta, el próximo primero; sin ?evento= se elige el próximo
   React.useEffect(() => {
-    fetch('/api/admin/eventos/buscar?q=').then((r) => r.json()).then((d: { inside?: number }) => setInside(d.inside ?? null)).catch(() => {})
-  }, [])
+    fetch('/api/admin/eventos')
+      .then((r) => r.json())
+      .then((d: { events?: AdminEventRow[] }) => {
+        const list = (d.events ?? []).filter((e) => e.ticketsEnabled && new Date(e.endsAt).getTime() > Date.now() - 24 * 3600 * 1000)
+          .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+        setEvents(list)
+        const pick = pickCheckinEvent(list, evento)
+        if (pick && pick !== evento) router.replace(`/admin/eventos/checkin?evento=${pick}`)
+      })
+      .catch(() => {})
+  }, [evento, router])
+
+  React.useEffect(() => {
+    if (!evento) return
+    fetch(`/api/admin/eventos/buscar?q=&evento=${encodeURIComponent(evento)}`).then((r) => r.json()).then((d: { inside?: number }) => setInside(d.inside ?? null)).catch(() => {})
+  }, [evento])
+  const current = events.find((e) => e.slug === evento)
 
   // Re-render para que "Deshacer" desaparezca a los 30 s
   React.useEffect(() => {
@@ -37,13 +68,13 @@ export default function CheckinPage() {
     const term = query.trim()
     if (term.length < 2) { setRows([]); return }
     const t = setTimeout(() => {
-      fetch(`/api/admin/eventos/buscar?q=${encodeURIComponent(term)}`)
+      fetch(`/api/admin/eventos/buscar?q=${encodeURIComponent(term)}&evento=${encodeURIComponent(evento)}`)
         .then((r) => r.json())
         .then((d: { results?: TicketSearchRow[] }) => setRows(d.results ?? []))
         .catch(() => {})
     }, 300)
     return () => clearTimeout(t)
-  }, [query, searchNonce])
+  }, [query, searchNonce, evento])
 
   async function submit(payload: { scanned: string } | { ticketId: string }) {
     if (busy) return
@@ -51,7 +82,7 @@ export default function CheckinPage() {
     setNetError('')
     try {
       const res = await fetch('/api/admin/eventos/checkin', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, evento }),
       })
       if (!res.ok) { setNetError(res.status === 401 ? 'Tu sesión de admin expiró. Volvé a iniciar sesión.' : `Error ${res.status}. Probá de nuevo.`); return }
       const d: { result: Result; inside: number } = await res.json()
@@ -69,7 +100,7 @@ export default function CheckinPage() {
   async function undo() {
     if (!result?.ticketId) return
     const res = await fetch('/api/admin/eventos/checkin', {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: result.ticketId }),
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: result.ticketId, evento }),
     })
     const d: { undone?: boolean; inside?: number } = await res.json().catch(() => ({}))
     if (d.undone) { setResult(null); setUndoUntil(0) }
@@ -84,7 +115,18 @@ export default function CheckinPage() {
         <header className="flex items-center justify-between border-b border-[#3A2C24] px-5 py-4">
           <div className="flex flex-col">
             <span className="text-[10px] font-semibold tracking-[0.26em]" style={{ color: C.muted }}>PUERTA</span>
-            <span className="text-[18px]">The Villains Ball</span>
+            {events.length > 1 ? (
+              <select
+                aria-label="Evento"
+                value={evento}
+                onChange={(e) => { setResult(null); router.replace(`/admin/eventos/checkin?evento=${e.target.value}`) }}
+                className="mt-1 max-w-[220px] bg-transparent text-[18px] outline-none"
+              >
+                {events.map((e) => <option key={e.slug} value={e.slug} style={{ color: '#000' }}>{e.name}</option>)}
+              </select>
+            ) : (
+              <span className="text-[18px]">{current?.name ?? '…'}</span>
+            )}
           </div>
           <div className="text-right">
             <div className="text-[22px]">{inside ?? '—'}</div>
@@ -108,7 +150,9 @@ export default function CheckinPage() {
               {result.kind === 'already' && `YA INGRESÓ${result.checkedInAt ? ' · ' + hm(result.checkedInAt) : ''}`}
               {result.kind === 'unknown' && 'QR NO RECONOCIDO'}
               {result.kind === 'cancelled' && 'INVITACIÓN ANULADA'}
+              {result.kind === 'wrong-event' && 'ES DE OTRO EVENTO'}
             </span>
+            {result.kind === 'wrong-event' && result.eventName && <span className="text-[18px]">Esta entrada es para {result.eventName}</span>}
             {result.holderLabel && <span className="text-[26px] italic">{result.holderLabel}</span>}
             {result.label && <span className="text-[16px]">Invitación {result.seq} de {result.quantity} · {result.label}</span>}
             {result.kind === 'admitted' && <span className="text-[15px] text-[#D5E6DA]">Pago confirmado por transferencia</span>}

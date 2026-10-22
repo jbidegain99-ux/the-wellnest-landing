@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { waLink, ticketUrl, buyerTicketsMessage, shareTicketMessage, proofMessage } from './whatsapp'
 
+const EVENT = { name: 'The Villains Ball', startsAt: new Date('2026-10-31T00:30:00Z'), venue: 'Plaza Presidente · Nivel 3 · San Salvador' }
+
 describe('whatsapp', () => {
   beforeEach(() => { process.env.NEXTAUTH_URL = 'https://wellneststudio.net' })
   it('link con teléfono y texto codificado', () =>
@@ -8,16 +10,18 @@ describe('whatsapp', () => {
   it('link sin teléfono', () => expect(waLink('x')).toBe('https://wa.me/?text=x'))
   it('url de la entrada', () => expect(ticketUrl('abc')).toBe('https://wellneststudio.net/entrada/abc'))
   it('mensaje al comprador con 1 entrada', () => {
-    const m = buyerTicketsMessage({ buyerName: 'Ana', firstTicketToken: 'abc', quantity: 1 })
-    expect(m).toContain('¡Hola Ana!')
+    const m = buyerTicketsMessage({ buyerName: 'Ana', firstTicketToken: 'abc', quantity: 1, event: EVENT })
+    expect(m).toContain('¡Hola Ana! Tu pago está confirmado. Esta es tu invitación para The Villains Ball (viernes 30 de octubre · 6:30 p. m., Plaza Presidente · Nivel 3 · San Salvador):')
     expect(m).toContain('https://wellneststudio.net/entrada/abc')
     expect(m).not.toContain('Pasar invitación')
   })
   it('mensaje al comprador con 3 entradas menciona pasar invitaciones', () =>
-    expect(buyerTicketsMessage({ buyerName: 'Ana', firstTicketToken: 'abc', quantity: 3 }))
+    expect(buyerTicketsMessage({ buyerName: 'Ana', firstTicketToken: 'abc', quantity: 3, event: EVENT }))
       .toContain('Tus otras 2 invitaciones están en tu entrada, en el botón «Pasar invitación».'))
   it('mensaje para compartir', () =>
-    expect(shareTicketMessage({ buyerName: 'Ana', token: 't2' })).toBe(
+    expect(shareTicketMessage({ buyerName: 'Ana', token: 't2', eventName: 'The Villains Ball' })).toBe(
       'Ana te invita a The Villains Ball. Abrí tu invitación y dejá tus datos para recibir tu QR: https://wellneststudio.net/entrada/t2'))
   it('comprobante', () => expect(proofMessage('HW-7K3P')).toBe('Hola, envío el comprobante de mi pedido HW-7K3P'))
+  it('otro evento usa su nombre', () =>
+    expect(shareTicketMessage({ buyerName: 'Ana', token: 't', eventName: 'Vintage Pilates' })).toContain('Ana te invita a Vintage Pilates.'))
 })

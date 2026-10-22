@@ -14,7 +14,7 @@ export function CopyCodeButton({ code }: { code: string }) {
     }
   }
   return (
-    <button type="button" onClick={copy} className="ev-btn-outline min-h-[44px] text-[#1A0F0D]" aria-live="polite">
+    <button type="button" onClick={copy} className="ev-btn-outline min-h-[44px] text-[color:var(--ev-ink)]" aria-live="polite">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
         <rect x="8" y="8" width="12" height="12" />
         <path d="M16 8V4H4v12h4" />

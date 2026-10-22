@@ -12,6 +12,7 @@ const NOW = new Date('2026-10-31T01:00:00Z')
 const TICKET = {
   id: 't1', seq: 1, holderName: 'Ana Martínez', checkedInAt: null as Date | null,
   order: { code: 'HW-7K3P', quantity: 2, status: 'PAID', buyerName: 'Ana Martínez' },
+  event: { slug: 'villains-ball', name: 'The Villains Ball' },
 }
 
 describe('extractTicketToken', () => {
@@ -35,8 +36,8 @@ describe('checkInTicket', () => {
   })
 
   it('admite y marca atómicamente', async () => {
-    const r = await checkInTicket({ token: HEX }, 'admin1', NOW)
-    expect(r).toEqual({ kind: 'admitted', ticketId: 't1', holderLabel: 'Ana Martínez', label: 'HW-7K3P-1', seq: 1, quantity: 2, checkedInAt: NOW })
+    const r = await checkInTicket({ token: HEX }, 'admin1', NOW, 'villains-ball')
+    expect(r).toEqual({ kind: 'admitted', ticketId: 't1', holderLabel: 'Ana Martínez', label: 'HW-7K3P-1', seq: 1, quantity: 2, eventName: 'The Villains Ball', checkedInAt: NOW })
     expect(prismaMock.eventTicket.updateMany).toHaveBeenCalledWith({
       where: { id: 't1', checkedInAt: null }, data: { checkedInAt: NOW, checkedInById: 'admin1' },
     })
@@ -56,6 +57,16 @@ describe('checkInTicket', () => {
     prismaMock.eventTicket.findUnique.mockResolvedValue({ ...TICKET, order: { ...TICKET.order, status: 'CANCELLED' } })
     expect((await checkInTicket({ token: HEX }, 'a', NOW)).kind).toBe('cancelled')
     expect(prismaMock.eventTicket.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('entrada de otro evento → wrong-event sin marcar', async () => {
+    const r = await checkInTicket({ token: HEX }, 'a', NOW, 'vintage-pilates')
+    expect(r).toMatchObject({ kind: 'wrong-event', eventName: 'The Villains Ball' })
+    expect(prismaMock.eventTicket.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('sin evento seleccionado admite cualquiera', async () => {
+    expect((await checkInTicket({ token: HEX }, 'a', NOW)).kind).toBe('admitted')
   })
 
   it('desconocido → unknown', async () => {

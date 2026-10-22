@@ -62,8 +62,8 @@ export function ClaimForm({ token, onClaimed }: { token: string; onClaimed?: () 
         <label htmlFor="cl-correo" className="ev-label">CORREO</label>
         <input id="cl-correo" name="email" type="email" autoComplete="email" required placeholder="tucorreo@ejemplo.com" className="ev-input" />
       </div>
-      <label className="flex cursor-pointer items-start gap-[10px] text-[15px] leading-[1.3] text-[#3A2C24]">
-        <input type="checkbox" checked={optIn} onChange={(e) => setOptIn(e.target.checked)} className="mt-[2px] h-[18px] w-[18px] flex-shrink-0 accent-[#8E1A24]" />
+      <label className="flex cursor-pointer items-start gap-[10px] text-[15px] leading-[1.3] text-[color:var(--ev-muted)]">
+        <input type="checkbox" checked={optIn} onChange={(e) => setOptIn(e.target.checked)} className="mt-[2px] h-[18px] w-[18px] flex-shrink-0 [accent-color:var(--ev-accent)]" />
         Quiero enterarme de las clases y eventos de Wellnest
       </label>
       {error && <p role="alert" className="ev-error">{error}</p>}

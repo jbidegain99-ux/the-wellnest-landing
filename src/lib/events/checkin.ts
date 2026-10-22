@@ -21,12 +21,13 @@ export function extractTicketToken(scanned: string): string | null {
 }
 
 export type CheckInResult = {
-  kind: 'admitted' | 'already' | 'unknown' | 'cancelled'
+  kind: 'admitted' | 'already' | 'unknown' | 'cancelled' | 'wrong-event'
   ticketId?: string
   holderLabel?: string
   label?: string
   seq?: number
   quantity?: number
+  eventName?: string
   checkedInAt?: Date
 }
 
@@ -34,13 +35,15 @@ export type CheckInResult = {
 export async function checkInTicket(
   ref: { token: string } | { ticketId: string },
   adminId: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  eventSlug?: string
 ): Promise<CheckInResult> {
   const t = await prisma.eventTicket.findUnique({
     where: 'token' in ref ? { token: ref.token } : { id: ref.ticketId },
     select: {
       id: true, seq: true, holderName: true, checkedInAt: true,
       order: { select: { code: true, quantity: true, status: true, buyerName: true } },
+      event: { select: { slug: true, name: true } },
     },
   })
   if (!t) return { kind: 'unknown' }
@@ -50,7 +53,9 @@ export async function checkInTicket(
     label: ticketLabel(t.order.code, t.seq),
     seq: t.seq,
     quantity: t.order.quantity,
+    eventName: t.event.name,
   }
+  if (eventSlug && t.event.slug !== eventSlug) return { kind: 'wrong-event', ...base }
   if (t.order.status !== 'PAID') return { kind: 'cancelled', ...base }
 
   const r = await prisma.eventTicket.updateMany({
@@ -77,13 +82,14 @@ export type TicketSearchRow = {
 }
 
 /** Búsqueda manual en la puerta: código, titular, comprador o teléfono; solo pedidos pagados. */
-export async function searchTickets(q: string): Promise<TicketSearchRow[]> {
+export async function searchTickets(q: string, eventSlug?: string): Promise<TicketSearchRow[]> {
   const term = q.trim()
   if (term.length < 2) return []
   const digits = term.replace(/\D/g, '')
   const tickets = await prisma.eventTicket.findMany({
     where: {
       order: { status: 'PAID' },
+      ...(eventSlug ? { event: { slug: eventSlug } } : {}),
       OR: [
         { holderName: { contains: term, mode: 'insensitive' } },
         { order: { buyerName: { contains: term, mode: 'insensitive' } } },
@@ -108,6 +114,8 @@ export async function searchTickets(q: string): Promise<TicketSearchRow[]> {
   }))
 }
 
-export async function countInside(): Promise<number> {
-  return prisma.eventTicket.count({ where: { checkedInAt: { not: null }, order: { status: 'PAID' } } })
+export async function countInside(eventSlug?: string): Promise<number> {
+  return prisma.eventTicket.count({
+    where: { checkedInAt: { not: null }, order: { status: 'PAID' }, ...(eventSlug ? { event: { slug: eventSlug } } : {}) },
+  })
 }

@@ -13,7 +13,11 @@ export type TicketPage = {
   holderLabel: string
   holderFirstName: string
   buyerFirstName: string
-  event: { name: string; startsAt: Date; endsAt: Date; venue: string }
+  event: {
+    name: string; slug: string; startsAt: Date; endsAt: Date; venue: string; theme: string
+    imageUrl: string | null; thanksMessage: string | null; pagePath: string | null
+  }
+  eventName: string
   /** Solo para la entrada 1: las demás invitaciones del pedido, para pasarlas. */
   others: { seq: number; label: string; holderName: string | null; shareUrl: string }[]
 }
@@ -25,7 +29,7 @@ export async function getTicketPage(token: string, now: Date = new Date()): Prom
     where: { token },
     select: {
       seq: true, token: true, holderName: true, claimedAt: true, checkedInAt: true,
-      event: { select: { name: true, startsAt: true, endsAt: true, venue: true } },
+      event: { select: { name: true, slug: true, startsAt: true, endsAt: true, venue: true, theme: true, imageUrl: true, thanksMessage: true, pagePath: true } },
       order: {
         select: {
           code: true, quantity: true, status: true, buyerName: true,
@@ -47,7 +51,7 @@ export async function getTicketPage(token: string, now: Date = new Date()): Prom
             seq: o.seq,
             label: ticketLabel(t.order.code, o.seq),
             holderName: o.holderName,
-            shareUrl: waLink(shareTicketMessage({ buyerName: buyerFirst, token: o.token })),
+            shareUrl: waLink(shareTicketMessage({ buyerName: buyerFirst, token: o.token, eventName: t.event.name })),
           }))
       : []
 
@@ -62,6 +66,7 @@ export async function getTicketPage(token: string, now: Date = new Date()): Prom
     holderFirstName: t.holderName ? firstName(t.holderName) : '',
     buyerFirstName: buyerFirst,
     event: t.event,
+    eventName: t.event.name,
     others,
   }
 }

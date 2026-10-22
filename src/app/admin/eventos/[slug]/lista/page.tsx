@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma'
-import { VILLAINS_BALL_SLUG } from '@/lib/events/config'
 import { ticketLabel } from '@/lib/events/codes'
 import { PrintButton } from './PrintButton'
 import { sortByLastName } from '@/lib/events/guestList'
@@ -7,9 +6,11 @@ import { sortByLastName } from '@/lib/events/guestList'
 export const dynamic = 'force-dynamic'
 
 /** Lista de invitados para imprimir (respaldo si falla la señal en la puerta). */
-export default async function ListaPage() {
+export default async function ListaPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const event = await prisma.event.findUnique({ where: { slug }, select: { name: true } })
   const raw = await prisma.eventTicket.findMany({
-    where: { order: { status: 'PAID' }, event: { slug: VILLAINS_BALL_SLUG } },
+    where: { order: { status: 'PAID' }, event: { slug } },
     orderBy: [{ order: { buyerName: 'asc' } }, { seq: 'asc' }],
     select: { seq: true, holderName: true, order: { select: { code: true, buyerName: true, buyerPhone: true } } },
   })
@@ -19,7 +20,7 @@ export default async function ListaPage() {
     <div className="space-y-4">
       <style>{`@media print { aside, nav, header, .no-print { display: none !important; } main { padding: 0 !important; margin: 0 !important; } body { background: #fff !important; } }`}</style>
       <div className="no-print flex items-center justify-between">
-        <h1 className="font-serif text-3xl font-semibold">Lista de invitados · The Villains Ball</h1>
+        <h1 className="font-serif text-3xl font-semibold">Lista de invitados · {event?.name ?? slug}</h1>
         <PrintButton />
       </div>
       <p className="text-sm text-gray-600">{tickets.length} entradas pagadas · generada {new Date().toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}</p>

@@ -4,7 +4,7 @@ export type TicketPreview = { showQr: boolean; kicker: string; name: string; foo
 
 /** Textos de la imagen de vista previa (WhatsApp) según el estado de la entrada. */
 export function ticketPreview(p: {
-  phase: TicketPhase; holderLabel: string; buyerFirstName: string; label: string; seq: number; quantity: number
+  phase: TicketPhase; holderLabel: string; buyerFirstName: string; label: string; seq: number; quantity: number; eventName: string
 }): TicketPreview {
   switch (p.phase) {
     case 'ready':
@@ -17,9 +17,9 @@ export function ticketPreview(p: {
         footer: 'Abrí el enlace y dejá tus datos para recibir tu QR',
       }
     case 'cancelled':
-      return { showQr: false, kicker: 'THE VILLAINS BALL', name: 'Invitación anulada', footer: p.label }
+      return { showQr: false, kicker: p.eventName.toUpperCase(), name: 'Invitación anulada', footer: p.label }
     case 'after-attended':
     case 'after-missed':
-      return { showQr: false, kicker: 'THE VILLAINS BALL', name: 'Gracias por venir', footer: 'Activá tu cuenta en Wellnest' }
+      return { showQr: false, kicker: p.eventName.toUpperCase(), name: 'Gracias por venir', footer: 'Activá tu cuenta en Wellnest' }
   }
 }

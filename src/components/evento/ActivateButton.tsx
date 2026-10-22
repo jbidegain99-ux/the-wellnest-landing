@@ -46,7 +46,7 @@ export function ActivateButton({ token }: { token: string }) {
       <button type="button" onClick={activate} disabled={state === 'sending'} className="ev-btn mt-1">
         {state === 'sending' ? 'ENVIANDO…' : 'ACTIVAR MI CUENTA'}
       </button>
-      <p className="text-center text-[15px] text-[#4A3B32]">Solo elegís una contraseña.</p>
+      <p className="text-center text-[15px] text-[color:var(--ev-muted)]">Solo elegís una contraseña.</p>
       {state === 'error' && <p role="alert" className="ev-error text-center">{message}</p>}
     </div>
   )

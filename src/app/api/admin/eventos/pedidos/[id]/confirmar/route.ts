@@ -19,10 +19,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   try {
     const sent = await sendEmail({
       to: result.order.buyerEmail,
-      subject: 'Tu invitación a The Villains Ball',
+      subject: `Tu invitación a ${result.event.name}`,
       html: buildTicketsEmail({
         buyerName: result.order.buyerName,
         tickets: result.tickets.map((t) => ({ label: ticketLabel(result.order.code, t.seq), url: ticketUrl(t.token) })),
+        event: result.event,
       }),
     })
     emailSent = sent.success
