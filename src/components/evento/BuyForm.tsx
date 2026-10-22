@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { createOrderInput } from '@/lib/events/schemas'
+import { priceLabel } from '@/lib/events/format'
 
 const MAX_QTY = 6
 
@@ -68,7 +69,7 @@ export function BuyForm({ priceCents, slug }: { priceCents: number; slug: string
       <div className="flex items-center justify-between gap-3 pt-1">
         <div className="flex flex-col">
           <span className="ev-label">INVITACIONES</span>
-          <span className="text-[15px] text-[color:var(--ev-muted)]">${(priceCents / 100).toFixed(0)} cada una</span>
+          <span className="text-[15px] text-[color:var(--ev-muted)]">{priceLabel(priceCents)} cada una</span>
         </div>
         <div className="flex items-center gap-1">
           <button type="button" aria-label="Quitar una invitación" disabled={quantity <= 1}

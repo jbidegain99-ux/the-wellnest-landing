@@ -28,6 +28,7 @@ describe('eventFormInput', () => {
   it.each(['http://x.com/a.jpg', 'javascript:alert(1)', 'x.jpg'])('rechaza imagen %s', (imageUrl) =>
     expect(eventFormInput.safeParse({ ...VALID, imageUrl }).success).toBe(false))
   it('rechaza pagePath que no empieza con /', () => expect(eventFormInput.safeParse({ ...VALID, pagePath: 'https://x.com' }).success).toBe(false))
+  it('rechaza pagePath protocol-relative (//host)', () => expect(eventFormInput.safeParse({ ...VALID, pagePath: '//3627732462' }).success).toBe(false))
 })
 
 describe('eventFormToData', () => {

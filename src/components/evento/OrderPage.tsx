@@ -54,7 +54,7 @@ export async function OrderPage({ accessToken }: { accessToken: string }) {
           <header className="relative flex flex-col items-center gap-[6px] text-center">
             <p className="ev-kicker text-[color:var(--ev-muted-on-bg)]">PASO 2 DE 3</p>
             <h1 className="ev-playfair m-0 text-[32px] font-normal leading-[1.08]">
-              Tu invitación<br /><span className="italic text-[color:var(--ev-accent-on-bg)]">espera su sello.</span>
+              {villains ? <>Tu invitación<br /><span className="italic text-[color:var(--ev-accent-on-bg)]">espera su sello.</span></> : <>Tu lugar<br /><span className="italic text-[color:var(--ev-accent-on-bg)]">está apartado.</span></>}
             </h1>
           </header>
           <section className="ev-card flex flex-col gap-[14px] px-[22px] pb-5 pt-[22px]">

@@ -34,7 +34,7 @@ export const eventFormInput = z
     isActive: z.boolean(),
     salesOpen: z.boolean(),
     thanksMessage: z.string().trim().max(500),
-    pagePath: z.string().trim().refine((p) => p === '' || /^\/[a-z0-9/-]*$/.test(p), 'Debe ser una ruta del sitio, ej. /halloween'),
+    pagePath: z.string().trim().refine((p) => p === '' || (/^\/[a-z0-9/-]*$/.test(p) && !p.startsWith('//')), 'Debe ser una ruta del sitio, ej. /halloween'),
   })
   .superRefine((v, ctx) => {
     if (LOCAL.test(v.startsAtLocal) && LOCAL.test(v.endsAtLocal) && v.endsAtLocal <= v.startsAtLocal) {

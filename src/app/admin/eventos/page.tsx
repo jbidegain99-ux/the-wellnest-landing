@@ -104,6 +104,9 @@ export default function AdminEventosPage() {
                       <Toggle label="Visible en el sitio" checked={e.isActive} disabled={busyId === e.id} onChange={(v) => setFlag(e.id, { isActive: v })} />
                       {e.ticketsEnabled && <Toggle label="Venta abierta" checked={e.salesOpen} disabled={busyId === e.id} onChange={(v) => setFlag(e.id, { salesOpen: v })} />}
                     </div>
+                    {!e.isActive && e.ticketsEnabled && e.salesOpen && (
+                      <p className="text-xs text-[var(--color-warning)]">Oculto: la venta queda cerrada aunque “Venta abierta” esté activo.</p>
+                    )}
                     <div className="flex flex-wrap gap-2">
                       {e.ticketsEnabled && <Button asChild size="sm" variant="secondary"><Link href={`/admin/eventos/${e.slug}`}><ListOrdered className="mr-1 h-4 w-4" />Pedidos</Link></Button>}
                       <Button asChild size="sm" variant="outline"><Link href={`/admin/eventos/${e.slug}/editar`}><Pencil className="mr-1 h-4 w-4" />Editar</Link></Button>

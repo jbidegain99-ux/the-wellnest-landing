@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { eventDateLine, eventDateSentence, eventHref, partitionEvents, eventTheme, titleParts, morningAfterLine } from './format'
+import { eventDateLine, eventDateSentence, eventHref, partitionEvents, eventTheme, titleParts, morningAfterLine, priceLabel, pickCheckinEvent } from './format'
 
 const VB_START = new Date('2026-10-31T00:30:00Z') // 30-oct 6:30 p. m. en El Salvador
 
@@ -45,4 +45,17 @@ describe('titleParts', () => {
 describe('morningAfterLine', () => {
   it('día siguiente al evento, en hora de El Salvador', () =>
     expect(morningAfterLine(new Date('2026-10-31T00:30:00Z'))).toBe('31 DE OCTUBRE · LA MAÑANA SIGUIENTE'))
+})
+
+describe('priceLabel', () => {
+  it('enteros sin decimales', () => expect(priceLabel(1000)).toBe('$10'))
+  it('con centavos no redondea', () => expect(priceLabel(1250)).toBe('$12.50'))
+})
+
+describe('pickCheckinEvent', () => {
+  const list = [{ slug: 'villains-ball' }, { slug: 'vintage-pilates' }]
+  it('respeta el evento de la URL si está en la lista', () => expect(pickCheckinEvent(list, 'vintage-pilates')).toBe('vintage-pilates'))
+  it('si la URL trae uno que no está, usa el primero de la lista', () => expect(pickCheckinEvent(list, 'viejo')).toBe('villains-ball'))
+  it('sin URL, el primero', () => expect(pickCheckinEvent(list, '')).toBe('villains-ball'))
+  it('lista vacía → null', () => expect(pickCheckinEvent([], 'x')).toBeNull())
 })

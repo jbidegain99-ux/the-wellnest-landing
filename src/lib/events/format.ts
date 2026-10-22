@@ -49,3 +49,14 @@ export function morningAfterLine(startsAt: Date): string {
   const next = new Date(startsAt.getTime() + 24 * 3600 * 1000)
   return `${formatInTimeZone(next, EVENT_TZ, "d 'de' MMMM", { locale: es }).toUpperCase()} · LA MAÑANA SIGUIENTE`
 }
+
+/** "$10" o "$12.50": nunca redondea centavos. */
+export function priceLabel(cents: number): string {
+  return `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}`
+}
+
+/** Evento de la puerta: el de la URL si está en la lista; si no, el primero. */
+export function pickCheckinEvent(list: { slug: string }[], fromUrl: string): string | null {
+  if (list.some((e) => e.slug === fromUrl)) return fromUrl
+  return list[0]?.slug ?? null
+}

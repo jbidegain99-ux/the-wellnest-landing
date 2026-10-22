@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { QRScanner } from '@/components/QRScanner'
 import type { AdminEventRow } from '@/lib/events/adminEvents'
+import { pickCheckinEvent } from '@/lib/events/format'
 import type { CheckInResult, TicketSearchRow } from '@/lib/events/checkin'
 
 type Result = Omit<CheckInResult, 'checkedInAt'> & { checkedInAt?: string }
@@ -44,7 +45,8 @@ function CheckinScreen() {
         const list = (d.events ?? []).filter((e) => e.ticketsEnabled && new Date(e.endsAt).getTime() > Date.now() - 24 * 3600 * 1000)
           .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
         setEvents(list)
-        if (!evento && list[0]) router.replace(`/admin/eventos/checkin?evento=${list[0].slug}`)
+        const pick = pickCheckinEvent(list, evento)
+        if (pick && pick !== evento) router.replace(`/admin/eventos/checkin?evento=${pick}`)
       })
       .catch(() => {})
   }, [evento, router])

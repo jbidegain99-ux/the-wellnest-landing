@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { getTicketPage, type TicketPage } from '@/lib/events/tickets'
+import { cache } from 'react'
+import { getTicketPage as loadTicketPage, type TicketPage } from '@/lib/events/tickets'
 import { qrSvg } from '@/lib/events/qr'
 import { eventDateLine, eventTheme, morningAfterLine } from '@/lib/events/format'
 import { EventShell } from '@/components/evento/EventShell'
@@ -11,6 +12,9 @@ import { PassInvitations } from '@/components/evento/PassInvitations'
 import { ActivateButton } from '@/components/evento/ActivateButton'
 
 export const dynamic = 'force-dynamic'
+
+// Metadata y página piden lo mismo: una sola consulta por request
+const getTicketPage = cache((token: string) => loadTicketPage(token))
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params
   const page = await getTicketPage(token)

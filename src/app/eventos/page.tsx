@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { CalendarDays, MapPin } from 'lucide-react'
 import { listActiveEvents, canBuy, type PublicEvent } from '@/lib/events/catalog'
-import { eventDateSentence, eventHref, partitionEvents } from '@/lib/events/format'
+import { eventDateSentence, eventHref, partitionEvents, priceLabel } from '@/lib/events/format'
 
 export const metadata: Metadata = {
   title: 'Eventos | Wellnest',
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 
 function EventCard({ event, past }: { event: PublicEvent; past: boolean }) {
   const open = canBuy(event)
-  const badge = past ? 'Finalizado' : open ? `Entrada $${(event.priceCents / 100).toFixed(event.priceCents % 100 ? 2 : 0)}` : event.ticketsEnabled ? 'Venta cerrada' : 'Próximamente'
+  const badge = past ? 'Finalizado' : open ? `Entrada ${priceLabel(event.priceCents)}` : event.ticketsEnabled ? 'Venta cerrada' : 'Próximamente'
   return (
     <Link
       href={eventHref(event)}

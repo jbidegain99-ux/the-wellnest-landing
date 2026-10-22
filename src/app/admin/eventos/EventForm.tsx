@@ -100,7 +100,7 @@ export function EventForm({ initial, eventId }: { initial: EventFormInput; event
       <Card><CardContent className="grid gap-4 p-6">
         <Check label="Vende entradas" hint="Si lo desmarcás, la página es solo informativa con un botón de WhatsApp." checked={v.ticketsEnabled} onChange={(x) => set('ticketsEnabled', x)} />
         <Check label="Venta abierta" hint="Podés cerrar la venta sin ocultar el evento." checked={v.salesOpen} onChange={(x) => set('salesOpen', x)} />
-        <Check label="Visible en el sitio" hint="Aparece en /eventos. Desactivalo cuando el evento termine." checked={v.isActive} onChange={(x) => set('isActive', x)} />
+        <Check label="Visible en el sitio" hint="Aparece en /eventos y permite comprar. Si lo ocultás, también se cierra la venta. Desactivalo cuando el evento termine." checked={v.isActive} onChange={(x) => set('isActive', x)} />
         <Input label="Landing propia (avanzado, ej. /halloween; vacío = /eventos/identificador)" value={v.pagePath} onChange={(e) => set('pagePath', e.target.value)} />
       </CardContent></Card>
 

@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
-import { getPublicEvent } from '@/lib/events/catalog'
+import { cache } from 'react'
+import { getPublicEvent as loadPublicEvent } from '@/lib/events/catalog'
 import { eventDateSentence } from '@/lib/events/format'
 import { EventLanding } from '@/components/evento/EventLanding'
 import { getAdminId } from '@/lib/events/admin'
 
 export const dynamic = 'force-dynamic'
+
+const getPublicEvent = cache((slug: string) => loadPublicEvent(slug))
 
 type Props = { params: Promise<{ slug: string }> }
 

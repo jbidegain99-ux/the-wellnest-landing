@@ -25,3 +25,19 @@ UPDATE "Event" SET
   "theme"         = 'villains',
   "thanksMessage" = 'Fue un honor tenerte en The Villains Ball. Lo que viste en escena se entrena en Wellnest: pole, aro y tela.'
 WHERE "slug" = 'villains-ball' AND "pagePath" IS NULL;
+
+-- Verificación: si The Villains Ball no quedó visible con su configuración,
+-- abortar (sin esto su venta se cerraría en silencio al desplegar).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM "Event"
+    WHERE "slug" = 'villains-ball' AND "isActive" AND "codePrefix" = 'HW-' AND "theme" = 'villains' AND "pagePath" = '/halloween'
+  ) THEN
+    RAISE EXCEPTION 'The Villains Ball no quedó configurado: revisar el UPDATE antes de desplegar';
+  END IF;
+END
+$$;
+
+SELECT "slug", "isActive", "salesOpen", "theme", "codePrefix", "pagePath" FROM "Event" ORDER BY "startsAt";
+
