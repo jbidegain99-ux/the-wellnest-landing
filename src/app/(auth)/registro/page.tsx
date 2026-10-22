@@ -13,11 +13,13 @@ export default function RegistroPage() {
   const [showPassword, setShowPassword] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState('')
+  const [notice, setNotice] = React.useState('')
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
     setError('')
+    setNotice('')
 
     const formData = new FormData(e.currentTarget)
     const data = {
@@ -38,6 +40,8 @@ export default function RegistroPage() {
 
       if (!response.ok) {
         setError(result.error || 'Error al crear cuenta')
+      } else if (result.passwordSetupSent) {
+        setNotice(result.message)
       } else {
         router.push('/login?registered=true')
       }
@@ -69,6 +73,12 @@ export default function RegistroPage() {
           {error && (
             <div className="mb-6 p-4 bg-[var(--color-error)]/10 text-[var(--color-error)] rounded-lg text-sm">
               {error}
+            </div>
+          )}
+
+          {notice && (
+            <div role="status" className="mb-6 p-4 bg-primary/10 text-foreground rounded-lg text-sm">
+              {notice}
             </div>
           )}
 
