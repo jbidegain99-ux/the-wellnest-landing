@@ -15,8 +15,14 @@ export const EVENT_BANK = {
 
 export const EVENT_STUDIO_WHATSAPP = '+50377923957'
 
+/**
+ * URL pública del sitio. NEXTAUTH_URL en Vercel trae un salto de línea al
+ * final: sin limpiarlo, los enlaces quedan "https://dominio\n/entrada/…" y
+ * WhatsApp solo enlaza el dominio.
+ */
 export function siteUrl(): string {
-  return (process.env.NEXTAUTH_URL ?? 'https://wellneststudio.net').replace(/\/$/, '')
+  const raw = (process.env.NEXTAUTH_URL ?? '').trim().replace(/\/+$/, '')
+  return raw || 'https://wellneststudio.net'
 }
 
 // Textos de fecha y lugar tal cual en los artboards (evento único)

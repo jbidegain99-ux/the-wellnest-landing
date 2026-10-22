@@ -48,4 +48,14 @@ describe('sendPasswordSetupEmail', () => {
     expect(prismaMock.passwordResetToken.deleteMany).toHaveBeenCalledWith({ where: { token: stored } })
     expect(prismaMock.passwordResetToken.updateMany).not.toHaveBeenCalled()
   })
+
+  it('el enlace no se rompe si NEXTAUTH_URL trae salto de línea', async () => {
+    const prev = process.env.NEXTAUTH_URL
+    process.env.NEXTAUTH_URL = 'https://wellneststudio.net\n'
+    sendEmailMock.mockResolvedValue({ success: true, messageId: 'm' })
+    await sendPasswordSetupEmail({ email: 'ana@x.com', name: 'Ana' })
+    const html = sendEmailMock.mock.calls[0][0].html as string
+    expect(html).toMatch(/href="https:\/\/wellneststudio\.net\/reset-password\?token=[0-9a-f]{64}"/)
+    process.env.NEXTAUTH_URL = prev
+  })
 })

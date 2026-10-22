@@ -10,6 +10,13 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'The Villains Ball · Wellnest',
   description: 'A Halloween Show by Wellnest. Viernes 30 de octubre, 6:30 p. m., Plaza Presidente nivel 3. Entrada general $10.',
+  openGraph: {
+    title: 'The Villains Ball · A Halloween Show by Wellnest',
+    description: 'Viernes 30 de octubre, 6:30 p. m. · Plaza Presidente, nivel 3 · Entrada general $10.',
+    type: 'website',
+    locale: 'es_SV',
+    images: [{ url: '/halloween/invitacion.jpg', width: 900, height: 1125, alt: 'Invitación de The Villains Ball' }],
+  },
 }
 
 export default async function HalloweenPage() {

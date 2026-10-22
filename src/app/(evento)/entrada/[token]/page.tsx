@@ -10,7 +10,18 @@ import { PassInvitations } from '@/components/evento/PassInvitations'
 import { ActivateButton } from '@/components/evento/ActivateButton'
 
 export const dynamic = 'force-dynamic'
-export const metadata: Metadata = { title: 'Tu invitación · The Villains Ball', robots: { index: false, follow: false } }
+export const metadata: Metadata = {
+  title: 'Tu invitación · The Villains Ball',
+  description: 'Viernes 30 de octubre · 6:30 p. m. · Plaza Presidente, nivel 3. Mostrá el QR en la puerta.',
+  robots: { index: false, follow: false },
+  // La imagen la genera opengraph-image.tsx (invitación con el QR)
+  openGraph: {
+    title: 'Tu invitación a The Villains Ball',
+    description: 'Viernes 30 de octubre · 6:30 p. m. · Plaza Presidente, nivel 3. Mostrá el QR en la puerta.',
+    type: 'website',
+    locale: 'es_SV',
+  },
+}
 
 function InvitationShell({ page, children }: { page: TicketPage; children: React.ReactNode }) {
   return (
