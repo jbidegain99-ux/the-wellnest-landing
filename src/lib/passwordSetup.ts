@@ -1,6 +1,7 @@
 import { randomBytes, createHash } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, buildPasswordResetEmail } from '@/lib/emailService'
+import { siteUrl } from '@/lib/events/config'
 
 /**
  * Manda el correo para elegir (o restablecer) la contraseña. En BD se
@@ -18,7 +19,7 @@ export async function sendPasswordSetupEmail(
     data: { email: user.email, token: tokenHash, expiresAt },
   })
 
-  const baseUrl = process.env.NEXTAUTH_URL || 'https://wellneststudio.net'
+  const baseUrl = siteUrl()
   const resetUrl = `${baseUrl}/reset-password?token=${token}`
   const result = await sendEmail({
     to: user.email,
