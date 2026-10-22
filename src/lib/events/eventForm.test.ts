@@ -19,7 +19,7 @@ describe('eventFormInput', () => {
     expect(r.success).toBe(false)
     if (!r.success) expect(r.error.errors[0]).toMatchObject({ path: ['endsAtLocal'], message: 'El fin tiene que ser después del inicio' })
   })
-  it.each(['Vintage Pilates', 'a', 'pedido', 'con_guion_bajo'])('rechaza slug %s', (slug) =>
+  it.each(['Vintage Pilates', 'a', 'pedido', 'nuevo', 'checkin', 'lista', 'con_guion_bajo'])('rechaza slug %s', (slug) =>
     expect(eventFormInput.safeParse({ ...VALID, slug }).success).toBe(false))
   it.each(['VP', 'vp-', 'VINTAGE-', 'V1-'])('rechaza prefijo %s', (codePrefix) =>
     expect(eventFormInput.safeParse({ ...VALID, codePrefix }).success).toBe(false))

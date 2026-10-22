@@ -4,7 +4,7 @@ import { fromZonedTime, formatInTimeZone } from 'date-fns-tz'
 
 const TZ = 'America/El_Salvador'
 const LOCAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
-const RESERVED_SLUGS = ['pedido', 'nuevo']
+const RESERVED_SLUGS = ['pedido', 'nuevo', 'checkin', 'lista']
 
 export function slugify(name: string): string {
   return name

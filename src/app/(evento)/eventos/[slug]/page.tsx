@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getPublicEvent } from '@/lib/events/catalog'
 import { eventDateSentence } from '@/lib/events/format'
 import { EventLanding } from '@/components/evento/EventLanding'
+import { getAdminId } from '@/lib/events/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function EventoPage({ params }: Props) {
   const { slug } = await params
   const event = await getPublicEvent(slug)
-  if (!event || !event.isActive) notFound()
-  if (event.pagePath && event.pagePath !== `/eventos/${slug}`) redirect(event.pagePath)
-  return <EventLanding event={event} />
+  if (!event) notFound()
+  // Oculto: 404 para el público; el admin lo ve como vista previa
+  const preview = !event.isActive
+  if (preview && !(await getAdminId())) notFound()
+  if (!preview && event.pagePath && event.pagePath !== `/eventos/${slug}`) redirect(event.pagePath)
+  return <EventLanding event={event} preview={preview} />
 }

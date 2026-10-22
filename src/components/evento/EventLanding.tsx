@@ -10,7 +10,7 @@ import { OrnamentDivider } from './Ornament'
 import { BuyForm } from './BuyForm'
 
 /** Página pública de un evento: portada, datos y formulario de compra (A1). */
-export function EventLanding({ event, now = new Date() }: { event: PublicEvent; now?: Date }) {
+export function EventLanding({ event, now = new Date(), preview = false }: { event: PublicEvent; now?: Date; preview?: boolean }) {
   const theme = eventTheme(event.theme)
   const open = canBuy(event, now)
   const ended = now.getTime() > event.endsAt.getTime()
@@ -23,6 +23,11 @@ export function EventLanding({ event, now = new Date() }: { event: PublicEvent; 
   return (
     <EventShell theme={event.theme}>
       <div className="flex min-h-screen flex-col pb-8">
+        {preview && (
+          <p role="status" className="relative z-20 bg-[#F5C451] px-4 py-2 text-center text-[14px] font-semibold text-black">
+            Vista previa: este evento está oculto y solo lo ven los admins.
+          </p>
+        )}
         <div className="absolute left-4 top-4 z-10">
           <Link href="/eventos" className="ev-kicker rounded-full px-3 py-2 text-[color:var(--ev-fg)] no-underline" style={{ background: 'color-mix(in srgb, var(--ev-bg) 75%, transparent)' }}>← EVENTOS</Link>
         </div>

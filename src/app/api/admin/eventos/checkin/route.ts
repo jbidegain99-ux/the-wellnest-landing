@@ -15,21 +15,23 @@ export async function POST(request: Request) {
   const body: unknown = await request.json().catch(() => null)
   const ticketId = str(body, 'ticketId')
   const scanned = str(body, 'scanned')
+  const evento = str(body, 'evento') ?? undefined
 
   let result
-  if (ticketId) result = await checkInTicket({ ticketId }, adminId)
+  if (ticketId) result = await checkInTicket({ ticketId }, adminId, new Date(), evento)
   else {
     const token = scanned ? extractTicketToken(scanned) : null
-    result = token ? await checkInTicket({ token }, adminId) : { kind: 'unknown' as const }
+    result = token ? await checkInTicket({ token }, adminId, new Date(), evento) : { kind: 'unknown' as const }
   }
-  return NextResponse.json({ result, inside: await countInside() })
+  return NextResponse.json({ result, inside: await countInside(evento) })
 }
 
 /** DELETE { ticketId } → deshacer un check-in de hace menos de 30 s. */
 export async function DELETE(request: Request) {
   if (!(await getAdminId())) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  const ticketId = str(await request.json().catch(() => null), 'ticketId')
+  const body: unknown = await request.json().catch(() => null)
+  const ticketId = str(body, 'ticketId')
   if (!ticketId) return NextResponse.json({ error: 'Falta ticketId' }, { status: 400 })
   const undone = await undoCheckIn(ticketId)
-  return NextResponse.json({ undone, inside: await countInside() })
+  return NextResponse.json({ undone, inside: await countInside(str(body, 'evento') ?? undefined) })
 }

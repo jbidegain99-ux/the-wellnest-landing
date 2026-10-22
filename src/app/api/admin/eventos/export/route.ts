@@ -1,13 +1,14 @@
 import { prisma } from '@/lib/prisma'
 import { getAdminId } from '@/lib/events/admin'
 import { buildPaidOrdersCsv } from '@/lib/events/orders'
-import { VILLAINS_BALL_SLUG } from '@/lib/events/config'
 
 /** GET: CSV de pedidos pagados (conciliación bancaria). */
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await getAdminId())) return Response.json({ error: 'No autorizado' }, { status: 401 })
+  const slug = new URL(request.url).searchParams.get('evento')
+  if (!slug) return Response.json({ error: 'Falta el evento' }, { status: 400 })
   const orders = await prisma.eventOrder.findMany({
-    where: { status: 'PAID', event: { slug: VILLAINS_BALL_SLUG } },
+    where: { status: 'PAID', event: { slug } },
     orderBy: { paidAt: 'asc' },
   })
   const adminIds = Array.from(new Set(orders.map((o) => o.confirmedById).filter((x): x is string => !!x)))
@@ -28,7 +29,7 @@ export async function GET() {
   return new Response(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="villains-ball-pagados.csv"',
+      'Content-Disposition': `attachment; filename="${slug}-pagados.csv"`,
     },
   })
 }

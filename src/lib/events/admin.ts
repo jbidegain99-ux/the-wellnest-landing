@@ -60,7 +60,7 @@ export async function listAdminOrders(
   tab: AdminTab,
   q: string,
   now: Date = new Date()
-): Promise<{ orders: AdminOrderRow[]; counts: AdminCounts } | null> {
+): Promise<{ orders: AdminOrderRow[]; counts: AdminCounts; event: { id: string; name: string; startsAt: string; venue: string } } | null> {
   const event = await prisma.event.findUnique({ where: { slug } })
   if (!event) return null
 
@@ -78,6 +78,7 @@ export async function listAdminOrders(
   const paidTickets = paidAgg._sum.quantity ?? 0
 
   return {
+    event: { id: event.id, name: event.name, startsAt: event.startsAt.toISOString(), venue: event.venue },
     counts: { paidTickets, pendingTickets: taken - paidTickets, checkedIn, capacity: event.capacity },
     orders: orders.map((o) => {
       const first = o.tickets.find((t) => t.seq === 1)
