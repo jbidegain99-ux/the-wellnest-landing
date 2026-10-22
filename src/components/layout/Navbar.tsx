@@ -8,6 +8,7 @@ import { Menu, X, User, ShoppingBag, LogOut, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
+import { hidesSiteChrome } from '@/lib/events/routes'
 
 const navigation = [
   { name: 'Inicio', href: '/' },
@@ -25,8 +26,8 @@ export function Navbar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
 
-  // Don't show public navbar on admin routes - admin has its own layout
-  const isAdminRoute = pathname?.startsWith('/admin')
+  // Sin navbar público en el admin (tiene su layout) ni en las páginas del evento
+  const isAdminRoute = hidesSiteChrome(pathname)
 
   React.useEffect(() => {
     const handleScroll = () => {

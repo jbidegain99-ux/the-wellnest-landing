@@ -699,3 +699,82 @@ model WebhookLog {
 
   @@map("webhook_logs")
 }
+
+// ========================================
+// EVENTOS CON ENTRADA (The Villains Ball)
+// Tablas creadas a mano con prisma/sql/2026-10-22-event-tickets.sql
+// (NO usar db push). Montos en centavos enteros.
+// ========================================
+
+model Event {
+  id         String        @id @default(cuid())
+  slug       String        @unique
+  name       String
+  startsAt   DateTime
+  endsAt     DateTime
+  venue      String
+  priceCents Int
+  capacity   Int?          // null = sin tope
+  salesOpen  Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+
+  orders     EventOrder[]
+  tickets    EventTicket[]
+}
+
+model EventOrder {
+  id             String           @id @default(cuid())
+  eventId        String
+  code           String           @unique // HW-XXXX, va en el concepto de la transferencia
+  accessToken    String           @unique // secreto de la página del pedido
+  buyerName      String
+  buyerEmail     String
+  buyerPhone     String           // E.164
+  quantity       Int
+  amountCents    Int
+  status         EventOrderStatus @default(PENDING)
+  marketingOptIn Boolean          @default(true)
+  expiresAt      DateTime
+  paidAt         DateTime?
+  confirmedById  String?
+  cancelledAt    DateTime?
+  adminNote      String?
+  whatsappSentAt DateTime?
+  buyerUserId    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  event          Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets        EventTicket[]
+
+  @@index([eventId, status])
+}
+
+enum EventOrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model EventTicket {
+  id             String     @id @default(cuid())
+  orderId        String
+  eventId        String
+  seq            Int        // 1 = comprador
+  token          String     @unique // secreto: va en la URL y en el QR
+  holderName     String?
+  holderEmail    String?
+  holderPhone    String?
+  holderUserId   String?
+  marketingOptIn Boolean    @default(false)
+  claimedAt      DateTime?
+  checkedInAt    DateTime?
+  checkedInById  String?
+  createdAt      DateTime   @default(now())
+
+  order          EventOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  event          Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, seq])
+  @@index([eventId, checkedInAt])
+}

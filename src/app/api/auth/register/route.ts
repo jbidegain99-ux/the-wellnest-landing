@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { checkRateLimit, requestIp } from '@/lib/rateLimit'
+import { sendPasswordSetupEmail } from '@/lib/passwordSetup'
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Nombre muy corto').max(100, 'Nombre muy largo'),
@@ -42,6 +43,25 @@ export async function POST(request: Request) {
     const existingUser = await prisma.user.findFirst({
       where: { email: { equals: email, mode: 'insensitive' } },
     })
+
+    if (existingUser && existingUser.password === null) {
+      // Cuenta creada al comprar una entrada (sin contraseña): en vez de
+      // rechazar, mandarle el correo para que elija su contraseña.
+      const sent = await sendPasswordSetupEmail(
+        { email: existingUser.email, name: existingUser.name },
+        { subject: 'Elegí tu contraseña - Wellnest' }
+      )
+      if (!sent.success) {
+        return NextResponse.json(
+          { error: 'Ya tenés una cuenta, pero no pudimos enviarte el correo. Probá de nuevo en unos minutos.' },
+          { status: 500 }
+        )
+      }
+      return NextResponse.json({
+        message: 'Ya tenés una cuenta creada con tu entrada. Te mandamos un correo para que elijas tu contraseña.',
+        passwordSetupSent: true,
+      })
+    }
 
     if (existingUser) {
       return NextResponse.json(

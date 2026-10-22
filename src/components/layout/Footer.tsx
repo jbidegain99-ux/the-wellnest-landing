@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Instagram, MapPin } from 'lucide-react'
+import { hidesSiteChrome } from '@/lib/events/routes'
 
 const navigation = {
   disciplinas: [
@@ -35,8 +36,8 @@ const socialLinks = [
 export function Footer() {
   const pathname = usePathname()
 
-  // Don't show footer on admin routes
-  if (pathname?.startsWith('/admin')) {
+  // Sin footer en el admin ni en las páginas del evento
+  if (hidesSiteChrome(pathname)) {
     return null
   }
 
