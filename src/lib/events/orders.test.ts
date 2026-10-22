@@ -16,7 +16,7 @@ const { txMock, prismaMock } = vi.hoisted(() => {
 })
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
-import { isOrderExpired, hasCapacity, createEventOrder, confirmEventOrder, cancelEventOrder, buildPaidOrdersCsv } from './orders'
+import { isOrderExpired, hasCapacity, createEventOrder, confirmEventOrder, cancelEventOrder, buildPaidOrdersCsv, getOrderView } from './orders'
 
 const NOW = new Date('2026-10-22T15:00:00Z')
 const EVENT = {
@@ -215,5 +215,31 @@ describe('buildPaidOrdersCsv', () => {
     }])
     expect(csv.startsWith('\uFEFFcodigo,comprador,correo,telefono,cantidad,monto,pagado_el,confirmado_por\r\n')).toBe(true)
     expect(csv).toContain('HW-7K3P,"Martínez, Ana ""La Condesa""",ana@gmail.com,+50377923957,2,20.00,2026-10-22 20:05,Jose')
+  })
+})
+
+describe('getOrderView', () => {
+  beforeEach(() => { vi.clearAllMocks(); process.env.NEXTAUTH_URL = 'https://wellneststudio.net' })
+  it('inexistente → null', async () => {
+    prismaMock.eventOrder.findUnique.mockResolvedValue(null)
+    expect(await getOrderView('nope', NOW)).toBeNull()
+  })
+  it('PENDING vencido → expired sin entradas', async () => {
+    prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, expiresAt: new Date(0), tickets: [] })
+    const v = await getOrderView('acc', NOW)
+    expect(v).toMatchObject({ state: 'expired', code: 'HW-7K3P', quantity: 3, amountCents: 3000, tickets: [] })
+  })
+  it('PAID → entradas ordenadas por seq con su URL', async () => {
+    prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, status: 'PAID', tickets: [{ seq: 2, token: 'tb' }, { seq: 1, token: 'ta' }] })
+    const v = await getOrderView('acc', NOW)
+    expect(v?.state).toBe('paid')
+    expect(v?.tickets).toEqual([
+      { label: 'HW-7K3P-1', url: 'https://wellneststudio.net/entrada/ta' },
+      { label: 'HW-7K3P-2', url: 'https://wellneststudio.net/entrada/tb' },
+    ])
+  })
+  it('CANCELLED → cancelled', async () => {
+    prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, status: 'CANCELLED', tickets: [] })
+    expect((await getOrderView('acc', NOW))?.state).toBe('cancelled')
   })
 })

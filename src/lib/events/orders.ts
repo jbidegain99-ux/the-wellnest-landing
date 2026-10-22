@@ -1,9 +1,9 @@
 import { Prisma, type EventOrderStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { EVENT_ORDER_HOLD_HOURS } from './config'
-import { generateOrderCode, generateToken } from './codes'
+import { generateOrderCode, generateToken, ticketLabel } from './codes'
 import { findOrCreateUserByEmail } from './accounts'
-import { buyerTicketsMessage, waLink } from './whatsapp'
+import { buyerTicketsMessage, waLink, ticketUrl } from './whatsapp'
 import { formatInTimeZone } from 'date-fns-tz'
 import { normalizePhone } from './phone'
 import type { CreateOrderInput } from './schemas'
@@ -192,4 +192,29 @@ export function buildPaidOrdersCsv(rows: PaidOrderCsvRow[]): string {
     ].map(csvCell).join(',')
   )
   return '\uFEFF' + [header, ...lines].join('\r\n') + '\r\n'
+}
+
+export type OrderView = {
+  state: 'pending' | 'expired' | 'paid' | 'cancelled'
+  code: string
+  quantity: number
+  amountCents: number
+  expiresAt: Date
+  tickets: { label: string; url: string }[]
+}
+
+/** Lo que ve el comprador en /halloween/pedido/[accessToken]. */
+export async function getOrderView(accessToken: string, now: Date = new Date()): Promise<OrderView | null> {
+  const order = await prisma.eventOrder.findUnique({
+    where: { accessToken },
+    include: { tickets: { select: { seq: true, token: true } } },
+  })
+  if (!order) return null
+  const state: OrderView['state'] =
+    order.status === 'PAID' ? 'paid' : order.status === 'CANCELLED' ? 'cancelled' : isOrderExpired(order, now) ? 'expired' : 'pending'
+  const tickets =
+    state === 'paid'
+      ? [...order.tickets].sort((a, b) => a.seq - b.seq).map((t) => ({ label: ticketLabel(order.code, t.seq), url: ticketUrl(t.token) }))
+      : []
+  return { state, code: order.code, quantity: order.quantity, amountCents: order.amountCents, expiresAt: order.expiresAt, tickets }
 }
