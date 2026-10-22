@@ -15,6 +15,24 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { markOrderPaidAndCreatePurchase } from '@/lib/payments/markOrderPaid'
 import { parsePaywayCallback, sanitizePaywayPayload, verifyCallbackSignature } from '@/lib/payments/payway'
+import { pickRecoveryPayload } from '@/lib/payments/paywayRecovery'
+import { withDbRetry } from '@/lib/db/retry'
+import { buildUncreditedPaymentAlert, sendEmail } from '@/lib/emailService'
+
+// ~15s en total: cubre ráfagas cortas de "too many connections" sin dejar
+// demasiado tiempo colgado el navegador de quien está pagando.
+const DB_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000]
+
+// Destinatarios de la alerta de pago sin acreditar: env var
+// `PAYMENT_ALERT_RECIPIENTS` (coma-separado). Mismo default que los reportes
+// de dinero (crons de ventas / pago a instructores).
+const DEFAULT_PAYMENT_ALERT_RECIPIENTS = ['jbidegain@republicode.com', 'alexis2293@gmail.com']
+
+function paymentAlertRecipients(): string[] {
+  const env = process.env.PAYMENT_ALERT_RECIPIENTS
+  if (!env) return DEFAULT_PAYMENT_ALERT_RECIPIENTS
+  return env.split(',').map((s) => s.trim()).filter(Boolean)
+}
 
 /**
  * Best-effort forensic record for callbacks we reject or fail to process.
@@ -42,8 +60,32 @@ async function recordCallbackError(
   }
 }
 
+/**
+ * PayWay aprobó el cobro pero no acreditamos la orden. Va por correo y no por
+ * BD porque el caso típico es la BD caída; el correo lleva lo necesario para
+ * acreditar con scripts/recover-lost-payway-callback.ts. Nunca lanza.
+ */
+async function alertUncreditedPayment(
+  orderId: string,
+  reason: string,
+  formData: Record<string, string>
+): Promise<void> {
+  const result = await sendEmail({
+    to: paymentAlertRecipients(),
+    subject: `[Wellnest] Pago PayWay cobrado sin acreditar — orden ${orderId}`,
+    html: buildUncreditedPaymentAlert({ orderId, reason, recoveryPayload: pickRecoveryPayload(formData) }),
+  })
+  if (!result.success) {
+    console.error('[PAYWAY CALLBACK] Could not send uncredited payment alert:', { orderId, error: result.error })
+  }
+}
+
 export async function POST(request: Request) {
   console.log('[PAYWAY CALLBACK] Received callback')
+
+  // Se llena al verificar la firma: desde ahí sabemos que PayWay cobró, así que
+  // cualquier falla posterior tiene que alertar en vez de perderse.
+  let approvedCharge: { orderId: string; formData: Record<string, string> } | null = null
 
   try {
     const url = new URL(request.url)
@@ -121,6 +163,7 @@ export async function POST(request: Request) {
       await recordCallbackError(orderId, 'invalid_signature', formData)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
+    approvedCharge = { orderId, formData }
 
     // 3. Parse callback data
     const callbackData = parsePaywayCallback(url.searchParams, formData)
@@ -154,12 +197,14 @@ export async function POST(request: Request) {
     transactionFields.orderId = orderId
 
     // 4. Verify order exists
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-    })
+    const order = await withDbRetry(
+      () => prisma.order.findUnique({ where: { id: orderId } }),
+      DB_RETRY_DELAYS_MS
+    )
 
     if (!order) {
       console.error('[PAYWAY CALLBACK] Order not found:', orderId)
+      await alertUncreditedPayment(orderId, 'order_not_found', formData)
       // Still redirect to avoid exposing order existence
       // Use 303 status to force GET request
       return NextResponse.redirect(new URL(`/checkout/payway/${orderId}?status=error`, request.url), 303)
@@ -176,34 +221,40 @@ export async function POST(request: Request) {
     // 6. Check if order is in PENDING status
     if (order.status !== 'PENDING') {
       console.error('[PAYWAY CALLBACK] Order not PENDING:', { orderId, status: order.status })
+      await alertUncreditedPayment(orderId, `invalid_status: ${order.status}`, formData)
       return NextResponse.redirect(
         new URL(`/checkout/payway/${orderId}?status=error&reason=invalid_status`, request.url),
         303
       )
     }
 
-    // 7. Mark order as paid and create purchases
-    const result = await markOrderPaidAndCreatePurchase({
-      orderId,
-      provider: 'PAYWAY',
-      transactionData: {
-        authorizationNumber: transactionFields.authorizationNumber,
-        referenceNumber: transactionFields.referenceNumber,
-        paywayNumber: transactionFields.paywayNumber,
-        transactionDate: transactionFields.transactionDate,
-        paymentNumber: transactionFields.paymentNumber,
-        cardBrand: transactionFields.cardBrand,
-        cardLastDigits: transactionFields.cardLastDigits,
-        cardHolder: transactionFields.cardHolder,
-        rawPayload: sanitizePaywayPayload(formData),
-      },
-    })
+    // 7. Mark order as paid and create purchases (idempotent: safe to retry)
+    const result = await withDbRetry(
+      () =>
+        markOrderPaidAndCreatePurchase({
+          orderId,
+          provider: 'PAYWAY',
+          transactionData: {
+            authorizationNumber: transactionFields.authorizationNumber,
+            referenceNumber: transactionFields.referenceNumber,
+            paywayNumber: transactionFields.paywayNumber,
+            transactionDate: transactionFields.transactionDate,
+            paymentNumber: transactionFields.paymentNumber,
+            cardBrand: transactionFields.cardBrand,
+            cardLastDigits: transactionFields.cardLastDigits,
+            cardHolder: transactionFields.cardHolder,
+            rawPayload: sanitizePaywayPayload(formData),
+          },
+        }),
+      DB_RETRY_DELAYS_MS
+    )
 
     if (!result.success) {
       console.error('[PAYWAY CALLBACK] Failed to process payment:', result.error)
       // The customer's card may already be charged at this point — leave a
       // persistent trace so the failure can be reconciled, not just a log line.
       await recordCallbackError(orderId, `processing_failed: ${result.error}`, formData)
+      await alertUncreditedPayment(orderId, `processing_failed: ${result.error}`, formData)
       return NextResponse.redirect(
         new URL(`/checkout/payway/${orderId}?status=error&reason=processing_failed`, request.url),
         303
@@ -225,6 +276,19 @@ export async function POST(request: Request) {
     return NextResponse.redirect(new URL(`/payment/success?oid=${orderId}`, request.url), 303)
   } catch (error) {
     console.error('[PAYWAY CALLBACK] Error processing callback:', error)
+
+    if (approvedCharge) {
+      // Cobro aprobado y sin acreditar (p. ej. BD sin conexiones tras agotar
+      // reintentos). La página de revisión pide NO volver a pagar.
+      const { orderId, formData } = approvedCharge
+      const reason = error instanceof Error ? error.message : String(error)
+      await alertUncreditedPayment(orderId, reason, formData)
+      await recordCallbackError(orderId, `exception: ${reason}`, formData)
+      return NextResponse.redirect(
+        new URL(`/checkout/payway/${orderId}?status=error&reason=processing_failed`, request.url),
+        303
+      )
+    }
 
     // Try to extract orderId for redirect
     const url = new URL(request.url)

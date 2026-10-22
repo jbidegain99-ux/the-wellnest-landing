@@ -1258,3 +1258,40 @@ export function buildClassCancelledEmail(data: ClassCancelledEmailData): string 
   </table>
 </body></html>`
 }
+
+export interface UncreditedPaymentAlertData {
+  orderId: string
+  reason: string
+  recoveryPayload: Record<string, string | undefined>
+}
+
+/**
+ * Alerta a admins: PayWay reportó un cobro aprobado pero no pudimos acreditar
+ * la orden. Lleva el payload que necesita scripts/recover-lost-payway-callback.ts
+ * porque cuando esto pasa la BD suele estar caída y los logs de Vercel expiran
+ * en ~1 hora: este correo puede ser la única prueba del cobro.
+ */
+export function buildUncreditedPaymentAlert(data: UncreditedPaymentAlertData): string {
+  const p = data.recoveryPayload
+  const json = JSON.stringify(p, null, 2)
+  const row = (label: string, value: string | undefined) =>
+    `<p style="margin:4px 0;"><strong>${label}:</strong> ${escapeHtml(value ?? '—')}</p>`
+
+  return `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Pago cobrado sin acreditar</title></head>
+<body style="margin:0;padding:24px;background:#F5F0EB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1F2937;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+    <h1 style="margin:0 0 8px;font-size:20px;color:#B91C1C;">Pago PayWay cobrado sin acreditar</h1>
+    <p style="margin:0 0 20px;color:#374151;">PayWay aprob&oacute; el cobro pero la orden no se pudo marcar como pagada. En el checkout se muestra &quot;Estamos verificando tu pago&quot; y los cr&eacute;ditos no aparecen.</p>
+    ${row('Orden', data.orderId)}
+    ${row('Autorizaci&oacute;n', p.pwoAuthorizationNumber)}
+    ${row('Referencia', p.pwoReferenceNumber)}
+    ${row('Fecha PayWay', p.pwoTransactionDate)}
+    ${row('Tarjeta', [p.pwoCustomerCCBrand, p.pwoCustomerCCLastD].filter(Boolean).join(' '))}
+    ${row('Error', data.reason)}
+    <p style="margin:20px 0 6px;"><strong>Para acreditar:</strong> guardar este JSON en un archivo y correr</p>
+    <pre style="background:#F3F4F6;padding:12px;border-radius:8px;font-size:13px;white-space:pre-wrap;">npx tsx scripts/recover-lost-payway-callback.ts pago.json --apply</pre>
+    <pre style="background:#F3F4F6;padding:12px;border-radius:8px;font-size:13px;white-space:pre-wrap;">${escapeHtml(json)}</pre>
+  </div>
+</body></html>`
+}

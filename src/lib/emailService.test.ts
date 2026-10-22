@@ -3,6 +3,7 @@ import {
   buildWaitlistAssignedEmail,
   buildAdminPrivateSessionNotification,
   buildPrivateSessionConfirmationEmail,
+  buildUncreditedPaymentAlert,
 } from './emailService'
 
 describe('buildWaitlistAssignedEmail', () => {
@@ -126,5 +127,41 @@ describe('buildPrivateSessionConfirmationEmail', () => {
     const html = buildPrivateSessionConfirmationEmail({ ...baseData, userName: null })
     expect(html).toMatch(/Hola[^<]*<\/p>/)
     expect(html).not.toContain('Hola null')
+  })
+})
+
+describe('buildUncreditedPaymentAlert', () => {
+  const baseData = {
+    orderId: 'cmuqc53wv0009xdc9igar48ne',
+    reason: 'Too many database connections opened',
+    recoveryPayload: {
+      oid: 'cmuqc53wv0009xdc9igar48ne',
+      pwoAuthorizationNumber: '211163',
+      pwoReferenceNumber: '627420000656',
+      pwoCustomerCCLastD: 'X-0061',
+    },
+  }
+
+  it('identifies the order and the PayWay authorization so it can be matched with the bank', () => {
+    const html = buildUncreditedPaymentAlert(baseData)
+    expect(html).toContain('cmuqc53wv0009xdc9igar48ne')
+    expect(html).toContain('211163')
+    expect(html).toContain('627420000656')
+  })
+
+  it('includes the recovery command and the payload JSON to feed it', () => {
+    const html = buildUncreditedPaymentAlert(baseData)
+    expect(html).toContain('scripts/recover-lost-payway-callback.ts')
+    expect(html).toContain('&quot;pwoAuthorizationNumber&quot;: &quot;211163&quot;')
+  })
+
+  it('escapes HTML coming from the request or the error message', () => {
+    const html = buildUncreditedPaymentAlert({
+      ...baseData,
+      reason: '<img src=x onerror=alert(1)>',
+      recoveryPayload: { ...baseData.recoveryPayload, pwoCustomerCCBrand: '<script>' },
+    })
+    expect(html).not.toContain('<img src=x')
+    expect(html).not.toContain('<script>')
   })
 })
