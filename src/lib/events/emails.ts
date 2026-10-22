@@ -78,3 +78,13 @@ ${first ? button(first.url, 'ABRIR MI INVITACIÓN') : ''}
 ${otherList}`
   )
 }
+
+export function buildThanksEmail(p: { name: string; ticketUrl: string }): string {
+  return layout(
+    `Gracias por venir, <em style="color:${C.crimson};">${escapeHtml(p.name)}</em>.`,
+    `<p style="font-size:16px;line-height:1.5;">Fue un honor tenerte en The Villains Ball. Lo que viste en escena se entrena en Wellnest: pole, aro y tela.</p>
+<p style="font-size:16px;line-height:1.5;">Tu cuenta ya está creada. Activala para ver los paquetes y reservar tus clases.</p>
+${button(p.ticketUrl, 'ACTIVAR MI CUENTA')}
+<p style="text-align:center;font-size:14px;color:${C.muted};">Solo elegís una contraseña.</p>`
+  )
+}

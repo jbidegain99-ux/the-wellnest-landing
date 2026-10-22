@@ -7,6 +7,7 @@ import { EVENT_DATE_LINE, EVENT_VENUE_LINE, VILLAINS_BALL_SLUG } from '@/lib/eve
 import { WaxSeal } from '@/components/evento/WaxSeal'
 import { ClaimForm } from '@/components/evento/ClaimForm'
 import { PassInvitations } from '@/components/evento/PassInvitations'
+import { ActivateButton } from '@/components/evento/ActivateButton'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Tu invitación · The Villains Ball', robots: { index: false, follow: false } }
@@ -56,13 +57,32 @@ export default async function EntradaPage({ params }: { params: Promise<{ token:
   }
 
   if (page.phase === 'after-attended' || page.phase === 'after-missed') {
-    // Carta de después del show: Task 11
+    const attended = page.phase === 'after-attended'
+    const name = page.holderFirstName || page.buyerFirstName
     return (
-      <InvitationShell page={page}>
-        <section className="ev-card mt-[18px] w-full px-6 py-10 text-center">
-          <p className="ev-playfair text-[26px]">The Villains Ball ya terminó.</p>
+      <div className="relative flex min-h-screen flex-col">
+        <div className="relative h-[300px] flex-shrink-0 overflow-hidden">
+          <Image src="/halloween/aro-sombra.jpg" alt="Sombra de un aro aéreo y telas colgando junto a una ventana" fill priority sizes="440px" className="object-cover" style={{ objectPosition: 'center 32%' }} />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(13,9,8,0.1)_40%,#0D0908_100%)]" />
+          <p className="ev-kicker absolute bottom-[26px] left-6 text-[#EFE6D6]">31 DE OCTUBRE · LA MAÑANA SIGUIENTE</p>
+        </div>
+        <section className="ev-card mx-4 -mt-[6px] flex flex-col gap-[14px] px-6 pb-6 pt-[30px]">
+          <h1 className="ev-playfair text-[30px] font-normal leading-[1.12]">
+            {attended ? 'Gracias por venir,' : 'La función terminó,'}<br />
+            <span className="italic text-[#8E1A24]">{name}.</span>
+          </h1>
+          <p className="text-[18px] leading-[1.4]">
+            {attended && 'Fue un honor tenerte en The Villains Ball. '}Lo que viste en escena se entrena en Wellnest: pole, aro y tela.
+          </p>
+          <p className="text-[18px] leading-[1.4]">Tu cuenta ya está creada. Activala para ver los paquetes y reservar tus clases.</p>
+          <ActivateButton token={page.token} />
         </section>
-      </InvitationShell>
+        {attended && (
+          <p className="mx-7 mb-[26px] mt-auto pt-6 text-center text-[15px] italic text-[#CDBFA8]">
+            Esta es la misma invitación que mostraste en la puerta: después del show se convierte en esta carta.
+          </p>
+        )}
+      </div>
     )
   }
 

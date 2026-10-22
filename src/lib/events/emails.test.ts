@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildPaymentInstructionsEmail, buildTicketsEmail, escapeHtml } from './emails'
+import { buildPaymentInstructionsEmail, buildTicketsEmail, buildThanksEmail, escapeHtml } from './emails'
 
 describe('emails del evento', () => {
   it('escapeHtml', () => expect(escapeHtml(`<b>"A" & 'B'</b>`)).toBe('&lt;b&gt;&quot;A&quot; &amp; &#39;B&#39;&lt;/b&gt;'))
@@ -20,5 +20,11 @@ describe('emails del evento', () => {
     expect(html).toContain('https://x/entrada/a')
     expect(html).toContain('https://x/entrada/b')
     expect(html).toContain('HW-7K3P-2')
+  })
+  it('correo de agradecimiento', () => {
+    const html = buildThanksEmail({ name: 'Ana & <Co>', ticketUrl: 'https://x/entrada/a' })
+    expect(html).toContain('Ana &amp; &lt;Co&gt;')
+    expect(html).toContain('https://x/entrada/a')
+    expect(html).toContain('Activala')
   })
 })
