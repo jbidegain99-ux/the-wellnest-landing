@@ -718,8 +718,21 @@ model Event {
   salesOpen  Boolean       @default(true)
   createdAt  DateTime      @default(now())
 
+  // Catálogo (prisma/sql/2026-10-22-eventos-catalogo.sql)
+  isActive       Boolean   @default(false) // visible en /eventos y con venta posible
+  ticketsEnabled Boolean   @default(true)  // false = evento informativo, sin venta
+  summary        String    @default("")    // texto corto de la tarjeta
+  description    String    @default("")
+  imageUrl       String?                   // /ruta o https://
+  pagePath       String?                   // landing propia (ej. /halloween); null = /eventos/[slug]
+  codePrefix     String    @default("EV-") // prefijo del código de pedido (HW-XXXX)
+  theme          String    @default("wellnest") // 'villains' | 'wellnest'
+  thanksMessage  String?                   // primer párrafo de la carta de después del evento
+
   orders     EventOrder[]
   tickets    EventTicket[]
+
+  @@index([isActive, startsAt])
 }
 
 model EventOrder {
