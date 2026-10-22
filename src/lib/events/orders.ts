@@ -6,7 +6,7 @@ import { findOrCreateUserByEmail } from './accounts'
 import { buyerTicketsMessage, waLink, ticketUrl } from './whatsapp'
 import { formatInTimeZone } from 'date-fns-tz'
 import { normalizePhone } from './phone'
-import type { CreateOrderInput } from './schemas'
+import type { CreateOrderInput, ClaimTicketInput } from './schemas'
 
 type Tx = Prisma.TransactionClient
 
@@ -217,4 +217,31 @@ export async function getOrderView(accessToken: string, now: Date = new Date()):
       ? [...order.tickets].sort((a, b) => a.seq - b.seq).map((t) => ({ label: ticketLabel(order.code, t.seq), url: ticketUrl(t.token) }))
       : []
   return { state, code: order.code, quantity: order.quantity, amountCents: order.amountCents, expiresAt: order.expiresAt, tickets }
+}
+
+export type ClaimResult = { ok: true } | { ok: false; status: 400 | 404 | 409; error: string }
+
+/** Un acompañante deja sus datos en su invitación (seq > 1) para recibir su QR. */
+export async function claimTicket(token: string, input: ClaimTicketInput, now: Date = new Date()): Promise<ClaimResult> {
+  const phone = normalizePhone(input.phone)
+  if (!phone.ok) return { ok: false, status: 400, error: phone.error }
+
+  const ticket = await prisma.eventTicket.findUnique({
+    where: { token },
+    select: { id: true, claimedAt: true, order: { select: { status: true } } },
+  })
+  if (!ticket || ticket.order.status !== 'PAID') return { ok: false, status: 404, error: 'Invitación no encontrada' }
+  const taken: ClaimResult = { ok: false, status: 409, error: 'Esta invitación ya fue reclamada' }
+  if (ticket.claimedAt) return taken
+
+  const email = input.email.trim().toLowerCase()
+  const name = input.name.trim()
+  return prisma.$transaction(async (tx): Promise<ClaimResult> => {
+    const user = await findOrCreateUserByEmail(tx, { name, email, phone: phone.e164 })
+    const r = await tx.eventTicket.updateMany({
+      where: { id: ticket.id, claimedAt: null },
+      data: { holderName: name, holderEmail: email, holderPhone: phone.e164, holderUserId: user.id, marketingOptIn: input.marketingOptIn, claimedAt: now },
+    })
+    return r.count === 1 ? { ok: true } : taken
+  })
 }

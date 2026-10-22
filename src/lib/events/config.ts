@@ -18,3 +18,7 @@ export const EVENT_STUDIO_WHATSAPP = '+50377923957'
 export function siteUrl(): string {
   return (process.env.NEXTAUTH_URL ?? 'https://wellneststudio.net').replace(/\/$/, '')
 }
+
+// Textos de fecha y lugar tal cual en los artboards (evento único)
+export const EVENT_DATE_LINE = 'VIERNES 30 DE OCTUBRE · 6:30 P. M.'
+export const EVENT_VENUE_LINE = 'Plaza Presidente · Nivel 3 · San Salvador'

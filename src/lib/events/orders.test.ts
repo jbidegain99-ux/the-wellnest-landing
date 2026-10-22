@@ -16,7 +16,7 @@ const { txMock, prismaMock } = vi.hoisted(() => {
 })
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
-import { isOrderExpired, hasCapacity, createEventOrder, confirmEventOrder, cancelEventOrder, buildPaidOrdersCsv, getOrderView } from './orders'
+import { isOrderExpired, hasCapacity, createEventOrder, confirmEventOrder, cancelEventOrder, buildPaidOrdersCsv, getOrderView, claimTicket } from './orders'
 
 const NOW = new Date('2026-10-22T15:00:00Z')
 const EVENT = {
@@ -241,5 +241,38 @@ describe('getOrderView', () => {
   it('CANCELLED → cancelled', async () => {
     prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, status: 'CANCELLED', tickets: [] })
     expect((await getOrderView('acc', NOW))?.state).toBe('cancelled')
+  })
+})
+
+describe('claimTicket', () => {
+  const CLAIM = { name: 'Luis Pérez', phone: '6123 4567', email: 'Luis@x.com', marketingOptIn: false }
+  beforeEach(() => {
+    vi.clearAllMocks()
+    prismaMock.eventTicket.findUnique.mockResolvedValue({ id: 't2', claimedAt: null, order: { status: 'PAID' } })
+    txMock.eventTicket.updateMany.mockResolvedValue({ count: 1 })
+    txMock.user.findFirst.mockResolvedValue(null)
+    txMock.user.create.mockResolvedValue({ id: 'u7' })
+  })
+  it('reclama: llena titular y crea su cuenta', async () => {
+    expect(await claimTicket('tok', CLAIM, NOW)).toEqual({ ok: true })
+    expect(txMock.eventTicket.updateMany).toHaveBeenCalledWith({
+      where: { id: 't2', claimedAt: null },
+      data: { holderName: 'Luis Pérez', holderEmail: 'luis@x.com', holderPhone: '+50361234567', holderUserId: 'u7', marketingOptIn: false, claimedAt: NOW },
+    })
+  })
+  it('ya reclamada → 409', async () => {
+    prismaMock.eventTicket.findUnique.mockResolvedValue({ id: 't2', claimedAt: NOW, order: { status: 'PAID' } })
+    expect(await claimTicket('tok', CLAIM, NOW)).toEqual({ ok: false, status: 409, error: 'Esta invitación ya fue reclamada' })
+  })
+  it('carrera: otro la reclamó entre la lectura y la escritura → 409', async () => {
+    txMock.eventTicket.updateMany.mockResolvedValue({ count: 0 })
+    expect(await claimTicket('tok', CLAIM, NOW)).toEqual({ ok: false, status: 409, error: 'Esta invitación ya fue reclamada' })
+  })
+  it('pedido no pagado o anulado → 404', async () => {
+    prismaMock.eventTicket.findUnique.mockResolvedValue({ id: 't2', claimedAt: null, order: { status: 'CANCELLED' } })
+    expect(await claimTicket('tok', CLAIM, NOW)).toEqual({ ok: false, status: 404, error: 'Invitación no encontrada' })
+  })
+  it('teléfono inválido → 400', async () => {
+    expect(await claimTicket('tok', { ...CLAIM, phone: '12' }, NOW)).toMatchObject({ ok: false, status: 400 })
   })
 })

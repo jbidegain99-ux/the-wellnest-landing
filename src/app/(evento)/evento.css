@@ -24,3 +24,4 @@
 @media (prefers-reduced-motion: reduce) {
   .ev-seal-left, .ev-seal-right { animation: none; }
 }
+.ev-qr svg { display: block; width: 100%; height: 100%; }
