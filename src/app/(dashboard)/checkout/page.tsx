@@ -396,7 +396,7 @@ export default function CheckoutPage() {
                       ¡Tu descuento cubre el 100% del total!
                     </p>
                     <p className="text-sm text-gray-500">
-                      Haz clic en "Confirmar" para activar tu paquete gratis.
+                      Haz clic en &quot;Confirmar&quot; para activar tu paquete gratis.
                     </p>
                   </div>
                 ) : (
@@ -412,7 +412,7 @@ export default function CheckoutPage() {
                       Pago seguro con Banco Cuscatlan
                     </p>
                     <p className="text-sm text-gray-500">
-                      Haz clic en "Continuar al pago" para procesar tu tarjeta de forma segura.
+                      Haz clic en &quot;Continuar al pago&quot; para procesar tu tarjeta de forma segura.
                     </p>
                   </div>
                 )}
