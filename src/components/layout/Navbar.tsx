@@ -4,11 +4,14 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { Menu, X, User, ShoppingBag, LogOut, Settings, TrendingUp } from 'lucide-react'
+import { Menu, X, User, ShoppingBag, LogOut, Settings, TrendingUp, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
 import { hidesSiteChrome } from '@/lib/events/routes'
+import { MiniProgressRing } from '@/components/progress/MiniProgressRing'
+import { useProgressGlance } from '@/components/progress/ProgressGlanceProvider'
+import { navbarProgressLabel } from '@/lib/progress/glanceText'
 
 const navigation = [
   { name: 'Inicio', href: '/' },
@@ -20,12 +23,50 @@ const navigation = [
   { name: 'Contacto', href: '/contacto' },
 ]
 
+/**
+ * Anillo fino con los minutos activos de la semana alrededor del botón de la
+ * usuaria, y un punto si hay logros sin ver. Va en posición absoluta sobre el
+ * botón: no cambia su tamaño (sin saltos mientras carga). El texto del progreso
+ * lleva `descriptionId`: el botón lo usa en aria-describedby, así su nombre
+ * accesible queda limpio ("Abrir menú", "Mi cuenta").
+ */
+function AccountProgressRing({ size, descriptionId }: { size: number; descriptionId: string }) {
+  const { glance, loading, unseen } = useProgressGlance()
+  if (!glance && !loading) return null
+  const ratio = glance ? glance.week.activeMinutes / glance.week.targetMinutes : 0
+  return (
+    <>
+      <MiniProgressRing
+        ratio={ratio}
+        size={size}
+        stroke={2.5}
+        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+      />
+      {unseen.length > 0 && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-0 top-0 h-2.5 w-2.5 rounded-full ring-2 ring-white"
+          style={{ backgroundColor: '#C17E7E' }}
+        />
+      )}
+      {glance && (
+        <span id={descriptionId} className="sr-only">
+          {navbarProgressLabel(glance, unseen.length)}
+        </span>
+      )}
+    </>
+  )
+}
+
 export function Navbar() {
   const [isOpen, setIsOpen] = React.useState(false)
   const [isScrolled, setIsScrolled] = React.useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false)
   const pathname = usePathname()
   const { data: session, status } = useSession()
+  const { glance } = useProgressGlance()
+  const accountProgressId = React.useId()
+  const menuProgressId = React.useId()
 
   // Sin navbar público en el admin (tiene su layout) ni en las páginas del evento
   const isAdminRoute = hidesSiteChrome(pathname)
@@ -114,14 +155,20 @@ export function Navbar() {
                 </Link>
                 <div className="relative">
                   <button
+                    type="button"
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center space-x-2 p-1 rounded-full hover:bg-beige/50 transition-colors"
+                    aria-label="Mi cuenta"
+                    aria-haspopup="true"
+                    aria-expanded={isUserMenuOpen}
+                    aria-describedby={glance ? accountProgressId : undefined}
+                    className="relative flex items-center p-1 rounded-full hover:bg-beige/50 transition-colors"
                   >
                     <Avatar
                       src={session.user?.image}
                       alt={session.user?.name || ''}
                       size="sm"
                     />
+                    <AccountProgressRing size={40} descriptionId={accountProgressId} />
                   </button>
                   {isUserMenuOpen && (
                     <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-lg border border-beige py-2 animate-slide-down">
@@ -146,6 +193,13 @@ export function Navbar() {
                       >
                         <TrendingUp className="h-4 w-4" />
                         Mi progreso
+                      </Link>
+                      <Link
+                        href="/perfil/logros"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-beige/50"
+                      >
+                        <Trophy className="h-4 w-4" />
+                        Mis logros
                       </Link>
                       <Link
                         href="/reservar"
@@ -197,15 +251,21 @@ export function Navbar() {
 
           {/* Mobile menu button */}
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
+            aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
+            aria-expanded={isOpen}
+            aria-describedby={session && glance ? menuProgressId : undefined}
             className={cn(
-              'lg:hidden p-2 rounded-lg transition-colors',
+              'relative lg:hidden p-2 transition-colors',
+              session ? 'rounded-full' : 'rounded-lg',
               isScrolled || !isHomePage
                 ? 'text-gray-600 hover:bg-beige'
                 : 'text-white hover:bg-white/10'
             )}
           >
-            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {isOpen ? <X className="h-6 w-6" aria-hidden="true" /> : <Menu className="h-6 w-6" aria-hidden="true" />}
+            {session && <AccountProgressRing size={44} descriptionId={menuProgressId} />}
           </button>
         </div>
       </div>
@@ -242,6 +302,12 @@ export function Navbar() {
                     className="block px-4 py-3 rounded-lg text-base font-medium text-gray-600 hover:bg-beige"
                   >
                     Mi progreso
+                  </Link>
+                  <Link
+                    href="/perfil/logros"
+                    className="block px-4 py-3 rounded-lg text-base font-medium text-gray-600 hover:bg-beige"
+                  >
+                    Mis logros
                   </Link>
                   <Link
                     href="/carrito"

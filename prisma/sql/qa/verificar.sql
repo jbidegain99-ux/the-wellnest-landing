@@ -131,7 +131,7 @@ SELECT 'tablas_sin_revisar', count(*)
       'Discipline', 'Instructor', 'Package', 'PackageDiscipline', 'Waitlist', 'DiscountCode',
       'BlogPost', 'GalleryImage', 'Testimonial', 'CartItem', 'NotificationSettings',
       'BrandAsset', 'PromoRedemption', 'SiteSettings', 'Order', 'OrderItem', 'Event',
-      '_prisma_migrations',
+      'ProgressEmailLog', 'ProgressEmailOptOut', '_prisma_migrations',
       -- marca que identifica la base de QA (la crea José una vez; ver qa-refresh.sh)
       'qa_entorno'
     );

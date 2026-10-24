@@ -4,7 +4,6 @@ import * as React from 'react'
 import Link from 'next/link'
 import {
   Activity,
-  Award,
   CalendarCheck,
   CalendarDays,
   Clock,
@@ -13,6 +12,7 @@ import {
   Loader2,
   Sparkles,
   Sprout,
+  Trophy,
   Wind,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -22,10 +22,17 @@ import { ProgressRing } from '@/components/progress/ProgressRing'
 import { MixRadar } from '@/components/progress/MixRadar'
 import { MonthBars } from '@/components/progress/MonthBars'
 import { useShowCalories } from '@/components/progress/useShowCalories'
+import { BadgeArt } from '@/components/badges/BadgeArt'
+import { nextBadges, recentBadges } from '@/lib/progress/badges/evaluate'
+import {
+  badgeProgressText,
+  challengeStatusText,
+  formatBadgeDate,
+  progressRatio,
+} from '@/lib/progress/badges/display'
+import type { BadgeState, BadgesResponse } from '@/lib/progress/badges/types'
 import { AXIS_LABELS } from '@/lib/progress/profiles'
 import {
-  EXPLORER_DISCIPLINES,
-  MILESTONES,
   WEEKLY_TARGET_MINUTES,
   type ClassSummary,
   type ProgressSummary,
@@ -42,9 +49,12 @@ type LoadState =
   | { status: 'error' }
   | { status: 'ready'; data: ProgressSummary }
 
+type BadgesLoad = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: BadgesResponse }
+
 export default function ProgresoPage() {
   const [state, setState] = React.useState<LoadState>({ status: 'loading' })
   const [showCalories, setShowCalories] = useShowCalories()
+  const [badgesState, setBadgesState] = React.useState<BadgesLoad>({ status: 'loading' })
 
   const fetchProgress = React.useCallback(async () => {
     setState({ status: 'loading' })
@@ -63,9 +73,27 @@ export default function ProgresoPage() {
     }
   }, [])
 
+  // Los logros se piden en paralelo; si fallan, solo su tarjeta muestra el error.
+  const fetchBadges = React.useCallback(async () => {
+    setBadgesState({ status: 'loading' })
+    try {
+      const response = await fetch('/api/user/badges')
+      if (!response.ok) {
+        setBadgesState({ status: 'error' })
+        return
+      }
+      const data: BadgesResponse = await response.json()
+      setBadgesState({ status: 'ready', data })
+    } catch (error) {
+      console.error('Error fetching badges:', error)
+      setBadgesState({ status: 'error' })
+    }
+  }, [])
+
   React.useEffect(() => {
     fetchProgress()
-  }, [fetchProgress])
+    fetchBadges()
+  }, [fetchProgress, fetchBadges])
 
   if (state.status === 'loading') {
     return (
@@ -102,6 +130,8 @@ export default function ProgresoPage() {
       ) : (
         <ProgressContent
           data={state.data}
+          badges={badgesState}
+          onRetryBadges={fetchBadges}
           showCalories={showCalories}
           onShowCaloriesChange={setShowCalories}
         />
@@ -134,11 +164,13 @@ function EmptyState() {
 
 interface ProgressContentProps {
   data: ProgressSummary
+  badges: BadgesLoad
+  onRetryBadges: () => void
   showCalories: boolean
   onShowCaloriesChange: (value: boolean) => void
 }
 
-function ProgressContent({ data, showCalories, onShowCaloriesChange }: ProgressContentProps) {
+function ProgressContent({ data, badges, onRetryBadges, showCalories, onShowCaloriesChange }: ProgressContentProps) {
   return (
     <>
       {/* 1. Tu última clase */}
@@ -156,8 +188,8 @@ function ProgressContent({ data, showCalories, onShowCaloriesChange }: ProgressC
         <FlexCalmCard month={data.month} />
       </div>
 
-      {/* 6. Hitos */}
-      <MilestonesCard total={data.totalClasses} milestones={data.milestones} />
+      {/* 6. Logros */}
+      <LogrosCard state={badges} onRetry={onRetryBadges} />
 
       {/* 7. Mes a mes */}
       <Card>
@@ -170,8 +202,9 @@ function ProgressContent({ data, showCalories, onShowCaloriesChange }: ProgressC
         </CardContent>
       </Card>
 
-      {/* 8. Preferencia de calorías */}
+      {/* 8. Preferencias: calorías y resumen por correo */}
       <CaloriesToggle checked={showCalories} onChange={onShowCaloriesChange} />
+      <ProgressEmailToggle />
 
       {/* 9. Pie */}
       <p className="text-xs text-gray-500 text-center px-4 pb-4">{FOOTER_TEXT}</p>
@@ -397,86 +430,207 @@ function FlexCalmCard({ month }: { month: ProgressSummary['month'] }) {
   )
 }
 
-function MilestonesCard({
-  total,
-  milestones,
-}: {
-  total: number
-  milestones: ProgressSummary['milestones']
-}) {
-  const { next, remaining, explorer } = milestones
-  const explorerLeft = Math.max(0, EXPLORER_DISCIPLINES - explorer.disciplines)
-
+function LogrosCard({ state, onRetry }: { state: BadgesLoad; onRetry: () => void }) {
   return (
     <Card>
       <CardHeader>
-        <SectionTitle icon={Award}>Hitos</SectionTitle>
-        <CardDescription>{plural(total, 'clase tomada', 'clases tomadas')} en Wellnest</CardDescription>
+        <SectionTitle icon={Trophy}>Logros</SectionTitle>
+        <CardDescription>
+          {state.status === 'ready'
+            ? plural(state.data.earnedCount, 'logro ganado', 'logros ganados')
+            : 'Insignias que ganas clase a clase'}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
-        <ul className="flex flex-wrap gap-3">
-          {MILESTONES.map((m) => {
-            const reached = milestones.reached.includes(m)
-            const isNext = m === next
-            return (
-              <li
-                key={m}
-                className={cn(
-                  'flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 text-center',
-                  reached
-                    ? 'border-primary-600 bg-primary-600 text-white'
-                    : isNext
-                      ? 'border-dashed border-primary-600 bg-white text-primary-700'
-                      : 'border-beige-dark bg-white text-gray-400'
-                )}
-              >
-                <span className="text-base font-semibold leading-none">{m}</span>
-                <span className="text-[10px] leading-tight">{m === 1 ? 'clase' : 'clases'}</span>
-                <span className="sr-only">{reached ? ' (alcanzado)' : isNext ? ' (próximo)' : ''}</span>
-              </li>
-            )
-          })}
-        </ul>
-
-        <p className="text-sm text-foreground">
-          {next !== null && remaining !== null
-            ? `${remaining === 1 ? 'Te falta 1 clase' : `Te faltan ${remaining} clases`} para llegar a ${next}.`
-            : '¡Llegaste a las 100 clases! Qué constancia tan bonita.'}
-        </p>
-
-        <div
-          className={cn(
-            'flex items-center gap-3 rounded-xl p-4',
-            explorer.reached ? 'bg-primary-50' : 'bg-beige'
-          )}
-        >
-          <Compass className={cn('h-6 w-6 shrink-0', explorer.reached ? 'text-primary-600' : 'text-gray-400')} />
-          <div className="text-sm">
-            <p className="font-semibold text-foreground">Exploradora</p>
-            <p className="text-gray-600">
-              {explorer.reached
-                ? `Probaste ${explorer.disciplines} disciplinas distintas.`
-                : `Llevas ${plural(explorer.disciplines, 'disciplina', 'disciplinas')}; prueba ${explorerLeft} más para desbloquearlo.`}
-            </p>
+      <CardContent className="space-y-6">
+        {state.status === 'loading' ? (
+          <div className="flex justify-center py-6" role="status">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+            <span className="sr-only">Cargando tus logros…</span>
           </div>
-        </div>
+        ) : state.status === 'error' ? (
+          <p className="text-sm text-gray-600">
+            No pudimos cargar tus logros.{' '}
+            <button
+              onClick={onRetry}
+              className="font-medium text-primary-600 underline underline-offset-2 hover:opacity-80"
+            >
+              Reintentar
+            </button>
+          </p>
+        ) : (
+          <LogrosCardBody data={state.data} />
+        )}
+
+        <Button asChild variant="outline" className="w-full sm:w-auto">
+          <Link href="/perfil/logros">Ver todos mis logros</Link>
+        </Button>
       </CardContent>
     </Card>
   )
 }
 
+function LogrosCardBody({ data }: { data: BadgesResponse }) {
+  const challengeId = React.useId()
+  const { challenge } = data
+  const recent = recentBadges(data.badges, 3)
+  const upcoming = nextBadges(data.badges, 2)
+  const challengeEarned = challenge.earnedAt !== null
+  const ratio = progressRatio(challenge)
+
+  return (
+    <>
+      <div className="flex items-center gap-4 rounded-2xl bg-beige p-4">
+        <BadgeArt
+          badge={challenge}
+          size={72}
+          progress={challengeEarned ? undefined : ratio}
+          idSuffix={challengeId}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground">{challenge.title}</p>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-beige-dark" aria-hidden="true">
+            <div className="h-full rounded-full bg-primary-600" style={{ width: `${ratio * 100}%` }} />
+          </div>
+          <p className="mt-2 text-sm text-gray-600">{challengeStatusText(challenge)}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        {recent.length > 0 && (
+          <MiniBadgeList title="Últimos ganados" badges={recent} />
+        )}
+        {upcoming.length > 0 && <MiniBadgeList title="Los más cercanos" badges={upcoming} />}
+      </div>
+    </>
+  )
+}
+
+function MiniBadgeList({ title, badges }: { title: string; badges: BadgeState[] }) {
+  return (
+    <div>
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <ul className="mt-2 space-y-2">
+        {badges.map((b) => (
+          <MiniBadgeRow key={b.id} badge={b} />
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function MiniBadgeRow({ badge }: { badge: BadgeState }) {
+  const idSuffix = React.useId()
+  const earned = badge.earnedAt !== null
+  return (
+    <li className="flex items-center gap-3">
+      <BadgeArt badge={badge} size={48} progress={earned ? undefined : progressRatio(badge)} idSuffix={idSuffix} />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-foreground">{badge.title}</p>
+        <p className="text-xs text-gray-600">
+          {earned && badge.earnedAt ? `Ganado el ${formatBadgeDate(badge.earnedAt)}` : badgeProgressText(badge)}
+        </p>
+      </div>
+    </li>
+  )
+}
+
 function CaloriesToggle({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
-  const labelId = 'mostrar-calorias-label'
-  const descId = 'mostrar-calorias-desc'
+  return (
+    <PreferenceToggle
+      id="mostrar-calorias"
+      label="Mostrar calorías estimadas"
+      description="Aparecen en tu última clase. La preferencia se guarda solo en este dispositivo."
+      checked={checked}
+      onChange={onChange}
+    />
+  )
+}
+
+type EmailPrefState =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'ready'; enabled: boolean; saving: boolean; saveError: boolean }
+
+const EMAIL_PREF_URL = '/api/user/progress-email'
+
+/** Resumen por correo después de cada clase (encendido salvo baja). Cambio optimista con reversión. */
+function ProgressEmailToggle() {
+  const [pref, setPref] = React.useState<EmailPrefState>({ status: 'loading' })
+
+  React.useEffect(() => {
+    let active = true
+    fetch(EMAIL_PREF_URL)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const data = (await response.json()) as { enabled: boolean }
+        if (active) setPref({ status: 'ready', enabled: data.enabled === true, saving: false, saveError: false })
+      })
+      .catch((error: unknown) => {
+        console.error('Error fetching progress email preference:', error)
+        if (active) setPref({ status: 'error' })
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const handleChange = async (next: boolean) => {
+    if (pref.status !== 'ready' || pref.saving) return
+    const previous = pref.enabled
+    setPref({ status: 'ready', enabled: next, saving: true, saveError: false })
+    try {
+      const response = await fetch(EMAIL_PREF_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next }),
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      setPref({ status: 'ready', enabled: next, saving: false, saveError: false })
+    } catch (error) {
+      console.error('Error updating progress email preference:', error)
+      setPref({ status: 'ready', enabled: previous, saving: false, saveError: true })
+    }
+  }
+
+  let description = 'Te llega cuando termina tu clase, con tu semana y tus logros.'
+  if (pref.status === 'error') description = 'No pudimos cargar esta preferencia. Recarga la página para intentarlo de nuevo.'
+  else if (pref.status === 'ready' && pref.saveError) description = 'No pudimos guardar el cambio. Intenta de nuevo.'
+
+  return (
+    <PreferenceToggle
+      id="resumen-correo"
+      label="Recibir un resumen por correo después de cada clase"
+      description={description}
+      checked={pref.status === 'ready' ? pref.enabled : true}
+      disabled={pref.status !== 'ready'}
+      busy={pref.status === 'loading' || (pref.status === 'ready' && pref.saving)}
+      onChange={handleChange}
+    />
+  )
+}
+
+interface PreferenceToggleProps {
+  id: string
+  label: string
+  description: string
+  checked: boolean
+  onChange: (value: boolean) => void
+  disabled?: boolean
+  busy?: boolean
+}
+
+function PreferenceToggle({ id, label, description, checked, onChange, disabled = false, busy = false }: PreferenceToggleProps) {
+  const labelId = `${id}-label`
+  const descId = `${id}-desc`
   return (
     <Card>
       <CardContent className="p-6 flex items-center justify-between gap-4">
         <div>
           <p id={labelId} className="font-medium text-foreground">
-            Mostrar calorías estimadas
+            {label}
           </p>
-          <p id={descId} className="text-sm text-gray-600 mt-0.5">
-            Aparecen en tu última clase. La preferencia se guarda solo en este dispositivo.
+          <p id={descId} className="text-sm text-gray-600 mt-0.5" aria-live="polite">
+            {description}
           </p>
         </div>
         <button
@@ -485,12 +639,15 @@ function CaloriesToggle({ checked, onChange }: { checked: boolean; onChange: (va
           aria-checked={checked}
           aria-labelledby={labelId}
           aria-describedby={descId}
+          aria-busy={busy || undefined}
+          disabled={disabled}
           onClick={() => onChange(!checked)}
           className={cn(
             'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors motion-reduce:transition-none',
             // Área táctil de 48×48 px sin cambiar el aspecto del interruptor.
             "after:absolute after:left-1/2 after:top-1/2 after:h-12 after:w-12 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+            'disabled:cursor-not-allowed disabled:opacity-60',
             checked ? 'bg-primary-600' : 'bg-gray-300'
           )}
         >
