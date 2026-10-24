@@ -29,7 +29,7 @@ describe('GET /api/cron/class-summary', () => {
     process.env.CRON_SECRET = 'cron-secreto'
     process.env.NEXTAUTH_URL = 'https://wellneststudio.net/\n'
     process.env.NEXTAUTH_SECRET = 'auth-secreto'
-    runMock.mockResolvedValue({ users: 2, sent: 2, failed: 0 })
+    runMock.mockResolvedValue({ users: 2, sent: 2, failed: 0, deferred: 0 })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
@@ -77,7 +77,7 @@ describe('GET /api/cron/class-summary', () => {
   it('con el secreto correcto corre el job con la URL limpia y devuelve el resumen', async () => {
     const res = await GET(req('Bearer cron-secreto'))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ users: 2, sent: 2, failed: 0 })
+    expect(await res.json()).toEqual({ users: 2, sent: 2, failed: 0, deferred: 0 })
     expect(runMock).toHaveBeenCalledTimes(1)
     const deps = runMock.mock.calls[0][0] as { baseUrl: string; secret: string; now: Date; db: unknown }
     expect(deps.baseUrl).toBe('https://wellneststudio.net')

@@ -4,7 +4,10 @@ import {
   classSummaryDbFrom,
   RESERVATION_SELECT,
   runClassSummaryJob,
+  SEND_GAP_MS,
+  TIME_BUDGET_MS,
   type ClassSummaryDb,
+  type ClassSummaryJobDeps,
   type LogQuery,
   type ReservationQuery,
   type ReservationRow,
@@ -52,6 +55,10 @@ class FakeDb implements ClassSummaryDb {
   optOuts = new Set<string>()
   /** Se ejecuta justo antes de cada createMany (simula otra corrida en paralelo). */
   beforeCreate: (() => void) | null = null
+  /** Usuaria cuyo createMany falla (error de base). */
+  failCreateFor: string | null = null
+  /** Usuaria cuya relectura de reclamos falla, después de insertarlos. */
+  failReadClaimsFor: string | null = null
 
   reservation = {
     findMany: async (args: ReservationQuery): Promise<ReservationRow[]> => {
@@ -87,12 +94,16 @@ class FakeDb implements ClassSummaryDb {
   progressEmailLog = {
     findMany: async (args: LogQuery) => {
       const w = args.where
+      if ('id' in w && this.logs.some((l) => w.id.in.includes(l.id) && l.userId === this.failReadClaimsFor)) {
+        throw new Error('timeout de la base')
+      }
       return this.logs
         .filter((l) => ('id' in w ? w.id.in.includes(l.id) : w.reservationId.in.includes(l.reservationId)))
         .map((l) => ({ id: l.id, reservationId: l.reservationId }))
     },
     createMany: async (args: { data: FakeLog[]; skipDuplicates: true }) => {
       this.beforeCreate?.()
+      if (args.data.some((row) => row.userId === this.failCreateFor)) throw new Error('conexiones agotadas')
       let count = 0
       for (const row of args.data) {
         if (this.logs.some((l) => l.reservationId === row.reservationId || l.id === row.id)) continue
@@ -119,10 +130,20 @@ class FakeDb implements ClassSummaryDb {
     startedHoursAgo: number,
     opts: { duration?: number; slug?: string; name?: string; guest?: boolean; status?: FakeReservation['status'] } = {}
   ): void {
+    this.attendAt(userId, resId, new Date(NOW.getTime() - startedHoursAgo * HOUR), opts)
+  }
+
+  /** Clase asistida que empezó en `start`. */
+  attendAt(
+    userId: string,
+    resId: string,
+    start: Date,
+    opts: { duration?: number; slug?: string; name?: string; guest?: boolean; status?: FakeReservation['status'] } = {}
+  ): void {
     const classId = `c-${resId}`
     this.classes.set(classId, {
       id: classId,
-      dateTime: new Date(NOW.getTime() - startedHoursAgo * HOUR),
+      dateTime: start,
       duration: opts.duration ?? 60,
       classType: null,
       discipline: { slug: opts.slug ?? 'pole', name: opts.name ?? 'Pole Fitness' },
@@ -143,8 +164,10 @@ function okSend() {
   return vi.fn(async (_args: SendArgs) => ({ success: true }))
 }
 
-function run(db: FakeDb, send: SendFn, now = NOW) {
-  return runClassSummaryJob({ db, send, now, baseUrl: BASE, secret: SECRET })
+const noSleep = async (_ms: number): Promise<void> => {}
+
+function run(db: FakeDb, send: SendFn, now = NOW, extra: Partial<ClassSummaryJobDeps> = {}) {
+  return runClassSummaryJob({ db, send, now, baseUrl: BASE, secret: SECRET, sleep: noSleep, ...extra })
 }
 
 describe('runClassSummaryJob', () => {
@@ -154,8 +177,8 @@ describe('runClassSummaryJob', () => {
     db.attend('u1', 'r1', 4)
     const send = okSend()
 
-    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0 })
-    expect(await run(db, send)).toEqual({ users: 0, sent: 0, failed: 0 })
+    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
+    expect(await run(db, send)).toEqual({ users: 0, sent: 0, failed: 0, deferred: 0 })
     expect(send).toHaveBeenCalledTimes(1)
     expect(db.logs.map((l) => l.reservationId)).toEqual(['r1'])
 
@@ -175,11 +198,11 @@ describe('runClassSummaryJob', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const failing = vi.fn(async (_args: SendArgs) => ({ success: false, error: 'Graph 500' }))
-    expect(await run(db, failing)).toEqual({ users: 1, sent: 0, failed: 1 })
+    expect(await run(db, failing)).toEqual({ users: 1, sent: 0, failed: 1, deferred: 0 })
     expect(db.logs).toEqual([])
 
     const send = okSend()
-    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0 })
+    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
     expect(send).toHaveBeenCalledTimes(1)
   })
 
@@ -191,7 +214,7 @@ describe('runClassSummaryJob', () => {
     const throwing = vi.fn(async (_args: SendArgs): Promise<{ success: boolean }> => {
       throw new Error('red')
     })
-    expect(await run(db, throwing)).toEqual({ users: 1, sent: 0, failed: 1 })
+    expect(await run(db, throwing)).toEqual({ users: 1, sent: 0, failed: 1, deferred: 0 })
     expect(db.logs).toEqual([])
   })
 
@@ -203,7 +226,7 @@ describe('runClassSummaryJob', () => {
     db.attend('u2', 'r2', 4)
     db.optOuts.add('u1')
     const send = okSend()
-    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0 })
+    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
     expect(send.mock.calls[0][0].to).toBe('u2@test.local')
     expect(db.logs.map((l) => l.reservationId)).toEqual(['r2'])
   })
@@ -213,7 +236,7 @@ describe('runClassSummaryJob', () => {
     db.addUser('u1')
     db.attend('u1', 'r1', 26) // empezó hace 26 h, terminó hace 25 h
     const send = okSend()
-    expect(await run(db, send)).toEqual({ users: 0, sent: 0, failed: 0 })
+    expect(await run(db, send)).toEqual({ users: 0, sent: 0, failed: 0, deferred: 0 })
     expect(send).not.toHaveBeenCalled()
   })
 
@@ -222,7 +245,7 @@ describe('runClassSummaryJob', () => {
     db.addUser('u1')
     db.attend('u1', 'r1', 24.5, { duration: 90 }) // terminó hace 23 h
     const send = okSend()
-    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0 })
+    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
   })
 
   it('una clase que aún no termina no se envía (y sí en la corrida siguiente)', async () => {
@@ -230,10 +253,10 @@ describe('runClassSummaryJob', () => {
     db.addUser('u1')
     db.attend('u1', 'r1', 0.5) // empezó hace 30 min, dura 60
     const send = okSend()
-    expect(await run(db, send)).toEqual({ users: 0, sent: 0, failed: 0 })
+    expect(await run(db, send)).toEqual({ users: 0, sent: 0, failed: 0, deferred: 0 })
     expect(db.logs).toEqual([])
 
-    expect(await run(db, send, new Date(NOW.getTime() + HOUR))).toEqual({ users: 1, sent: 1, failed: 0 })
+    expect(await run(db, send, new Date(NOW.getTime() + HOUR))).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
   })
 
   it('dos clases de una usuaria: un solo correo, con la más reciente en el asunto', async () => {
@@ -242,7 +265,7 @@ describe('runClassSummaryJob', () => {
     db.attend('u1', 'r1', 10, { slug: 'yoga', name: 'Yoga' })
     db.attend('u1', 'r2', 3)
     const send = okSend()
-    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0 })
+    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
     expect(send).toHaveBeenCalledTimes(1)
     const { subject, html } = send.mock.calls[0][0]
     expect(subject).toBe('Tu resumen de Pole Fitness')
@@ -257,7 +280,7 @@ describe('runClassSummaryJob', () => {
     db.attend('u1', 'r2', 3, { status: 'CONFIRMED' })
     db.attend('u1', 'r3', 2, { status: 'NO_SHOW' })
     const send = okSend()
-    expect(await run(db, send)).toEqual({ users: 0, sent: 0, failed: 0 })
+    expect(await run(db, send)).toEqual({ users: 0, sent: 0, failed: 0, deferred: 0 })
   })
 
   it('solo envía lo que reclamó esta corrida (otra corrida en paralelo ganó el reclamo)', async () => {
@@ -269,7 +292,7 @@ describe('runClassSummaryJob', () => {
       db.beforeCreate = null
     }
     const send = okSend()
-    expect(await run(db, send)).toEqual({ users: 1, sent: 0, failed: 0 })
+    expect(await run(db, send)).toEqual({ users: 1, sent: 0, failed: 0, deferred: 0 })
     expect(send).not.toHaveBeenCalled()
     expect(db.logs.map((l) => l.id)).toEqual(['otra-corrida'])
   })
@@ -296,6 +319,108 @@ describe('runClassSummaryJob', () => {
     const { html } = send.mock.calls[0][0]
     expect(html).not.toContain('clases-1.png')
     expect(html).not.toContain('Primera clase de Pole')
+  })
+
+  it('la semana del correo es la de la clase: clase del domingo 22:00, corrida del lunes', async () => {
+    const db = new FakeDb()
+    db.addUser('u1')
+    // Domingo 25-oct-2026, 21:00–22:00 en El Salvador
+    db.attendAt('u1', 'r1', new Date('2026-10-26T03:00:00Z'))
+    const monday = new Date('2026-10-26T19:15:00Z') // lunes 13:15 SV
+    const send = okSend()
+    expect(await run(db, send, monday)).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
+    const { html } = send.mock.calls[0][0]
+    expect(html).toContain('60 de 150 min')
+  })
+
+  it('una clase en curso (ya marcada como asistida) no suma a la semana del correo', async () => {
+    const db = new FakeDb()
+    db.addUser('u1')
+    db.attend('u1', 'r1', 3) // terminó hace 2 h
+    db.attend('u1', 'r2', 0.5) // empezó hace 30 min, sigue en curso
+    const send = okSend()
+    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
+    const { html } = send.mock.calls[0][0]
+    expect(html).toContain('60 de 150 min')
+    expect(db.logs.map((l) => l.reservationId)).toEqual(['r1'])
+  })
+
+  it('un error de base con una usuaria se cuenta como fallo y sigue con las demás', async () => {
+    const db = new FakeDb()
+    db.addUser('u1')
+    db.addUser('u2')
+    db.attend('u1', 'r1', 4)
+    db.attend('u2', 'r2', 4)
+    db.failCreateFor = 'u1'
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const send = okSend()
+    expect(await run(db, send)).toEqual({ users: 2, sent: 1, failed: 1, deferred: 0 })
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0].to).toBe('u2@test.local')
+    expect(db.logs.map((l) => l.reservationId)).toEqual(['r2'])
+    expect(error).toHaveBeenCalled()
+  })
+
+  it('si la base falla después de reclamar, libera el reclamo y la próxima corrida reintenta', async () => {
+    const db = new FakeDb()
+    db.addUser('u1')
+    db.addUser('u2')
+    db.attend('u1', 'r1', 4)
+    db.attend('u2', 'r2', 4)
+    db.failReadClaimsFor = 'u1'
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const send = okSend()
+    expect(await run(db, send)).toEqual({ users: 2, sent: 1, failed: 1, deferred: 0 })
+    expect(db.logs.map((l) => l.reservationId)).toEqual(['r2'])
+
+    db.failReadClaimsFor = null
+    const again = okSend()
+    expect(await run(db, again)).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
+    expect(again.mock.calls[0][0].to).toBe('u1@test.local')
+  })
+
+  it(`espera ${SEND_GAP_MS} ms entre envíos (no antes del primero)`, async () => {
+    const db = new FakeDb()
+    for (const id of ['u1', 'u2', 'u3']) {
+      db.addUser(id)
+      db.attend(id, `r-${id}`, 4)
+    }
+    const order: string[] = []
+    const sleep = vi.fn(async (ms: number) => {
+      order.push(`sleep ${ms}`)
+    })
+    const send = vi.fn(async (args: SendArgs) => {
+      order.push(`send ${args.to}`)
+      return { success: true }
+    })
+    expect(await run(db, send, NOW, { sleep })).toEqual({ users: 3, sent: 3, failed: 0, deferred: 0 })
+    expect(order).toEqual([
+      'send u1@test.local',
+      `sleep ${SEND_GAP_MS}`,
+      'send u2@test.local',
+      `sleep ${SEND_GAP_MS}`,
+      'send u3@test.local',
+    ])
+  })
+
+  it(`deja de empezar usuarias pasados ${TIME_BUDGET_MS / 1000} s; las demás quedan para la próxima corrida`, async () => {
+    const db = new FakeDb()
+    for (const id of ['u1', 'u2', 'u3']) {
+      db.addUser(id)
+      db.attend(id, `r-${id}`, 4)
+    }
+    let t = 0
+    const clock = () => t
+    const slowSend = vi.fn(async (_args: SendArgs) => {
+      t += 130_000 // cada envío "tarda" 130 s
+      return { success: true }
+    })
+    expect(await run(db, slowSend, NOW, { clock })).toEqual({ users: 3, sent: 2, failed: 0, deferred: 1 })
+    expect(db.logs.map((l) => l.reservationId)).toEqual(['r-u1', 'r-u2'])
+
+    const send = okSend()
+    expect(await run(db, send)).toEqual({ users: 1, sent: 1, failed: 0, deferred: 0 })
+    expect(send.mock.calls[0][0].to).toBe('u3@test.local')
   })
 
   it('una usuaria sin nombre recibe el saludo genérico', async () => {

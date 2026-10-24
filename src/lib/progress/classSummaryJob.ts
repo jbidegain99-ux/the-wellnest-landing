@@ -5,6 +5,11 @@
 // (único por reservationId, skipDuplicates) con ids generados aquí; solo se
 // envían las reservas cuyos ids volvemos a leer. Si el envío falla se borran
 // esos reclamos y la próxima corrida lo reintenta.
+//
+// Un error con una usuaria (base o envío) se registra, cuenta como fallo y
+// libera sus reclamos; el resto sigue. Entre envíos se espera SEND_GAP_MS y,
+// pasado TIME_BUDGET_MS, no se empieza ninguna usuaria más: como no se
+// reclamaron, la próxima corrida las toma (la ventana es de 24 h).
 
 import { randomUUID } from 'crypto'
 import type { Prisma, PrismaClient } from '@prisma/client'
@@ -23,6 +28,10 @@ const HOUR_MS = 3600 * 1000
 const WINDOW_MS = 24 * HOUR_MS
 /** Margen para buscar por inicio: ninguna clase dura más que esto. */
 const MAX_CLASS_MS = 12 * HOUR_MS
+/** Pausa entre un envío y el siguiente, para no saturar Microsoft Graph. */
+export const SEND_GAP_MS = 2000
+/** Tiempo tras el cual no se empieza otra usuaria (la función tiene maxDuration 300 s). */
+export const TIME_BUDGET_MS = 240 * 1000
 
 export const RESERVATION_SELECT = {
   id: true,
@@ -101,6 +110,10 @@ export interface ClassSummaryJobDeps {
   baseUrl: string
   /** NEXTAUTH_SECRET, para firmar el enlace de baja. */
   secret: string
+  /** Espera entre envíos (por defecto setTimeout; en tests, una que no espera). */
+  sleep?: (ms: number) => Promise<void>
+  /** Reloj en ms para el presupuesto de tiempo (por defecto Date.now). */
+  clock?: () => number
 }
 
 export interface ClassSummaryJobResult {
@@ -108,11 +121,19 @@ export interface ClassSummaryJobResult {
   users: number
   sent: number
   failed: number
+  /** Usuarias que quedaron para la próxima corrida por el presupuesto de tiempo. */
+  deferred: number
 }
 
 function endsAt(row: ReservationRow): number {
   return row.class.dateTime.getTime() + Math.max(0, row.class.duration) * 60 * 1000
 }
+
+function endOfAttended(c: AttendedClass): number {
+  return c.dateTime.getTime() + Math.max(0, c.durationMin) * 60 * 1000
+}
+
+const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 function toAttended(row: ReservationRow): AttendedClass {
   return {
@@ -129,32 +150,39 @@ function firstNameOf(name: string | null): string {
   return (name ?? '').trim().split(/\s+/)[0] ?? ''
 }
 
-/** Datos del correo: clases reclamadas (más reciente primero) y logros ganados con ellas. */
+/**
+ * Datos del correo: clases reclamadas (más reciente primero) y logros ganados con ellas.
+ * Semana, racha y logros se calculan al momento en que terminó la última clase del
+ * correo (no a la hora de la corrida): una clase del domingo enviada el lunes habla
+ * de su semana, y una clase aún en curso no se cuela en los minutos.
+ */
 export function buildEmailData(
   claimed: ReservationRow[],
   history: AttendedClass[],
-  deps: Pick<ClassSummaryJobDeps, 'now' | 'baseUrl' | 'secret'>
+  deps: Pick<ClassSummaryJobDeps, 'baseUrl' | 'secret'>
 ): ClassSummaryEmailData {
-  const { now, baseUrl, secret } = deps
+  const { baseUrl, secret } = deps
   const userId = claimed[0].userId
   const emailClassIds = new Set(claimed.map((r) => r.class.id))
+  const asOfMs = Math.max(...claimed.map(endsAt))
+  const asOf = new Date(asOfMs)
   // La historia incluye las clases del correo; por si la consulta llegó sin ellas, se agregan.
-  const all = [...history]
+  const all = history.filter((c) => endOfAttended(c) <= asOfMs)
   for (const r of claimed) {
     if (!all.some((c) => c.classId === r.class.id)) all.push(toAttended(r))
   }
   const before = all.filter((c) => !emailClassIds.has(c.classId))
 
-  const year = localParts(now).year
-  const after = evaluateBadges(all, now)
-  const earned = newBadgesFrom(evaluateBadges(before, now), after).map((b) => withChallengeYear(b, year))
+  const year = localParts(asOf).year
+  const after = evaluateBadges(all, asOf)
+  const earned = newBadgesFrom(evaluateBadges(before, asOf), after).map((b) => withChallengeYear(b, year))
   const imageUrl = (b: Parameters<typeof badgePngPath>[0]): string | null => {
     const path = badgePngPath(b)
     return path ? `${baseUrl}${path}` : null
   }
   const next = earned.length === 0 ? (nextBadges(after, 1)[0] ?? null) : null
 
-  const summary = buildProgressSummary(all, now)
+  const summary = buildProgressSummary(all, asOf)
   const classes = [...claimed]
     .sort((a, b) => b.class.dateTime.getTime() - a.class.dateTime.getTime())
     .map((r) => {
@@ -191,6 +219,9 @@ export function buildEmailData(
 
 export async function runClassSummaryJob(deps: ClassSummaryJobDeps): Promise<ClassSummaryJobResult> {
   const { db, send, now } = deps
+  const sleep = deps.sleep ?? defaultSleep
+  const clock = deps.clock ?? Date.now
+  const startedAt = clock()
   const nowMs = now.getTime()
   const windowStart = nowMs - WINDOW_MS
 
@@ -207,7 +238,7 @@ export async function runClassSummaryJob(deps: ClassSummaryJobDeps): Promise<Cla
     const end = endsAt(r)
     return end > windowStart && end <= nowMs
   })
-  if (candidates.length === 0) return { users: 0, sent: 0, failed: 0 }
+  if (candidates.length === 0) return { users: 0, sent: 0, failed: 0, deferred: 0 }
 
   // 2. Sin correo previo y de usuarias sin baja
   const logged = await db.progressEmailLog.findMany({
@@ -229,7 +260,7 @@ export async function runClassSummaryJob(deps: ClassSummaryJobDeps): Promise<Cla
     list.push(r)
     byUser.set(r.userId, list)
   }
-  if (byUser.size === 0) return { users: 0, sent: 0, failed: 0 }
+  if (byUser.size === 0) return { users: 0, sent: 0, failed: 0, deferred: 0 }
 
   // 3. Historia completa de esas usuarias, para semana, racha y logros
   const historyRows = await db.reservation.findMany({
@@ -245,42 +276,56 @@ export async function runClassSummaryJob(deps: ClassSummaryJobDeps): Promise<Cla
 
   let sent = 0
   let failed = 0
-  for (const [userId, rows] of Array.from(byUser.entries())) {
+  let deferred = 0
+  let attemptedSend = false
+  const entries = Array.from(byUser.entries())
+  for (let i = 0; i < entries.length; i++) {
+    const [userId, rows] = entries[i]
+    // Presupuesto de tiempo: lo que no se empieza queda sin reclamar para la próxima corrida
+    if (clock() - startedAt > TIME_BUDGET_MS) {
+      deferred = entries.length - i
+      console.warn(`[CLASS_SUMMARY] Presupuesto de tiempo agotado; ${deferred} usuaria(s) quedan para la próxima corrida`)
+      break
+    }
+
     // 4. Reclamo: solo se envía lo que esta corrida insertó
     const idFor = new Map(rows.map((r) => [r.id, randomUUID()]))
-    await db.progressEmailLog.createMany({
-      data: rows.map((r) => ({ id: idFor.get(r.id)!, reservationId: r.id, userId })),
-      skipDuplicates: true,
-    })
-    const mine = await db.progressEmailLog.findMany({
-      where: { id: { in: Array.from(idFor.values()) } },
-      select: { id: true, reservationId: true },
-    })
-    if (mine.length === 0) continue
-    const claimedIds = mine.map((l) => l.id)
-    const claimedReservations = new Set(mine.map((l) => l.reservationId))
-    const claimed = rows.filter((r) => claimedReservations.has(r.id))
-
-    // 5. Envío; si falla se liberan los reclamos
+    const ourIds = Array.from(idFor.values())
     let ok = false
     try {
+      await db.progressEmailLog.createMany({
+        data: rows.map((r) => ({ id: idFor.get(r.id)!, reservationId: r.id, userId })),
+        skipDuplicates: true,
+      })
+      const mine = await db.progressEmailLog.findMany({
+        where: { id: { in: ourIds } },
+        select: { id: true, reservationId: true },
+      })
+      if (mine.length === 0) continue
+      const claimedReservations = new Set(mine.map((l) => l.reservationId))
+      const claimed = rows.filter((r) => claimedReservations.has(r.id))
+
+      // 5. Envío, con pausa desde el anterior
       const { subject, html } = buildClassSummaryEmail(buildEmailData(claimed, history.get(userId) ?? [], deps))
+      if (attemptedSend) await sleep(SEND_GAP_MS)
+      attemptedSend = true
       const result = await send({ to: claimed[0].user.email, subject, html })
       ok = result.success
       if (!ok) console.error(`[CLASS_SUMMARY] Envío fallido para ${userId}:`, result.error)
     } catch (error) {
-      console.error(`[CLASS_SUMMARY] Error armando o enviando el resumen de ${userId}:`, error)
+      console.error(`[CLASS_SUMMARY] Error con el resumen de ${userId}:`, error)
     }
 
     if (ok) {
       sent++
     } else {
+      // Se liberan los reclamos por los ids de esta corrida (si no llegaron a insertarse, no borra nada)
       failed++
       await db.progressEmailLog
-        .deleteMany({ where: { id: { in: claimedIds } } })
+        .deleteMany({ where: { id: { in: ourIds } } })
         .catch((error: unknown) => console.error(`[CLASS_SUMMARY] No se pudo liberar el reclamo de ${userId}:`, error))
     }
   }
 
-  return { users: byUser.size, sent, failed }
+  return { users: byUser.size, sent, failed, deferred }
 }
