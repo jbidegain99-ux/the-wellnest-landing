@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildClassSummaryEmail, newBadgesFrom, type ClassSummaryEmailData } from './classSummaryEmail'
 import type { BadgeState } from './badges/types'
 
-const UNSUB = 'https://wellneststudio.net/api/email/progress-unsubscribe?u=u1&t=abc123'
+const UNSUB = 'https://wellneststudio.net/correo/baja/confirmar?u=u1&t=abc123'
 
 function data(overrides: Partial<ClassSummaryEmailData> = {}): ClassSummaryEmailData {
   return {

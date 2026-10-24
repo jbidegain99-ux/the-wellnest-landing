@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { createHmac } from 'crypto'
-import { unsubscribeToken, unsubscribeUrl, verifyUnsubscribeToken } from './emailOptOut'
+import {
+  UNSUBSCRIBE_CONFIRM_PATH,
+  unsubscribeToken,
+  unsubscribeUrl,
+  validUnsubscribeLink,
+  verifyUnsubscribeToken,
+} from './emailOptOut'
 
 const SECRET = 'secreto-de-prueba'
 
@@ -42,15 +48,33 @@ describe('verifyUnsubscribeToken', () => {
 })
 
 describe('unsubscribeUrl', () => {
-  it('arma la URL con u y t codificados', () => {
+  it('apunta a la página de confirmación (un GET nunca da de baja) con u y t', () => {
     const url = new URL(unsubscribeUrl('https://wellneststudio.net', 'u1', SECRET))
     expect(url.origin).toBe('https://wellneststudio.net')
-    expect(url.pathname).toBe('/api/email/progress-unsubscribe')
+    expect(url.pathname).toBe('/correo/baja/confirmar')
+    expect(UNSUBSCRIBE_CONFIRM_PATH).toBe('/correo/baja/confirmar')
     expect(url.searchParams.get('u')).toBe('u1')
     expect(url.searchParams.get('t')).toBe(unsubscribeToken('u1', SECRET))
   })
 
   it('tolera la barra final en la base', () => {
-    expect(unsubscribeUrl('https://x.test/', 'u1', SECRET)).toMatch(/^https:\/\/x\.test\/api\/email\/progress-unsubscribe\?/)
+    expect(unsubscribeUrl('https://x.test/', 'u1', SECRET)).toMatch(/^https:\/\/x\.test\/correo\/baja\/confirmar\?/)
+  })
+})
+
+describe('validUnsubscribeLink', () => {
+  const good = unsubscribeToken('u1', SECRET)
+
+  it('devuelve u y t si la firma es válida', () => {
+    expect(validUnsubscribeLink('u1', good, SECRET)).toEqual({ userId: 'u1', token: good })
+  })
+
+  it('null si falta algo, la firma es mala o llegan valores repetidos', () => {
+    expect(validUnsubscribeLink(undefined, good, SECRET)).toBeNull()
+    expect(validUnsubscribeLink('u1', null, SECRET)).toBeNull()
+    expect(validUnsubscribeLink('', '', SECRET)).toBeNull()
+    expect(validUnsubscribeLink('u2', good, SECRET)).toBeNull()
+    expect(validUnsubscribeLink(['u1', 'u1'], good, SECRET)).toBeNull()
+    expect(validUnsubscribeLink('u1', [good], SECRET)).toBeNull()
   })
 })
