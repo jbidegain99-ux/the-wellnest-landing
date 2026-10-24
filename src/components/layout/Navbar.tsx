@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { Menu, X, User, ShoppingBag, LogOut, Settings } from 'lucide-react'
+import { Menu, X, User, ShoppingBag, LogOut, Settings, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
@@ -141,6 +141,13 @@ export function Navbar() {
                         Mi Perfil
                       </Link>
                       <Link
+                        href="/perfil/progreso"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-beige/50"
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                        Mi progreso
+                      </Link>
+                      <Link
                         href="/reservar"
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-beige/50"
                       >
@@ -229,6 +236,12 @@ export function Navbar() {
                     className="block px-4 py-3 rounded-lg text-base font-medium text-gray-600 hover:bg-beige"
                   >
                     Mi Perfil
+                  </Link>
+                  <Link
+                    href="/perfil/progreso"
+                    className="block px-4 py-3 rounded-lg text-base font-medium text-gray-600 hover:bg-beige"
+                  >
+                    Mi progreso
                   </Link>
                   <Link
                     href="/carrito"
