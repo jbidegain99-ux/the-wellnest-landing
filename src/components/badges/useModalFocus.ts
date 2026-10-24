@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { tabTrapTarget } from './focusTrap'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -32,16 +33,17 @@ export function useModalFocus(
       const panel = panelRef.current
       if (e.key !== 'Tab' || !panel) return
       const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE))
-      if (items.length === 0) return
-      const first = items[0]
-      const last = items[items.length - 1]
-      const active = document.activeElement
-      if (e.shiftKey && (active === first || !panel.contains(active))) {
+      const active = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      const next = tabTrapTarget({
+        items,
+        active,
+        panel,
+        inside: (node) => node !== null && panel.contains(node),
+        shiftKey: e.shiftKey,
+      })
+      if (next) {
         e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
-        e.preventDefault()
-        first.focus()
+        next.focus()
       }
     }
 

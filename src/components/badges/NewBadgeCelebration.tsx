@@ -13,12 +13,17 @@ import { glanceBadgeState } from '@/lib/progress/glanceText'
 
 /** Espera breve para que la página se pinte antes de celebrar. */
 const OPEN_DELAY_MS = 700
+/** Si hay otro diálogo abierto, se vuelve a mirar cada tanto (sin apilar diálogos). */
+const RETRY_MS = 1500
+/** Diálogos propios (aria-modal) y los de Radix (role="dialog", sin aria-modal). */
+const OPEN_DIALOG_SELECTOR = '[aria-modal="true"], [role="dialog"], [role="alertdialog"]'
 
 /**
  * Celebración de un logro nuevo. Se monta una vez (en Providers) y aparece
  * cuando hay logros ganados que este dispositivo no ha visto: muestra el más
  * reciente y "+N logros más". Cerrar o ir a Mis logros los marca como vistos.
- * No aparece en el admin ni en las páginas de evento.
+ * No aparece en el admin ni en las páginas de evento, ni encima de otro diálogo:
+ * espera a que se cierre.
  */
 export function NewBadgeCelebration() {
   const { glance, unseen, markSeen } = useProgressGlance()
@@ -34,7 +39,13 @@ export function NewBadgeCelebration() {
     const badge = glance.recentBadges.find((b) => b.id === unseen[0])
     if (!badge) return
     const ids = unseen
-    const timer = window.setTimeout(() => setShown({ badge, ids }), OPEN_DELAY_MS)
+    let timer = window.setTimeout(function tryOpen() {
+      if (document.querySelector(OPEN_DIALOG_SELECTOR)) {
+        timer = window.setTimeout(tryOpen, RETRY_MS)
+        return
+      }
+      setShown({ badge, ids })
+    }, OPEN_DELAY_MS)
     return () => window.clearTimeout(timer)
   }, [shown, blockedRoute, glance, unseen])
 
