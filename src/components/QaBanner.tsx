@@ -7,10 +7,11 @@ const BANNER_HEIGHT = '28px'
 // fijos pegados arriba (Navbar, barra móvil y sidebar del admin) también,
 // para que la franja no tape la navegación. Solo existe en QA porque este
 // componente solo se monta en QA. Se excluye el sidebar del dashboard
-// (`lg:relative`): en desktop deja de ser fijo y `top` lo desplazaría.
+// (`lg:relative`): en desktop deja de ser fijo y `top` lo desplazaría. La
+// propia franja (`data-qa-banner`) también es `fixed top-0` y no debe bajar.
 const OFFSET_CSS = `
 body { padding-top: ${BANNER_HEIGHT}; }
-.fixed.top-0, .fixed.inset-y-0:not(.lg\\:relative) { top: ${BANNER_HEIGHT}; }
+.fixed.top-0:not([data-qa-banner]), .fixed.inset-y-0:not(.lg\\:relative) { top: ${BANNER_HEIGHT}; }
 `
 
 export function QaBanner() {
@@ -18,9 +19,10 @@ export function QaBanner() {
     <>
       <style dangerouslySetInnerHTML={{ __html: OFFSET_CSS }} />
       <div
+        data-qa-banner
         role="status"
         className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-center text-sm font-bold tracking-wide"
-        style={{ height: BANNER_HEIGHT, backgroundColor: '#FFD400', color: '#111111' }}
+        style={{ top: 0, height: BANNER_HEIGHT, backgroundColor: '#FFD400', color: '#111111' }}
       >
         QA — no es el sitio real
       </div>

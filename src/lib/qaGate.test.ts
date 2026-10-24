@@ -74,6 +74,55 @@ describe('qaGateDecision', () => {
     }
   })
 
+  it('archivos estáticos de /public y robots.txt quedan exentos', () => {
+    for (const pathname of [
+      '/images/hero-section.jpeg',
+      '/images/team/foto.jpg',
+      '/halloween/telon.jpg',
+      '/halloween/invitacion.jpg',
+      '/favicon.ico',
+      '/favicon.svg',
+      '/icon-192.png',
+      '/icon-512.png',
+      '/icon-maskable-192.png',
+      '/manifest.json',
+      '/sw.js',
+      '/offline.html',
+      '/robots.txt',
+    ]) {
+      expect(
+        qaGateDecision({ pathname, authorization: null, password: 'secreta', qa: true }),
+        pathname
+      ).toBe('allow')
+    }
+  })
+
+  it('las páginas que comparten carpeta con /public siguen bloqueadas', () => {
+    for (const pathname of ['/halloween', '/halloween/pedido/abc123', '/halloween/telon.jpg/x']) {
+      expect(
+        qaGateDecision({ pathname, authorization: null, password: 'secreta', qa: true }),
+        pathname
+      ).toBe('challenge')
+    }
+  })
+
+  it('archivos parecidos a los exentos no quedan exentos', () => {
+    for (const pathname of [
+      '/images-falso/x.jpg',
+      '/images',
+      '/robots.txt.bak',
+      '/manifest.json/x',
+      '/sw.js.map',
+      '/icon-192.png.html',
+      '/favicon.ico/x',
+    ]) {
+      expect(
+        qaGateDecision({ pathname, authorization: null, password: 'secreta', qa: true }),
+        pathname
+      ).toBe('challenge')
+    }
+  })
+
   it('prefijos parecidos no quedan exentos', () => {
     for (const pathname of ['/api/cron-falso', '/api/cron', '/api/payments/payway/init', '/api/webhooks/facturador-falso']) {
       expect(

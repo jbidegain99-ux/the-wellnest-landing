@@ -12,19 +12,40 @@ export interface QaGateInput {
 
 // Rutas que llaman servicios externos (PayWay, Facturo, cron de Vercel) y no
 // pueden mandar la contraseña. Coincidencia exacta o por segmento completo.
-const EXEMPT_PATHS = [
+const EXEMPT_ROUTES = [
   '/api/payments/payway/callback',
   '/api/payments/payway/denied',
   '/api/webhooks/facturador',
+]
+
+// Archivos sueltos de /public (más favicon.ico y robots.txt, para que los
+// crawlers lean el `Disallow` de QA). Coincidencia exacta.
+const EXEMPT_FILES = [
   '/favicon.ico',
+  '/favicon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon-maskable-192.png',
+  '/manifest.json',
+  '/sw.js',
+  '/offline.html',
+  '/robots.txt',
 ]
 
 // Prefijos exentos: todo lo que cuelga de ellos (con la barra final incluida,
-// para que `/api/cron-falso` no quede exento).
-const EXEMPT_PREFIXES = ['/api/cron/', '/_next/']
+// para que `/api/cron-falso` o `/images-falso` no queden exentos). `/images/`
+// hace falta además porque el optimizador de next/image (/_next/image) pide
+// el original sin el header Basic.
+const EXEMPT_PREFIXES = ['/api/cron/', '/_next/', '/images/']
+
+// /public/halloween comparte carpeta con las páginas /halloween/...: ahí solo
+// se exentan imágenes de un nivel (p. ej. /halloween/telon.jpg).
+const HALLOWEEN_IMAGE = /^\/halloween\/[^/]+\.(?:jpe?g|png|webp|gif|svg)$/i
 
 function isExempt(pathname: string): boolean {
-  if (EXEMPT_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))) return true
+  if (EXEMPT_ROUTES.some((p) => pathname === p || pathname.startsWith(p + '/'))) return true
+  if (EXEMPT_FILES.includes(pathname)) return true
+  if (HALLOWEEN_IMAGE.test(pathname)) return true
   return EXEMPT_PREFIXES.some((p) => pathname.startsWith(p))
 }
 
