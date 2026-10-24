@@ -129,6 +129,35 @@
   }
 }
 
+/* Entrada de una insignia de logro: escala con un leve giro y un destello. */
+@keyframes badgeArtEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) rotate(-10deg);
+    filter: brightness(1);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.08) rotate(2deg);
+    filter: brightness(1.25);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+    filter: brightness(1);
+  }
+}
+
+.badge-art-enter {
+  animation: badgeArtEnter 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-art-enter {
+    animation: none;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
