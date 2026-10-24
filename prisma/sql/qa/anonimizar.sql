@@ -191,4 +191,28 @@ FROM (
 ) s
 WHERE t."id" = s."id";
 
+-- ---------------------------------------------------------------------------
+-- Asistencias de invitadas sin cuenta
+-- ---------------------------------------------------------------------------
+
+-- GuestAttendance existe en producción (creada a mano) pero no en prisma/schema.prisma,
+-- así que se trata solo si está: guestName es el nombre de la invitada y reason es
+-- texto libre escrito por el staff.
+DO $$
+BEGIN
+  IF to_regclass('public."GuestAttendance"') IS NOT NULL THEN
+    EXECUTE $q$
+      UPDATE "GuestAttendance" g
+      SET "guestName" = 'Invitada QA ' || s.n,
+          "reason"    = NULL
+      FROM (
+        SELECT "id", row_number() OVER (ORDER BY "createdAt", "id") AS n
+        FROM "GuestAttendance"
+      ) s
+      WHERE g."id" = s."id"
+    $q$;
+  END IF;
+END
+$$;
+
 COMMIT;

@@ -8,6 +8,26 @@
 -- tiene datos personales, y sumarla a la lista de abajo.
 
 \set ON_ERROR_STOP on
+-- Sin etiquetas de comando (CREATE FUNCTION…): qa-refresh.sh solo espera filas chequeo|conteo.
+\set QUIET on
+
+-- GuestAttendance existe en producción (creada a mano) pero no en el schema: se cuenta
+-- solo si está. Función temporal de la sesión; no deja nada en la base.
+CREATE FUNCTION pg_temp.invitadas_asistencia_reales() RETURNS bigint
+LANGUAGE plpgsql AS $$
+DECLARE
+  n bigint;
+BEGIN
+  IF to_regclass('public."GuestAttendance"') IS NULL THEN
+    RETURN 0;
+  END IF;
+  EXECUTE $q$
+    SELECT count(*) FROM "GuestAttendance"
+    WHERE "guestName" !~ '^Invitada QA [0-9]+$' OR "reason" IS NOT NULL
+  $q$ INTO n;
+  RETURN n;
+END
+$$;
 
 SELECT 'usuarias_correo_no_qa' AS chequeo, count(*) AS conteo
   FROM "User"
@@ -96,6 +116,8 @@ SELECT 'entradas_evento_datos_reales', count(*)
      OR "holderName" !~ '^Asistente QA [0-9]+$'
      OR "holderPhone" !~ '^\+5030[0-9]{7}$'
 UNION ALL
+SELECT 'invitadas_asistencia_reales', pg_temp.invitadas_asistencia_reales()
+UNION ALL
 SELECT 'tablas_sin_revisar', count(*)
   FROM information_schema.tables
   WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
@@ -104,7 +126,7 @@ SELECT 'tablas_sin_revisar', count(*)
       'User', 'Account', 'Session', 'VerificationToken', 'PasswordResetToken',
       'Reservation', 'Referral', 'ContactMessage', 'PaymentTransaction', 'PaymentMethod',
       'Purchase', 'webhook_logs', 'PrivateSessionRequest', 'Class', 'RefundRequest',
-      'ExcludedPurchase', 'EventOrder', 'EventTicket',
+      'ExcludedPurchase', 'EventOrder', 'EventTicket', 'GuestAttendance',
       -- revisadas: sin datos personales de clientas
       'Discipline', 'Instructor', 'Package', 'PackageDiscipline', 'Waitlist', 'DiscountCode',
       'BlogPost', 'GalleryImage', 'Testimonial', 'CartItem', 'NotificationSettings',
