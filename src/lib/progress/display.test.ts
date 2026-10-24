@@ -48,8 +48,12 @@ describe('monthDeltaText', () => {
     expect(monthDeltaText(40, 40, 'sep 2026')).toBe('Igual que en septiembre')
   })
 
-  it('menos: muestra el dato del mes anterior, sin restar ni culpar', () => {
-    expect(monthDeltaText(10, 40, 'sep 2026')).toBe('En septiembre: 40 min')
+  it('menos: no muestra comparación (sin restar ni culpar)', () => {
+    expect(monthDeltaText(10, 40, 'sep 2026')).toBeNull()
+  })
+
+  it('este mes en cero y el anterior con minutos: sin comparación', () => {
+    expect(monthDeltaText(0, 40, 'sep 2026')).toBeNull()
   })
 
   it('ambos en cero: sin comparación', () => {

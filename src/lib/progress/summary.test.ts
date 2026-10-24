@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { buildProgressSummary, type AttendedClass } from './summary'
+import {
+  buildProgressSummary,
+  EXPLORER_DISCIPLINES,
+  MILESTONES,
+  WEEKLY_TARGET_MINUTES,
+  type AttendedClass,
+} from './summary'
 
 const NOW = new Date('2026-10-24T18:00:00Z') // sábado 24-oct SV
 
@@ -123,5 +129,16 @@ describe('buildProgressSummary', () => {
   it('es serializable a JSON', () => {
     const s = buildProgressSummary([cls('2026-10-20T15:00:00Z')], NOW)
     expect(JSON.parse(JSON.stringify(s))).toEqual(s)
+  })
+})
+
+describe('constantes exportadas', () => {
+  it('coinciden con lo que usa el resumen', () => {
+    expect(MILESTONES).toEqual([1, 10, 25, 50, 100])
+    expect(EXPLORER_DISCIPLINES).toBe(3)
+    expect(WEEKLY_TARGET_MINUTES).toBe(150)
+    const s = buildProgressSummary([], NOW)
+    expect(s.week.targetMinutes).toBe(WEEKLY_TARGET_MINUTES)
+    expect(s.milestones.next).toBe(MILESTONES[0])
   })
 })

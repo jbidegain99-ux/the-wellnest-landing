@@ -39,7 +39,7 @@ export function MonthBars({ months }: MonthBarsProps) {
             >
               {monthShortName(m.label)}
             </span>
-            <span className="text-[11px] text-gray-500" aria-hidden="true">
+            <span className="text-[11px] text-gray-500 whitespace-nowrap" aria-hidden="true">
               {m.minutes} min
             </span>
           </li>

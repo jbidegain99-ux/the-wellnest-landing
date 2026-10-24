@@ -5,10 +5,10 @@ import Link from 'next/link'
 import {
   Activity,
   Award,
+  CalendarCheck,
   CalendarDays,
   Clock,
   Compass,
-  Flame,
   Leaf,
   Loader2,
   Sparkles,
@@ -23,13 +23,15 @@ import { MixRadar } from '@/components/progress/MixRadar'
 import { MonthBars } from '@/components/progress/MonthBars'
 import { useShowCalories } from '@/components/progress/useShowCalories'
 import { AXIS_LABELS } from '@/lib/progress/profiles'
-import type { ClassSummary, ProgressSummary } from '@/lib/progress/summary'
+import {
+  EXPLORER_DISCIPLINES,
+  MILESTONES,
+  WEEKLY_TARGET_MINUTES,
+  type ClassSummary,
+  type ProgressSummary,
+} from '@/lib/progress/summary'
 import { monthDeltaText, monthFullName, plural, topAxes } from '@/lib/progress/display'
 import { cn, formatClassType, formatDate, formatTime } from '@/lib/utils'
-
-// Mismos valores que src/lib/progress/summary.ts (allí no se exportan).
-const MILESTONES = [1, 10, 25, 50, 100]
-const EXPLORER_DISCIPLINES = 3
 
 const SOUND_THERAPY_TEXT = 'Clase de calma: sin gasto activo'
 const FOOTER_TEXT =
@@ -67,8 +69,9 @@ export default function ProgresoPage() {
 
   if (state.status === 'loading') {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center py-20" role="status">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+        <span className="sr-only">Cargando tu progreso…</span>
       </div>
     )
   }
@@ -272,7 +275,7 @@ function WeekCard({ week }: { week: ProgressSummary['week'] }) {
           <p className="text-gray-600">
             {reached
               ? '¡Llegaste a la referencia de la semana!'
-              : 'La OMS recomienda 150 min de actividad a la semana.'}
+              : `La OMS recomienda ${WEEKLY_TARGET_MINUTES} min de actividad a la semana.`}
           </p>
         </div>
       </CardContent>
@@ -294,15 +297,22 @@ function StreakCard({ streak }: { streak: ProgressSummary['streak'] }) {
   return (
     <Card>
       <CardHeader>
-        <SectionTitle icon={Flame}>Racha semanal</SectionTitle>
+        <SectionTitle icon={CalendarCheck}>Racha semanal</SectionTitle>
         <CardDescription>Semanas seguidas con al menos una clase</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="font-serif text-5xl font-semibold text-foreground">{streak.weeks}</p>
-        <p className="text-sm text-gray-600 mt-1">
-          {streak.weeks === 1 ? 'semana seguida' : 'semanas seguidas'}
-        </p>
-        <p className="text-sm text-foreground mt-4">{message}</p>
+        {/* Sin racha no mostramos un 0 gigante: solo la invitación. */}
+        {streak.weeks > 0 ? (
+          <>
+            <p className="font-serif text-5xl font-semibold text-foreground">{streak.weeks}</p>
+            <p className="text-sm text-gray-600 mt-1">
+              {streak.weeks === 1 ? 'semana seguida' : 'semanas seguidas'}
+            </p>
+            <p className="text-sm text-foreground mt-4">{message}</p>
+          </>
+        ) : (
+          <p className="text-foreground">{message}</p>
+        )}
       </CardContent>
     </Card>
   )
@@ -347,6 +357,7 @@ function FlexCalmCard({ month }: { month: ProgressSummary['month'] }) {
       icon: Leaf,
       value: current.flexMinutes,
       delta: monthDeltaText(current.flexMinutes, previous.flexMinutes, previous.label),
+      note: null,
     },
     {
       key: 'calm',
@@ -354,6 +365,7 @@ function FlexCalmCard({ month }: { month: ProgressSummary['month'] }) {
       icon: Wind,
       value: current.calmMinutes,
       delta: monthDeltaText(current.calmMinutes, previous.calmMinutes, previous.label),
+      note: 'Suma la calma de todas tus clases: terapia de sonido, yoga y los momentos tranquilos de las demás.',
     },
   ]
 
@@ -364,7 +376,7 @@ function FlexCalmCard({ month }: { month: ProgressSummary['month'] }) {
         <CardDescription>Este mes ({monthFullName(current.label)})</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {rows.map(({ key, label, icon: Icon, value, delta }) => (
+        {rows.map(({ key, label, icon: Icon, value, delta, note }) => (
           <div key={key} className="flex items-start gap-3 rounded-xl bg-beige p-4">
             <Icon className="h-5 w-5 text-primary-600 mt-1 shrink-0" />
             <div>
@@ -373,6 +385,7 @@ function FlexCalmCard({ month }: { month: ProgressSummary['month'] }) {
                 {value} <span className="text-base font-normal text-gray-600">min</span>
               </p>
               {delta && <p className="text-sm text-primary-700 mt-0.5">{delta}</p>}
+              {note && <p className="text-xs text-gray-600 mt-1">{note}</p>}
             </div>
           </div>
         ))}
@@ -475,6 +488,8 @@ function CaloriesToggle({ checked, onChange }: { checked: boolean; onChange: (va
           onClick={() => onChange(!checked)}
           className={cn(
             'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors motion-reduce:transition-none',
+            // Área táctil de 48×48 px sin cambiar el aspecto del interruptor.
+            "after:absolute after:left-1/2 after:top-1/2 after:h-12 after:w-12 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
             checked ? 'bg-primary-600' : 'bg-gray-300'
           )}

@@ -37,15 +37,15 @@ export function monthShortName(label: string): string {
 }
 
 /**
- * Comparación con el mes anterior. Si este mes va por debajo no se resta
- * (el mes no ha terminado y no queremos culpa): se muestra el dato anterior.
+ * Comparación con el mes anterior. Si este mes va por debajo no se muestra
+ * ninguna comparación (el mes no ha terminado y no queremos culpa).
  */
 export function monthDeltaText(current: number, previous: number, previousLabel: string): string | null {
   if (current === 0 && previous === 0) return null
+  if (current < previous) return null
   const month = monthFullName(previousLabel)
   if (current > previous) return `+${current - previous} min vs. ${month}`
-  if (current === previous) return `Igual que en ${month}`
-  return `En ${month}: ${previous} min`
+  return `Igual que en ${month}`
 }
 
 export function plural(n: number, singular: string, pluralForm: string): string {

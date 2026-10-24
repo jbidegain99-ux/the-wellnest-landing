@@ -14,8 +14,12 @@ import {
 const TZ = 'America/El_Salvador'
 const DAY_MS = 24 * 3600 * 1000
 const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-const MILESTONES = [1, 10, 25, 50, 100]
-const EXPLORER_DISCIPLINES = 3
+/** Hitos de clases tomadas (se usan también en la página Mi progreso). */
+export const MILESTONES: readonly number[] = [1, 10, 25, 50, 100]
+/** Disciplinas distintas para el logro "Exploradora". */
+export const EXPLORER_DISCIPLINES = 3
+/** Referencia semanal de la OMS en minutos de actividad. */
+export const WEEKLY_TARGET_MINUTES = 150
 
 export interface AttendedClass {
   classId: string
@@ -48,7 +52,7 @@ export interface MonthStat {
 export interface ProgressSummary {
   totalClasses: number
   lastClass: ClassSummary | null
-  week: { activeMinutes: number; calmMinutes: number; classes: number; targetMinutes: 150 }
+  week: { activeMinutes: number; calmMinutes: number; classes: number; targetMinutes: typeof WEEKLY_TARGET_MINUTES }
   streak: { weeks: number; currentWeekHasClass: boolean }
   mix30d: Record<Axis, number> | null
   month: { current: MonthStat; previous: MonthStat }
@@ -206,7 +210,7 @@ export function buildProgressSummary(classes: AttendedClass[], now: Date): Progr
   return {
     totalClasses: total,
     lastClass,
-    week: { activeMinutes, calmMinutes, classes: weekClasses, targetMinutes: 150 },
+    week: { activeMinutes, calmMinutes, classes: weekClasses, targetMinutes: WEEKLY_TARGET_MINUTES },
     streak: { weeks: streakWeeks, currentWeekHasClass },
     mix30d,
     month: { current: months[5], previous: months[4] },
