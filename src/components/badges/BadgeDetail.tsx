@@ -4,6 +4,7 @@ import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { CheckCircle2, X } from 'lucide-react'
 import { BadgeArt } from '@/components/badges/BadgeArt'
+import { useModalFocus } from '@/components/badges/useModalFocus'
 import {
   badgeProgressText,
   formatBadgeDate,
@@ -17,8 +18,6 @@ interface BadgeDetailProps {
   badge: BadgeState | null
   onClose: () => void
 }
-
-const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 /**
  * Detalle de un logro: hoja inferior en móvil, modal centrado en escritorio.
@@ -35,43 +34,7 @@ function DetailDialog({ badge, onClose }: { badge: BadgeState; onClose: () => vo
   const artId = React.useId()
   const panelRef = React.useRef<HTMLDivElement>(null)
   const closeRef = React.useRef<HTMLButtonElement>(null)
-  const onCloseRef = React.useRef(onClose)
-  onCloseRef.current = onClose
-
-  React.useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeRef.current?.focus()
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onCloseRef.current()
-        return
-      }
-      if (e.key !== 'Tab' || !panelRef.current) return
-      const items = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE))
-      if (items.length === 0) return
-      const first = items[0]
-      const last = items[items.length - 1]
-      const active = document.activeElement
-      if (e.shiftKey && (active === first || !panelRef.current.contains(active))) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && (active === last || !panelRef.current.contains(active))) {
-        e.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.body.style.overflow = previousOverflow
-      previous?.focus()
-    }
-  }, [])
+  useModalFocus(panelRef, closeRef, onClose)
 
   const earned = badge.earnedAt !== null
   const ratio = progressRatio(badge)

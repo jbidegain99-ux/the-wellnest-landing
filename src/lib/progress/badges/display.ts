@@ -71,3 +71,11 @@ export function sectionBadges(badges: BadgeState[], category: BadgeCategory): Ba
   if (category === 'reto') return earned
   return [...earned, ...inCategory.filter((b) => b.earnedAt === null)]
 }
+
+/** Los retos de otros años muestran el año: "Reto de octubre 2025". */
+export function withChallengeYear(badge: BadgeState, currentYear: number): BadgeState {
+  if (badge.category !== 'reto') return badge
+  const m = badge.id.match(/^reto-(\d{4})-\d{2}$/)
+  if (!m || Number(m[1]) === currentYear) return badge
+  return { ...badge, title: `${badge.title} ${m[1]}` }
+}

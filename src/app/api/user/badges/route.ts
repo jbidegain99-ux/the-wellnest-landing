@@ -3,18 +3,11 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { loadAttendedClasses } from '@/lib/progress/load'
 import { currentChallenge, evaluateBadges } from '@/lib/progress/badges/evaluate'
-import type { BadgeState, BadgesResponse } from '@/lib/progress/badges/types'
+import { withChallengeYear } from '@/lib/progress/badges/display'
+import type { BadgesResponse } from '@/lib/progress/badges/types'
 import { localParts } from '@/lib/progress/time'
 
 export const dynamic = 'force-dynamic'
-
-/** Los retos de otros años muestran el año: "Reto de octubre 2025". */
-function withChallengeYear(badge: BadgeState, currentYear: number): BadgeState {
-  if (badge.category !== 'reto') return badge
-  const m = badge.id.match(/^reto-(\d{4})-\d{2}$/)
-  if (!m || Number(m[1]) === currentYear) return badge
-  return { ...badge, title: `${badge.title} ${m[1]}` }
-}
 
 export async function GET() {
   try {

@@ -6,6 +6,7 @@ import {
   progressRatio,
   remainingText,
   sectionBadges,
+  withChallengeYear,
 } from './display'
 import type { BadgeState } from './types'
 
@@ -104,5 +105,24 @@ describe('sectionBadges', () => {
 
   it('en el reto solo los meses ganados', () => {
     expect(sectionBadges(list, 'reto').map((b) => b.id)).toEqual(['reto-2026-09'])
+  })
+})
+
+describe('withChallengeYear', () => {
+  const reto = badge({ id: 'reto-2025-10', category: 'reto', title: 'Reto de octubre', glyph: 'reto' })
+
+  it('agrega el año a los retos de otros años', () => {
+    expect(withChallengeYear(reto, 2026).title).toBe('Reto de octubre 2025')
+  })
+
+  it('deja igual los retos de este año y las demás insignias', () => {
+    expect(withChallengeYear(reto, 2025)).toBe(reto)
+    const clases = badge({ id: 'clases-10', title: '10 clases' })
+    expect(withChallengeYear(clases, 2030)).toBe(clases)
+  })
+
+  it('no toca el resto de los campos', () => {
+    const out = withChallengeYear(reto, 2026)
+    expect({ ...out, title: reto.title }).toEqual(reto)
   })
 })

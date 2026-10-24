@@ -1,0 +1,55 @@
+'use client'
+
+import * as React from 'react'
+
+const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+/**
+ * Comportamiento de un diálogo modal mientras está montado: bloquea el scroll
+ * del body, pone el foco en `initialFocusRef`, Escape llama a `onClose`, Tab
+ * queda dentro de `panelRef` y al desmontar el foco vuelve a donde estaba.
+ */
+export function useModalFocus(
+  panelRef: React.RefObject<HTMLElement>,
+  initialFocusRef: React.RefObject<HTMLElement>,
+  onClose: () => void
+): void {
+  const onCloseRef = React.useRef(onClose)
+  onCloseRef.current = onClose
+
+  React.useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    initialFocusRef.current?.focus()
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      const panel = panelRef.current
+      if (e.key !== 'Tab' || !panel) return
+      const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE))
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      const active = document.activeElement
+      if (e.shiftKey && (active === first || !panel.contains(active))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+      previous?.focus()
+    }
+  }, [panelRef, initialFocusRef])
+}

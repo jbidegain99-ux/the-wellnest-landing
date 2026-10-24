@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
 import { hidesSiteChrome } from '@/lib/events/routes'
+import { MiniProgressRing } from '@/components/progress/MiniProgressRing'
+import { useProgressGlance } from '@/components/progress/ProgressGlanceProvider'
+import { navbarProgressLabel } from '@/lib/progress/glanceText'
 
 const navigation = [
   { name: 'Inicio', href: '/' },
@@ -19,6 +22,35 @@ const navigation = [
   { name: 'Equipo', href: '/equipo' },
   { name: 'Contacto', href: '/contacto' },
 ]
+
+/**
+ * Anillo fino con los minutos activos de la semana alrededor del botón de la
+ * usuaria, y un punto si hay logros sin ver. Va en posición absoluta sobre el
+ * botón: no cambia su tamaño (sin saltos mientras carga).
+ */
+function AccountProgressRing({ size }: { size: number }) {
+  const { glance, loading, unseen } = useProgressGlance()
+  if (!glance && !loading) return null
+  const ratio = glance ? glance.week.activeMinutes / glance.week.targetMinutes : 0
+  return (
+    <>
+      <MiniProgressRing
+        ratio={ratio}
+        size={size}
+        stroke={2.5}
+        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+      />
+      {unseen.length > 0 && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-0 top-0 h-2.5 w-2.5 rounded-full ring-2 ring-white"
+          style={{ backgroundColor: '#C17E7E' }}
+        />
+      )}
+      {glance && <span className="sr-only">{navbarProgressLabel(glance, unseen.length)}</span>}
+    </>
+  )
+}
 
 export function Navbar() {
   const [isOpen, setIsOpen] = React.useState(false)
@@ -115,13 +147,14 @@ export function Navbar() {
                 <div className="relative">
                   <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center space-x-2 p-1 rounded-full hover:bg-beige/50 transition-colors"
+                    className="relative flex items-center p-1 rounded-full hover:bg-beige/50 transition-colors"
                   >
                     <Avatar
                       src={session.user?.image}
                       alt={session.user?.name || ''}
                       size="sm"
                     />
+                    <AccountProgressRing size={40} />
                   </button>
                   {isUserMenuOpen && (
                     <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-lg border border-beige py-2 animate-slide-down">
@@ -206,13 +239,15 @@ export function Navbar() {
           <button
             onClick={() => setIsOpen(!isOpen)}
             className={cn(
-              'lg:hidden p-2 rounded-lg transition-colors',
+              'relative lg:hidden p-2 transition-colors',
+              session ? 'rounded-full' : 'rounded-lg',
               isScrolled || !isHomePage
                 ? 'text-gray-600 hover:bg-beige'
                 : 'text-white hover:bg-white/10'
             )}
           >
             {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {session && <AccountProgressRing size={44} />}
           </button>
         </div>
       </div>

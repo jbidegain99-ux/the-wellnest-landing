@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { ArrowRight, Leaf, Heart, Sparkles, Users, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { DisciplinesCarousel } from '@/components/home/DisciplinesCarousel'
+import { HomeProgressStrip } from '@/components/progress/HomeProgressStrip'
 import { getBrandAssets } from '@/lib/assets'
 
 // Force dynamic rendering - never cache this page
@@ -44,86 +45,90 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero Section */}
-      <section className="relative min-h-[80vh] md:min-h-[85vh] flex items-center justify-center overflow-hidden">
-        {/* Background Media - Loaded from Brand Assets (supports both image and video) */}
-        <div className="absolute inset-0">
-          {isHeroImage ? (
-            <Image
-              src={heroMediaUrl}
-              alt="Wellnest Studio"
-              fill
-              className="object-cover object-top"
-              priority
-              sizes="100vw"
-            />
-          ) : (
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              className="absolute w-full h-full object-cover"
-            >
-              <source src={heroMediaUrl} type="video/mp4" />
-            </video>
-          )}
-          {/* Fallback gradient for when media doesn't load */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D] -z-10" />
-          {/* Dark overlay for text readability */}
-          <div className="absolute inset-0 bg-black/40" />
-        </div>
-
-        {/* Content */}
-        <div className="relative z-10 max-w-4xl mx-auto px-4 text-center text-white">
-          {/* Logo */}
-          <h1 className="font-logo text-6xl md:text-8xl lg:text-9xl font-normal tracking-[0.1em] mb-6 animate-fade-in">
-            wellnest.
-          </h1>
-
-          {/* Tagline */}
-          <p className="text-base md:text-lg font-medium tracking-[0.3em] uppercase text-white/80 mb-4 animate-fade-in">
-            The Soul Hub
-          </p>
-
-          {/* Slogan */}
-          <p className="text-xl md:text-2xl text-white/90 mb-6 max-w-2xl mx-auto animate-slide-up font-light">
-            Donde cuerpo, mente y energía se reencuentran.
-          </p>
-
-          {/* Disciplines */}
-          <p className="text-sm md:text-base tracking-[0.15em] text-white/70 mb-10 animate-slide-up">
-            MAT PILATES &nbsp;|&nbsp; YOGA &nbsp;|&nbsp; POLE &nbsp;|&nbsp; SOUND BATH &nbsp;|&nbsp; NUTRITION
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up">
-            <Link href="/paquetes">
-              <Button size="lg" className="w-full sm:w-auto">
-                Ver Paquetes
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-            <Link href="/horarios">
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full sm:w-auto border-white text-white hover:bg-white hover:text-foreground"
+      <div className="relative">
+        {/* Progreso de la usuaria con sesión: bajo el Navbar, sobre el hero */}
+        <HomeProgressStrip />
+        {/* Hero Section (en móvil se centra bajo el Navbar fijo; deja sitio a la franja de progreso) */}
+        <section className="relative min-h-[80vh] md:min-h-[85vh] pt-12 md:pt-0 flex items-center justify-center overflow-hidden">
+          {/* Background Media - Loaded from Brand Assets (supports both image and video) */}
+          <div className="absolute inset-0">
+            {isHeroImage ? (
+              <Image
+                src={heroMediaUrl}
+                alt="Wellnest Studio"
+                fill
+                className="object-cover object-top"
+                priority
+                sizes="100vw"
+              />
+            ) : (
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                className="absolute w-full h-full object-cover"
               >
-                <Calendar className="mr-2 h-5 w-5" />
-                Ver Horarios
-              </Button>
-            </Link>
+                <source src={heroMediaUrl} type="video/mp4" />
+              </video>
+            )}
+            {/* Fallback gradient for when media doesn't load */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D] -z-10" />
+            {/* Dark overlay for text readability */}
+            <div className="absolute inset-0 bg-black/40" />
           </div>
-        </div>
 
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-          <div className="w-8 h-12 rounded-full border-2 border-white/50 flex items-start justify-center p-2">
-            <div className="w-1 h-3 bg-white/70 rounded-full" />
+          {/* Content */}
+          <div className="relative z-10 max-w-4xl mx-auto px-4 text-center text-white">
+            {/* Logo */}
+            <h1 className="font-logo text-6xl md:text-8xl lg:text-9xl font-normal tracking-[0.1em] mb-6 animate-fade-in">
+              wellnest.
+            </h1>
+
+            {/* Tagline */}
+            <p className="text-base md:text-lg font-medium tracking-[0.3em] uppercase text-white/80 mb-4 animate-fade-in">
+              The Soul Hub
+            </p>
+
+            {/* Slogan */}
+            <p className="text-xl md:text-2xl text-white/90 mb-6 max-w-2xl mx-auto animate-slide-up font-light">
+              Donde cuerpo, mente y energía se reencuentran.
+            </p>
+
+            {/* Disciplines */}
+            <p className="text-sm md:text-base tracking-[0.15em] text-white/70 mb-10 animate-slide-up">
+              MAT PILATES &nbsp;|&nbsp; YOGA &nbsp;|&nbsp; POLE &nbsp;|&nbsp; SOUND BATH &nbsp;|&nbsp; NUTRITION
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up">
+              <Link href="/paquetes">
+                <Button size="lg" className="w-full sm:w-auto">
+                  Ver Paquetes
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/horarios">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full sm:w-auto border-white text-white hover:bg-white hover:text-foreground"
+                >
+                  <Calendar className="mr-2 h-5 w-5" />
+                  Ver Horarios
+                </Button>
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+
+          {/* Scroll indicator */}
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+            <div className="w-8 h-12 rounded-full border-2 border-white/50 flex items-start justify-center p-2">
+              <div className="w-1 h-3 bg-white/70 rounded-full" />
+            </div>
+          </div>
+        </section>
+      </div>
 
       {/* Disciplines Section - Carousel with Hover Reveal */}
       <DisciplinesCarousel assets={assets} />

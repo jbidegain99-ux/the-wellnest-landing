@@ -224,6 +224,92 @@
   }
 }
 
+/* Celebración de un logro nuevo: halo cálido, un brillo que cruza la medalla y
+   destellos que quedan quietos. Sin movimiento con prefers-reduced-motion. */
+@keyframes celebratePop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes celebrateHalo {
+  0% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes celebrateShine {
+  from {
+    transform: translateX(-130%) rotate(18deg);
+  }
+  to {
+    transform: translateX(130%) rotate(18deg);
+  }
+}
+
+@keyframes celebrateTwinkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-30deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15) rotate(0deg);
+  }
+  100% {
+    opacity: 0.85;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes glanceFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fuera de la medalla mientras no se anima (y siempre con movimiento reducido). */
+.celebrate-shine {
+  transform: translateX(-130%) rotate(18deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .celebrate-pop {
+    animation: celebratePop 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .celebrate-halo {
+    animation: celebrateHalo 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both;
+  }
+  .celebrate-shine {
+    animation: celebrateShine 1.2s ease-in-out 0.8s both;
+  }
+  .celebrate-twinkle {
+    animation: celebrateTwinkle 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .glance-fade-in {
+    animation: glanceFadeIn 0.45s ease-out both;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
