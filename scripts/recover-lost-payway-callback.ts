@@ -13,6 +13,9 @@
  * Primer uso: 2026-10-01, Matilde Delgado (orden cmuqc53wv0009xdc9igar48ne),
  * callback caído por "too many connections for role prisma_migration".
  *
+ * Por defecto apunta a QA (.env). Contra producción:
+ *   WELLNEST_ENV=prod npx tsx scripts/recover-lost-payway-callback.ts …   (carga .env.prod y avisa el host)
+ *
  * Uso:
  *   npx tsx scripts/recover-lost-payway-callback.ts pago.json           # dry-run
  *   npx tsx scripts/recover-lost-payway-callback.ts pago.json --apply   # escribe

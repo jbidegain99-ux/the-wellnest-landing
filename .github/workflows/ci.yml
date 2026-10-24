@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+# Solo lectura del repo: el job no publica nada
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      # Valores falsos: el build no necesita base ni secretos reales
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      POSTGRES_URL: postgresql://ci:ci@localhost:5432/ci
+      NEXTAUTH_SECRET: ci
+      NEXTAUTH_URL: http://localhost:3000
+      SKIP_ENV_VALIDATION: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build

@@ -5,6 +5,8 @@ import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Providers } from '@/components/providers/Providers'
+import { QaBanner } from '@/components/QaBanner'
+import { isQa } from '@/lib/appEnv'
 
 // Tipografía única: Quicksand - para todo el sitio
 // Regular (400) para textos y párrafos
@@ -31,6 +33,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'es_SV',
   },
+  // QA no se indexa. El env es fijo por deployment, así que basta a nivel de módulo.
+  ...(isQa() ? { robots: { index: false, follow: false } } : {}),
 }
 
 export default function RootLayout({
@@ -49,6 +53,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className="min-h-screen flex flex-col">
+        {isQa() && <QaBanner />}
         <Providers>
           <Navbar />
           <main className="flex-1">

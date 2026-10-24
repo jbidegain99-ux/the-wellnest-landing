@@ -6,6 +6,9 @@
  * Mismos destinatarios que el cron semanal:
  *   env INSTRUCTOR_PAYMENTS_RECIPIENT (default jbidegain@republicode.com, alexis2293@gmail.com)
  *
+ * Por defecto apunta a QA (.env). Contra producción:
+ *   WELLNEST_ENV=prod npx tsx scripts/instructor-payments-month.ts …   (carga .env.prod y avisa el host)
+ *
  * Uso:
  *   pnpm tsx scripts/instructor-payments-month.ts 2026-05
  *     → preview en terminal + Excel a tasks/reports/ (NO envía email)

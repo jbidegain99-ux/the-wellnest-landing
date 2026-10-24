@@ -83,7 +83,7 @@ describe('expandWeekdayPattern', () => {
 
 describe('mergeDateSelection', () => {
   it('une patrón y fechas sueltas sin duplicar', () => {
-    expect(mergeDateSelection(['2026-09-07', '2026-09-09'], ['2026-09-09', '2026-09-12'])).toEqual([
+    expect(mergeDateSelection(['2026-09-07', '2026-09-09'], ['2026-09-09', '2026-09-12'], '2026-09-01')).toEqual([
       '2026-09-07',
       '2026-09-09',
       '2026-09-12',
@@ -91,7 +91,7 @@ describe('mergeDateSelection', () => {
   })
 
   it('ordena cronológicamente', () => {
-    expect(mergeDateSelection(['2026-10-01'], ['2026-09-30'])).toEqual([
+    expect(mergeDateSelection(['2026-10-01'], ['2026-09-30'], '2026-09-01')).toEqual([
       '2026-09-30',
       '2026-10-01',
     ])

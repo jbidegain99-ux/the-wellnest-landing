@@ -5,6 +5,9 @@
  * lunes (src/app/api/cron/instructor-payments/route.ts), pero con período y
  * destinatarios configurables.
  *
+ * Por defecto apunta a QA (.env). Contra producción:
+ *   WELLNEST_ENV=prod npx tsx scripts/send-instructor-payments-range.ts …   (carga .env.prod y avisa el host)
+ *
  * Uso:
  *   npx tsx scripts/send-instructor-payments-range.ts --from 2026-07-15 --to 2026-07-28 --email a@b.com
  *   ... agrega --send para enviar el correo (sin --send es preview).

@@ -1,6 +1,9 @@
 /**
  * Correo de agradecimiento después de un evento (por defecto The Villains Ball).
  *
+ * Por defecto apunta a QA (.env). Contra producción:
+ *   WELLNEST_ENV=prod npx tsx scripts/send-event-thanks.ts …   (carga .env.prod y avisa el host)
+ *
  * Por defecto es DRY-RUN: solo lista a quién se le mandaría. Para enviar:
  *   npx tsx scripts/send-event-thanks.ts --evento villains-ball --send
  *

@@ -1,4 +1,11 @@
 import { PrismaClient } from '@prisma/client'
+import { prodSignalError } from './envFiles'
+
+// Scripts: WELLNEST_ENV=prod sin `import './loadEnv'` haría que Prisma lea el
+// .env local (QA) en silencio creyendo estar en producción. Sin WELLNEST_ENV
+// (la app en Vercel) no hace nada.
+const prodSignal = prodSignalError(process.env)
+if (prodSignal) throw new Error(prodSignal)
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined

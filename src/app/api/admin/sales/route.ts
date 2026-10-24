@@ -31,7 +31,6 @@ export async function GET(request: Request) {
 
     // Build where clause for purchases (exclude test users + financial exclusions)
     const excludedPurchaseIds = await getExcludedPurchaseIds()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: Record<string, any> = {
       userId: { notIn: EXCLUDED_USER_IDS },
       ...(excludedPurchaseIds.length > 0 && { id: { notIn: excludedPurchaseIds } }),
