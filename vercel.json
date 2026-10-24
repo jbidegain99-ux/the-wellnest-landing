@@ -16,5 +16,6 @@
       "path": "/api/cron/retry-invoices",
       "schedule": "23 13 * * *"
     }
-  ]
+  ],
+  "ignoreCommand": "bash -c '[[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" && \"$VERCEL_GIT_COMMIT_REF\" != \"develop\" ]]'"
 }
