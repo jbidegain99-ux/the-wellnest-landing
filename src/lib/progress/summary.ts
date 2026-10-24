@@ -1,7 +1,6 @@
 // Resumen de progreso de una usuaria a partir de sus clases asistidas.
 // Lógica pura: sin base de datos. Todo el cálculo por fecha usa America/El_Salvador.
 
-import { formatInTimeZone } from 'date-fns-tz'
 import {
   AXES,
   getDisciplineProfile,
@@ -10,10 +9,9 @@ import {
   type Axis,
   type Intensity,
 } from './profiles'
+import { localParts, weekIndex, monthIndex, MONTH_LABELS } from './time'
 
-const TZ = 'America/El_Salvador'
 const DAY_MS = 24 * 3600 * 1000
-const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 /** Hitos de clases tomadas (se usan también en la página Mi progreso). */
 export const MILESTONES: readonly number[] = [1, 10, 25, 50, 100]
 /** Disciplinas distintas para el logro "Exploradora". */
@@ -63,27 +61,6 @@ export interface ProgressSummary {
     explorer: { disciplines: number; reached: boolean }
   }
   months: MonthStat[]
-}
-
-interface LocalParts {
-  year: number
-  month: number // 0-11
-  /** Días desde 1970-01-01 de la fecha local. */
-  day: number
-}
-
-function localParts(d: Date): LocalParts {
-  const [y, m, dd] = formatInTimeZone(d, TZ, 'yyyy-MM-dd').split('-').map(Number)
-  return { year: y, month: m - 1, day: Math.round(Date.UTC(y, m - 1, dd) / DAY_MS) }
-}
-
-/** Índice de semana lunes–domingo (el 1-ene-1970 fue jueves). */
-function weekIndex(day: number): number {
-  return Math.floor((day + 3) / 7)
-}
-
-function monthIndex(p: LocalParts): number {
-  return p.year * 12 + p.month
 }
 
 function monthLabel(idx: number): string {
