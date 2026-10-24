@@ -9,10 +9,21 @@
 
 import crypto from 'crypto'
 import type { FacturadorConfig } from '@/types/facturador'
+import { isQa } from '@/lib/appEnv'
 
 // ========================================
 // Configuración
 // ========================================
+
+const FACTURO_QA_HOST = 'api-qa.facturoelectronicosv.com'
+
+function isFacturoQaUrl(apiUrl: string): boolean {
+  try {
+    return new URL(apiUrl).hostname === FACTURO_QA_HOST
+  } catch {
+    return false
+  }
+}
 
 export function getFacturadorConfig(): FacturadorConfig | null {
   const apiUrl = process.env.FACTURADOR_SV_API_URL
@@ -21,6 +32,13 @@ export function getFacturadorConfig(): FacturadorConfig | null {
 
   if (!apiUrl || !tenantId) {
     console.warn('[FACTURADOR] Missing configuration (FACTURADOR_SV_API_URL or FACTURADOR_SV_TENANT_ID) - facturación deshabilitada')
+    return null
+  }
+
+  // Candado: QA solo factura contra el ambiente de pruebas de Facturo; con
+  // cualquier otro host se comporta como sin configuración (no emite DTE real).
+  if (isQa() && !isFacturoQaUrl(apiUrl)) {
+    console.warn(`[FACTURADOR] QA solo acepta ${FACTURO_QA_HOST} en FACTURADOR_SV_API_URL - facturación deshabilitada`)
     return null
   }
 

@@ -9,10 +9,17 @@
  */
 
 import crypto from 'crypto'
+import { isQa } from '@/lib/appEnv'
 
 // PayWay environment configuration
 export function getPaywayConfig() {
   const env = process.env.PAYWAY_ENV || 'TEST'
+
+  // Candado: QA nunca cobra con la pasarela real, aunque alguien copie las
+  // variables de producción al entorno de QA.
+  if (isQa() && env === 'PROD') {
+    throw new Error('[PAYWAY] QA no puede usar PAYWAY_ENV=PROD (cobros reales). Usa PAYWAY_ENV=TEST en QA.')
+  }
 
   const baseUrl =
     env === 'PROD'
