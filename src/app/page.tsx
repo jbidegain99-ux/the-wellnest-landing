@@ -45,42 +45,44 @@ export default async function HomePage() {
 
   return (
     <>
-      <div className="relative">
-        {/* Progreso de la usuaria con sesión: bajo el Navbar, sobre el hero */}
-        <HomeProgressStrip />
-        {/* Hero Section (en móvil se centra bajo el Navbar fijo; deja sitio a la franja de progreso) */}
-        <section className="relative min-h-[80vh] md:min-h-[85vh] pt-12 md:pt-0 flex items-center justify-center overflow-hidden">
-          {/* Background Media - Loaded from Brand Assets (supports both image and video) */}
-          <div className="absolute inset-0">
-            {isHeroImage ? (
-              <Image
-                src={heroMediaUrl}
-                alt="Wellnest Studio"
-                fill
-                className="object-cover object-top"
-                priority
-                sizes="100vw"
-              />
-            ) : (
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-                className="absolute w-full h-full object-cover"
-              >
-                <source src={heroMediaUrl} type="video/mp4" />
-              </video>
-            )}
-            {/* Fallback gradient for when media doesn't load */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D] -z-10" />
-            {/* Dark overlay for text readability */}
-            <div className="absolute inset-0 bg-black/40" />
-          </div>
+      {/* Hero Section. En móvil, pt-12 aleja el logo del Navbar fijo (con o sin sesión). */}
+      <section className="relative min-h-[80vh] md:min-h-[85vh] pt-12 md:pt-0 flex flex-col overflow-hidden">
+        {/* Background Media - Loaded from Brand Assets (supports both image and video) */}
+        <div className="absolute inset-0">
+          {isHeroImage ? (
+            <Image
+              src={heroMediaUrl}
+              alt="Wellnest Studio"
+              fill
+              className="object-cover object-top"
+              priority
+              sizes="100vw"
+            />
+          ) : (
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              className="absolute w-full h-full object-cover"
+            >
+              <source src={heroMediaUrl} type="video/mp4" />
+            </video>
+          )}
+          {/* Fallback gradient for when media doesn't load */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#6B7F5E] via-[#8B7355] to-[#C4A77D] -z-10" />
+          {/* Dark overlay for text readability */}
+          <div className="absolute inset-0 bg-black/40" />
+        </div>
 
-          {/* Content */}
-          <div className="relative z-10 max-w-4xl mx-auto px-4 text-center text-white">
+        {/* Progreso de la usuaria con sesión: en móvil ocupa su lugar sobre el
+            contenido (lo empuja hacia abajo); desde md flota bajo el Navbar */}
+        <HomeProgressStrip />
+
+        {/* Content */}
+        <div className="relative z-10 flex w-full flex-1 items-center justify-center">
+          <div className="max-w-4xl mx-auto px-4 text-center text-white">
             {/* Logo */}
             <h1 className="font-logo text-6xl md:text-8xl lg:text-9xl font-normal tracking-[0.1em] mb-6 animate-fade-in">
               wellnest.
@@ -120,15 +122,15 @@ export default async function HomePage() {
               </Link>
             </div>
           </div>
+        </div>
 
-          {/* Scroll indicator */}
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-            <div className="w-8 h-12 rounded-full border-2 border-white/50 flex items-start justify-center p-2">
-              <div className="w-1 h-3 bg-white/70 rounded-full" />
-            </div>
+        {/* Scroll indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+          <div className="w-8 h-12 rounded-full border-2 border-white/50 flex items-start justify-center p-2">
+            <div className="w-1 h-3 bg-white/70 rounded-full" />
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       {/* Disciplines Section - Carousel with Hover Reveal */}
       <DisciplinesCarousel assets={assets} />

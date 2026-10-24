@@ -7,9 +7,11 @@ import { useProgressGlance } from '@/components/progress/ProgressGlanceProvider'
 import { glanceStripParts } from '@/lib/progress/glanceText'
 
 /**
- * Franja de progreso en la home, justo bajo el Navbar y sobre el hero (vidrio
- * oscuro sobre el video). Sin sesión, mientras carga o si falla: no aparece.
- * Va en posición absoluta, así no mueve el hero.
+ * Franja de progreso en la home, dentro del hero bajo el Navbar (vidrio oscuro
+ * sobre el video). Sin sesión, mientras carga o si falla: no aparece.
+ * En móvil va en el flujo del hero (que es flex-col) y empuja el contenido, para
+ * no tapar el logo en pantallas bajas; el hero ya trae pt-12, así que pt-8 la deja
+ * justo bajo el Navbar (h-20). Desde md flota en posición absoluta y no mueve nada.
  */
 export function HomeProgressStrip() {
   const { glance } = useProgressGlance()
@@ -19,7 +21,7 @@ export function HomeProgressStrip() {
   const parts = glanceStripParts(glance)
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-20 z-20">
+    <div className="pointer-events-none relative z-20 pb-4 pt-8 md:absolute md:inset-x-0 md:top-20 md:p-0">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div
           className="glance-fade-in pointer-events-auto flex items-center gap-3 rounded-2xl bg-black/35 py-2 pl-2.5 pr-3 text-white ring-1 ring-white/15 backdrop-blur-md sm:inline-flex sm:rounded-full sm:py-1.5 sm:pl-2 sm:pr-2"

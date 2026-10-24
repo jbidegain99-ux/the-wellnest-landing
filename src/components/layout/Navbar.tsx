@@ -26,9 +26,11 @@ const navigation = [
 /**
  * Anillo fino con los minutos activos de la semana alrededor del botón de la
  * usuaria, y un punto si hay logros sin ver. Va en posición absoluta sobre el
- * botón: no cambia su tamaño (sin saltos mientras carga).
+ * botón: no cambia su tamaño (sin saltos mientras carga). El texto del progreso
+ * lleva `descriptionId`: el botón lo usa en aria-describedby, así su nombre
+ * accesible queda limpio ("Abrir menú", "Mi cuenta").
  */
-function AccountProgressRing({ size }: { size: number }) {
+function AccountProgressRing({ size, descriptionId }: { size: number; descriptionId: string }) {
   const { glance, loading, unseen } = useProgressGlance()
   if (!glance && !loading) return null
   const ratio = glance ? glance.week.activeMinutes / glance.week.targetMinutes : 0
@@ -47,7 +49,11 @@ function AccountProgressRing({ size }: { size: number }) {
           style={{ backgroundColor: '#C17E7E' }}
         />
       )}
-      {glance && <span className="sr-only">{navbarProgressLabel(glance, unseen.length)}</span>}
+      {glance && (
+        <span id={descriptionId} className="sr-only">
+          {navbarProgressLabel(glance, unseen.length)}
+        </span>
+      )}
     </>
   )
 }
@@ -58,6 +64,9 @@ export function Navbar() {
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false)
   const pathname = usePathname()
   const { data: session, status } = useSession()
+  const { glance } = useProgressGlance()
+  const accountProgressId = React.useId()
+  const menuProgressId = React.useId()
 
   // Sin navbar público en el admin (tiene su layout) ni en las páginas del evento
   const isAdminRoute = hidesSiteChrome(pathname)
@@ -146,7 +155,12 @@ export function Navbar() {
                 </Link>
                 <div className="relative">
                   <button
+                    type="button"
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    aria-label="Mi cuenta"
+                    aria-haspopup="true"
+                    aria-expanded={isUserMenuOpen}
+                    aria-describedby={glance ? accountProgressId : undefined}
                     className="relative flex items-center p-1 rounded-full hover:bg-beige/50 transition-colors"
                   >
                     <Avatar
@@ -154,7 +168,7 @@ export function Navbar() {
                       alt={session.user?.name || ''}
                       size="sm"
                     />
-                    <AccountProgressRing size={40} />
+                    <AccountProgressRing size={40} descriptionId={accountProgressId} />
                   </button>
                   {isUserMenuOpen && (
                     <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-lg border border-beige py-2 animate-slide-down">
@@ -237,7 +251,11 @@ export function Navbar() {
 
           {/* Mobile menu button */}
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
+            aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
+            aria-expanded={isOpen}
+            aria-describedby={session && glance ? menuProgressId : undefined}
             className={cn(
               'relative lg:hidden p-2 transition-colors',
               session ? 'rounded-full' : 'rounded-lg',
@@ -246,8 +264,8 @@ export function Navbar() {
                 : 'text-white hover:bg-white/10'
             )}
           >
-            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            {session && <AccountProgressRing size={44} />}
+            {isOpen ? <X className="h-6 w-6" aria-hidden="true" /> : <Menu className="h-6 w-6" aria-hidden="true" />}
+            {session && <AccountProgressRing size={44} descriptionId={menuProgressId} />}
           </button>
         </div>
       </div>
