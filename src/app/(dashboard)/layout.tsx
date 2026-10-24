@@ -15,6 +15,7 @@ import {
   X,
   LogOut,
   Sparkles,
+  TrendingUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +27,7 @@ interface NavBadges {
 
 const navigation = [
   { name: 'Mi Perfil', href: '/perfil', icon: User, badgeKey: null },
+  { name: 'Mi Progreso', href: '/perfil/progreso', icon: TrendingUp, badgeKey: null },
   { name: 'Mis Paquetes', href: '/perfil/paquetes', icon: Package, badgeKey: 'activePaquetes' as const },
   { name: 'Sesión Privada', href: '/perfil/sesion-privada', icon: Sparkles, badgeKey: null },
   { name: 'Próximas Reservas', href: '/perfil/reservas', icon: Calendar, badgeKey: 'proximasReservas' as const },
