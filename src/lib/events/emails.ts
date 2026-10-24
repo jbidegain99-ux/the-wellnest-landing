@@ -50,7 +50,6 @@ export function buildPaymentInstructionsEmail(p: {
   const table = rows
     .map(([k, v]) => `<tr><td style="padding:4px 0;color:${C.muted};font-size:15px;">${k}</td><td style="padding:4px 0;font-size:15px;font-weight:bold;text-align:right;">${escapeHtml(v)}</td></tr>`)
     .join('')
-  const lugares = p.quantity === 1 ? 'Tu lugar queda apartado' : `Tus ${p.quantity} lugares quedan apartados`
   return layout(
     p.event,
     'Tu invitación espera su sello',
@@ -59,7 +58,7 @@ export function buildPaymentInstructionsEmail(p: {
 <p style="text-align:center;font-size:36px;letter-spacing:4px;color:${C.crimson};margin:12px 0 4px;">${escapeHtml(p.code)}</p>
 <p style="text-align:center;font-size:14px;font-style:italic;color:${C.muted};margin:0 0 18px;">Sin este código no podemos identificar tu pago.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${table}</table>
-<p style="font-size:15px;line-height:1.5;margin-top:18px;">Cuando confirmemos el pago en el banco, tu invitación con QR te llega por WhatsApp. ${lugares} por 24 horas.</p>
+<p style="font-size:15px;line-height:1.5;margin-top:18px;">Cuando confirmemos el pago en el banco, tu invitación con QR te llega por WhatsApp.</p>
 ${button(p.orderUrl, 'VER MI PEDIDO')}`
   )
 }

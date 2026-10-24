@@ -88,7 +88,7 @@ export async function OrderPage({ accessToken }: { accessToken: string }) {
             ))}
           </ol>
           <p className="relative mx-2 mt-auto text-center text-[15px] italic text-[color:var(--ev-muted-on-bg)]">
-            {order.quantity === 1 ? 'Tu lugar queda apartado por 24 horas.' : `Tus ${order.quantity} lugares quedan apartados por 24 horas.`}
+            {order.quantity === 1 ? 'Tu lugar queda apartado hasta que confirmemos tu pago.' : `Tus ${order.quantity} lugares quedan apartados hasta que confirmemos tu pago.`}
           </p>
         </>
       )}
@@ -110,23 +110,17 @@ export async function OrderPage({ accessToken }: { accessToken: string }) {
         </>
       )}
 
-      {(order.state === 'expired' || order.state === 'cancelled') && (
+      {order.state === 'cancelled' && (
         <>
           <header className="relative flex flex-col items-center gap-[6px] text-center">
             <p className="ev-kicker text-[color:var(--ev-muted-on-bg)]">PEDIDO {order.code}</p>
             <h1 className="ev-playfair m-0 text-[30px] font-normal leading-[1.1]">
-              {order.state === 'expired' ? (
-                <>Tu apartado <span className="italic text-[color:var(--ev-accent-on-bg)]">venció.</span></>
-              ) : (
-                <>Este pedido <span className="italic text-[color:var(--ev-accent-on-bg)]">fue anulado.</span></>
-              )}
+              Este pedido <span className="italic text-[color:var(--ev-accent-on-bg)]">fue anulado.</span>
             </h1>
           </header>
           <section className="ev-card flex flex-col gap-4 px-[22px] py-6">
             <p className="text-[17px] leading-[1.4]">
-              {order.state === 'expired'
-                ? 'Si ya transferiste, escribinos por WhatsApp y lo revisamos.'
-                : 'Escribinos por WhatsApp si tenés dudas.'}
+              Escribinos por WhatsApp si tenés dudas.
             </p>
             <WhatsAppButton href={waLink(`Hola, tengo una consulta sobre mi pedido ${order.code}`, EVENT_STUDIO_WHATSAPP)} label="Escribir por WhatsApp" />
           </section>

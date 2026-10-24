@@ -2,7 +2,7 @@ import type { EventOrderStatus, Prisma } from '@prisma/client'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { isOrderExpired, seatsTaken } from './orders'
+import { seatsTaken } from './orders'
 import { ticketLabel } from './codes'
 import { buyerTicketsMessage, waLink } from './whatsapp'
 
@@ -14,11 +14,11 @@ export async function getAdminId(): Promise<string | null> {
 
 export type AdminTab = 'pendientes' | 'pagados' | 'otros'
 
-export function adminOrdersWhere(eventId: string, tab: AdminTab, q: string, now: Date): Prisma.EventOrderWhereInput {
+export function adminOrdersWhere(eventId: string, tab: AdminTab, q: string): Prisma.EventOrderWhereInput {
   const and: Prisma.EventOrderWhereInput[] = []
-  if (tab === 'pendientes') and.push({ status: 'PENDING', expiresAt: { gt: now } })
+  if (tab === 'pendientes') and.push({ status: 'PENDING' })
   else if (tab === 'pagados') and.push({ status: 'PAID' })
-  else and.push({ OR: [{ status: 'CANCELLED' }, { status: 'PENDING', expiresAt: { lte: now } }] })
+  else and.push({ status: 'CANCELLED' })
 
   const term = q.trim()
   if (term) {
@@ -44,7 +44,6 @@ export type AdminOrderRow = {
   quantity: number
   amountCents: number
   status: EventOrderStatus
-  expired: boolean
   createdAt: string
   paidAt: string | null
   whatsappSentAt: string | null
@@ -58,21 +57,20 @@ export type AdminCounts = { paidTickets: number; pendingTickets: number; checked
 export async function listAdminOrders(
   slug: string,
   tab: AdminTab,
-  q: string,
-  now: Date = new Date()
+  q: string
 ): Promise<{ orders: AdminOrderRow[]; counts: AdminCounts; event: { id: string; name: string; startsAt: string; venue: string } } | null> {
   const event = await prisma.event.findUnique({ where: { slug } })
   if (!event) return null
 
   const [orders, paidAgg, taken, checkedIn] = await Promise.all([
     prisma.eventOrder.findMany({
-      where: adminOrdersWhere(event.id, tab, q, now),
+      where: adminOrdersWhere(event.id, tab, q),
       orderBy: { createdAt: 'desc' },
       take: 200,
       include: { tickets: { orderBy: { seq: 'asc' } } },
     }),
     prisma.eventOrder.aggregate({ where: { eventId: event.id, status: 'PAID' }, _sum: { quantity: true } }),
-    seatsTaken(prisma, event.id, now),
+    seatsTaken(prisma, event.id),
     prisma.eventTicket.count({ where: { eventId: event.id, checkedInAt: { not: null }, order: { status: 'PAID' } } }),
   ])
   const paidTickets = paidAgg._sum.quantity ?? 0
@@ -91,7 +89,6 @@ export async function listAdminOrders(
         quantity: o.quantity,
         amountCents: o.amountCents,
         status: o.status,
-        expired: isOrderExpired(o, now),
         createdAt: o.createdAt.toISOString(),
         paidAt: o.paidAt?.toISOString() ?? null,
         whatsappSentAt: o.whatsappSentAt?.toISOString() ?? null,
