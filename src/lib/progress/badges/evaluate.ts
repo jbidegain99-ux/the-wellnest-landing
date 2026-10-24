@@ -59,7 +59,11 @@ function shownCurrent(value: number, target: number, earned: boolean): number {
   return Math.max(0, Math.min(Math.round(value), target - 1))
 }
 
-function toState(def: ThresholdBadgeDef, tracker: Tracker): BadgeState {
+/**
+ * `shownValue` reemplaza el valor del tracker en el avance de las no ganadas
+ * (la racha se gana con la mejor racha pero avanza con la actual).
+ */
+function toState(def: ThresholdBadgeDef, tracker: Tracker, shownValue = tracker.value): BadgeState {
   const earnedAt = tracker.earnedAt(def.threshold)
   const state: BadgeState = {
     id: def.id,
@@ -68,7 +72,7 @@ function toState(def: ThresholdBadgeDef, tracker: Tracker): BadgeState {
     description: def.description,
     tier: def.tier,
     target: def.threshold,
-    current: shownCurrent(tracker.value, def.threshold, earnedAt !== null),
+    current: shownCurrent(shownValue, def.threshold, earnedAt !== null),
     earnedAt,
     glyph: def.glyph,
   }
@@ -116,9 +120,21 @@ export function monthlyTarget(classes: AttendedClass[], monthIdx: number): numbe
   return targetFromMonthCounts(counts, monthIdx)
 }
 
+/**
+ * Semanas seguidas con clase que terminan en la semana `curWeek` si tuvo clase,
+ * o en la anterior si no (la semana en curso aún puede llenarse). Misma regla que
+ * la racha de Mi progreso.
+ */
+function currentStreakWeeks(weeksWithClass: ReadonlySet<number>, curWeek: number): number {
+  let weeks = 0
+  for (let w = weeksWithClass.has(curWeek) ? curWeek : curWeek - 1; weeksWithClass.has(w); w--) weeks++
+  return weeks
+}
+
 export function evaluateBadges(classes: AttendedClass[], now: Date): BadgeState[] {
   const nowMs = now.getTime()
-  const curMonth = monthIndex(localParts(now))
+  const nowParts = localParts(now)
+  const curMonth = monthIndex(nowParts)
   const items = classes
     .filter((c) => c.dateTime.getTime() <= nowMs)
     .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime())
@@ -130,6 +146,7 @@ export function evaluateBadges(classes: AttendedClass[], now: Date): BadgeState[
   const streak = new Tracker()
   let lastWeek: number | null = null
   let run = 0
+  const weeksWithClass = new Set<number>()
   const activeMinutesByWeek = new Map<number, number>()
   const activeWeeks = new Tracker()
   const calm = new Tracker()
@@ -164,11 +181,12 @@ export function evaluateBadges(classes: AttendedClass[], now: Date): BadgeState[
     }
     explorer.raise(explored.size, at)
 
-    // Constancia: mejor racha de semanas seguidas con clase
+    // Constancia: mejor racha de semanas seguidas con clase (para ganar)
     if (lastWeek === null || week > lastWeek + 1) run = 1
     else if (week === lastWeek + 1) run++
     lastWeek = week
     streak.raise(run, at)
+    weeksWithClass.add(week)
 
     // Semanas activas
     if (isActiveMet(profile.met) && minutes > 0) {
@@ -216,7 +234,9 @@ export function evaluateBadges(classes: AttendedClass[], now: Date): BadgeState[
     const tracker = def.discipline ? perDiscipline.get(def.discipline) : undefined
     badges.push(toState(def, tracker ?? new Tracker()))
   }
-  for (const def of STREAK_BADGES) badges.push(toState(def, streak))
+  // Se gana con la mejor racha (una racha cortada no quita nada); avanza con la actual.
+  const streakNow = currentStreakWeeks(weeksWithClass, weekIndex(nowParts.day))
+  for (const def of STREAK_BADGES) badges.push(toState(def, streak, streakNow))
   for (const def of ACTIVE_WEEK_BADGES) badges.push(toState(def, activeWeeks))
 
   // Reto: meses ganados + el mes en curso

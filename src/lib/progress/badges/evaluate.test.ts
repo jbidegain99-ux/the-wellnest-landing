@@ -120,18 +120,44 @@ describe('evaluateBadges', () => {
     expect(byId(badges, 'exploradora-7').earnedAt).toBe('2026-10-15T15:00:00.000Z')
   })
 
-  it('racha: mejor racha histórica', () => {
+  it('racha: se gana con la mejor racha; el avance de las no ganadas es la racha actual', () => {
     // Miércoles de semanas 1, 2, 3, (4 vacía), 5, 6
     const classes = ['2026-08-05', '2026-08-12', '2026-08-19', '2026-09-02', '2026-09-09'].map((d) =>
       cls(`${d}T15:00:00Z`, 'pole')
     )
-    const badges = evaluateBadges(classes, NOW)
+    const inWeek6 = new Date('2026-09-10T18:00:00Z') // jueves de la semana 6
+    const badges = evaluateBadges(classes, inWeek6)
     const r2 = byId(badges, 'racha-2')
     expect(r2.earnedAt).toBe('2026-08-12T15:00:00.000Z')
+    expect(r2.current).toBe(2)
     const r4 = byId(badges, 'racha-4')
     expect(r4.earnedAt).toBeNull()
-    expect(r4.current).toBe(3)
+    expect(r4.current).toBe(2)
     expect(r4.label).toBe('4')
+  })
+
+  it('racha: la semana en curso sin clase todavía no corta la racha', () => {
+    const classes = ['2026-09-02', '2026-09-09'].map((d) => cls(`${d}T15:00:00Z`, 'pole'))
+    const inWeek7 = new Date('2026-09-15T18:00:00Z') // martes de la semana siguiente, sin clase aún
+    expect(byId(evaluateBadges(classes, inWeek7), 'racha-4').current).toBe(2)
+  })
+
+  it('racha: sin clase la semana pasada ni esta, el avance vuelve a 0 y lo ganado se queda', () => {
+    const classes = ['2026-08-05', '2026-08-12', '2026-08-19'].map((d) => cls(`${d}T15:00:00Z`, 'pole'))
+    const badges = evaluateBadges(classes, NOW)
+    expect(byId(badges, 'racha-2').earnedAt).toBe('2026-08-12T15:00:00.000Z')
+    expect(byId(badges, 'racha-2').current).toBe(2)
+    expect(byId(badges, 'racha-4').earnedAt).toBeNull()
+    expect(byId(badges, 'racha-4').current).toBe(0)
+  })
+
+  it('racha: dos clases la misma semana cuentan como una semana', () => {
+    const classes = [
+      cls('2026-10-13T15:00:00Z', 'pole'),
+      cls('2026-10-20T15:00:00Z', 'pole'),
+      cls('2026-10-22T15:00:00Z', 'yoga'),
+    ]
+    expect(byId(evaluateBadges(classes, NOW), 'racha-4').current).toBe(2)
   })
 
   it('semanas activas: 150 min activos en una semana; la calma no cuenta', () => {

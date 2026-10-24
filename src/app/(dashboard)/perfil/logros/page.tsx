@@ -27,7 +27,7 @@ const EMPTY_INTRO = 'Cada clase suma. Tu primera insignia está a una clase de d
 const CATEGORY_HINTS: Record<BadgeCategory, string> = {
   clases: 'Todas las clases a las que has asistido.',
   disciplinas: 'Tus clases en cada disciplina.',
-  constancia: 'Tu mejor racha de semanas seguidas con al menos una clase.',
+  constancia: 'Semanas seguidas con al menos una clase. Cada racha que completas queda en tus logros.',
   semanas: 'Semanas en las que sumaste 150 minutos activos.',
   reto: 'Una meta personal cada mes, a tu ritmo. Aquí quedan los que cumpliste.',
   exploradora: 'Disciplinas distintas que has probado.',

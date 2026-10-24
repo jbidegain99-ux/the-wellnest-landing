@@ -102,7 +102,7 @@ export const DISCIPLINE_BADGES: readonly ThresholdBadgeDef[] = BADGE_DISCIPLINES
   }))
 )
 
-// ── Constancia (mejor racha semanal) ──────────────────────────────────────
+// ── Constancia (se gana con la mejor racha; avanza con la actual) ──────
 
 export const STREAK_BADGES: readonly ThresholdBadgeDef[] = [2, 4, 8, 12, 26, 52].map((n, i) => ({
   id: `racha-${n}`,
