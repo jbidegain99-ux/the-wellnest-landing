@@ -202,8 +202,9 @@ function ProgressContent({ data, badges, onRetryBadges, showCalories, onShowCalo
         </CardContent>
       </Card>
 
-      {/* 8. Preferencia de calorías */}
+      {/* 8. Preferencias: calorías y resumen por correo */}
       <CaloriesToggle checked={showCalories} onChange={onShowCaloriesChange} />
+      <ProgressEmailToggle />
 
       {/* 9. Pie */}
       <p className="text-xs text-gray-500 text-center px-4 pb-4">{FOOTER_TEXT}</p>
@@ -534,17 +535,102 @@ function MiniBadgeRow({ badge }: { badge: BadgeState }) {
 }
 
 function CaloriesToggle({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
-  const labelId = 'mostrar-calorias-label'
-  const descId = 'mostrar-calorias-desc'
+  return (
+    <PreferenceToggle
+      id="mostrar-calorias"
+      label="Mostrar calorías estimadas"
+      description="Aparecen en tu última clase. La preferencia se guarda solo en este dispositivo."
+      checked={checked}
+      onChange={onChange}
+    />
+  )
+}
+
+type EmailPrefState =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'ready'; enabled: boolean; saving: boolean; saveError: boolean }
+
+const EMAIL_PREF_URL = '/api/user/progress-email'
+
+/** Resumen por correo después de cada clase (encendido salvo baja). Cambio optimista con reversión. */
+function ProgressEmailToggle() {
+  const [pref, setPref] = React.useState<EmailPrefState>({ status: 'loading' })
+
+  React.useEffect(() => {
+    let active = true
+    fetch(EMAIL_PREF_URL)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const data = (await response.json()) as { enabled: boolean }
+        if (active) setPref({ status: 'ready', enabled: data.enabled === true, saving: false, saveError: false })
+      })
+      .catch((error: unknown) => {
+        console.error('Error fetching progress email preference:', error)
+        if (active) setPref({ status: 'error' })
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const handleChange = async (next: boolean) => {
+    if (pref.status !== 'ready' || pref.saving) return
+    const previous = pref.enabled
+    setPref({ status: 'ready', enabled: next, saving: true, saveError: false })
+    try {
+      const response = await fetch(EMAIL_PREF_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next }),
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      setPref({ status: 'ready', enabled: next, saving: false, saveError: false })
+    } catch (error) {
+      console.error('Error updating progress email preference:', error)
+      setPref({ status: 'ready', enabled: previous, saving: false, saveError: true })
+    }
+  }
+
+  let description = 'Te llega cuando termina tu clase, con tu semana y tus logros.'
+  if (pref.status === 'error') description = 'No pudimos cargar esta preferencia. Recarga la página para intentarlo de nuevo.'
+  else if (pref.status === 'ready' && pref.saveError) description = 'No pudimos guardar el cambio. Intenta de nuevo.'
+
+  return (
+    <PreferenceToggle
+      id="resumen-correo"
+      label="Recibir un resumen por correo después de cada clase"
+      description={description}
+      checked={pref.status === 'ready' ? pref.enabled : true}
+      disabled={pref.status !== 'ready'}
+      busy={pref.status === 'loading' || (pref.status === 'ready' && pref.saving)}
+      onChange={handleChange}
+    />
+  )
+}
+
+interface PreferenceToggleProps {
+  id: string
+  label: string
+  description: string
+  checked: boolean
+  onChange: (value: boolean) => void
+  disabled?: boolean
+  busy?: boolean
+}
+
+function PreferenceToggle({ id, label, description, checked, onChange, disabled = false, busy = false }: PreferenceToggleProps) {
+  const labelId = `${id}-label`
+  const descId = `${id}-desc`
   return (
     <Card>
       <CardContent className="p-6 flex items-center justify-between gap-4">
         <div>
           <p id={labelId} className="font-medium text-foreground">
-            Mostrar calorías estimadas
+            {label}
           </p>
-          <p id={descId} className="text-sm text-gray-600 mt-0.5">
-            Aparecen en tu última clase. La preferencia se guarda solo en este dispositivo.
+          <p id={descId} className="text-sm text-gray-600 mt-0.5" aria-live="polite">
+            {description}
           </p>
         </div>
         <button
@@ -553,12 +639,15 @@ function CaloriesToggle({ checked, onChange }: { checked: boolean; onChange: (va
           aria-checked={checked}
           aria-labelledby={labelId}
           aria-describedby={descId}
+          aria-busy={busy || undefined}
+          disabled={disabled}
           onClick={() => onChange(!checked)}
           className={cn(
             'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors motion-reduce:transition-none',
             // Área táctil de 48×48 px sin cambiar el aspecto del interruptor.
             "after:absolute after:left-1/2 after:top-1/2 after:h-12 after:w-12 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+            'disabled:cursor-not-allowed disabled:opacity-60',
             checked ? 'bg-primary-600' : 'bg-gray-300'
           )}
         >
