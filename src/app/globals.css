@@ -158,6 +158,72 @@
   }
 }
 
+/* Detalle de un logro: la medalla entra girando sobre su eje, como una moneda. */
+@keyframes badgeFlipIn {
+  0% {
+    opacity: 0;
+    transform: perspective(700px) rotateY(-200deg) scale(0.72);
+  }
+  45% {
+    opacity: 1;
+  }
+  70% {
+    transform: perspective(700px) rotateY(14deg) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(700px) rotateY(0deg) scale(1);
+  }
+}
+
+/* Hoja del detalle: sube desde abajo en móvil, aparece con escala en escritorio. */
+@keyframes badgeSheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes badgeSheetPop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes badgeBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .badge-flip-in {
+    animation: badgeFlipIn 0.95s cubic-bezier(0.2, 0.75, 0.25, 1) 0.08s both;
+  }
+  .badge-sheet-in {
+    animation: badgeSheetUp 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .badge-backdrop-in {
+    animation: badgeBackdropIn 0.25s ease-out both;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) and (min-width: 640px) {
+  .badge-sheet-in {
+    animation-name: badgeSheetPop;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

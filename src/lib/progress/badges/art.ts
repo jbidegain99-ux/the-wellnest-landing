@@ -34,6 +34,8 @@ export interface BadgeArtOptions {
   progress?: number
   /** Ancho y alto en px del SVG (por defecto 120). */
   size?: number
+  /** Se mezcla en el prefijo de ids: para pintar la misma insignia dos veces en una página. */
+  idSuffix?: string
 }
 
 // ── Utilidades ────────────────────────────────────────────────────────────
@@ -756,7 +758,7 @@ function progressArc(progress: number): string {
 export function renderBadgeSvg(badge: BadgeArtInput, opts: BadgeArtOptions): string {
   const size = opts.size ?? 120
   const locked = opts.locked
-  const p = `wb${shortHash(`${badge.id}|${locked ? 'l' : 'e'}|${size}`)}`
+  const p = `wb${shortHash(`${badge.id}|${locked ? 'l' : 'e'}|${size}${opts.idSuffix ? `|${opts.idSuffix}` : ''}`)}`
   const shape = shapeFor(badge.category)
   const isReto = badge.category === 'reto'
   const label = badge.label ?? ''

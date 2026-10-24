@@ -53,6 +53,16 @@ export interface BadgeState {
   label?: string
 }
 
+/** El reto del mes en curso, con los días que quedan (incluido hoy). */
+export type CurrentChallenge = BadgeState & { daysLeft: number }
+
+/** Respuesta de `GET /api/user/badges`. */
+export interface BadgesResponse {
+  badges: BadgeState[]
+  challenge: CurrentChallenge
+  earnedCount: number
+}
+
 export const CATEGORY_ORDER: BadgeCategory[] = [
   'clases',
   'disciplinas',

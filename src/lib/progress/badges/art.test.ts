@@ -57,6 +57,15 @@ describe('renderBadgeSvg', () => {
     expect(a.filter((id) => b.includes(id))).toEqual([])
   })
 
+  it('la misma insignia con distinto idSuffix no comparte ids', () => {
+    const a = gradientIds(renderBadgeSvg(SAMPLES.clases, { locked: false, size: 96, idSuffix: 'grid' }))
+    const b = gradientIds(renderBadgeSvg(SAMPLES.clases, { locked: false, size: 96, idSuffix: 'detail' }))
+    const plain = gradientIds(renderBadgeSvg(SAMPLES.clases, { locked: false, size: 96 }))
+    expect(a.length).toBeGreaterThan(0)
+    expect(a.filter((id) => b.includes(id))).toEqual([])
+    expect(a.filter((id) => plain.includes(id))).toEqual([])
+  })
+
   it('cada id de degradado referenciado existe en el SVG', () => {
     for (const cat of CATEGORY_ORDER) {
       const svg = renderBadgeSvg(SAMPLES[cat], { locked: false })

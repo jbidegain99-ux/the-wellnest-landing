@@ -11,15 +11,17 @@ interface BadgeArtProps {
   className?: string
   /** Entrada con escala y destello (se desactiva con prefers-reduced-motion). */
   animate?: boolean
+  /** Sufijo para los ids del SVG cuando la misma insignia aparece dos veces en la página (ej. `useId()`). */
+  idSuffix?: string
 }
 
 /**
  * Medalla de un logro. El SVG lo genera `renderBadgeSvg` (contenido propio, sin datos de usuario).
  * Sin hooks: sirve en componentes de servidor y de cliente.
  */
-export function BadgeArt({ badge, locked, progress, size = 96, className, animate = false }: BadgeArtProps) {
+export function BadgeArt({ badge, locked, progress, size = 96, className, animate = false, idSuffix }: BadgeArtProps) {
   const isLocked = locked ?? badge.earnedAt === null
-  const svg = renderBadgeSvg(badge, { locked: isLocked, progress: isLocked ? progress : undefined, size })
+  const svg = renderBadgeSvg(badge, { locked: isLocked, progress: isLocked ? progress : undefined, size, idSuffix })
   const classes = ['inline-block shrink-0 leading-none [&>svg]:block', animate ? 'badge-art-enter' : '', className ?? '']
     .filter(Boolean)
     .join(' ')
