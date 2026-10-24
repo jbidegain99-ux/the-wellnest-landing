@@ -6,6 +6,10 @@ on:
   push:
     branches: [main, develop]
 
+# Solo lectura del repo: el job no publica nada
+permissions:
+  contents: read
+
 jobs:
   checks:
     runs-on: ubuntu-latest

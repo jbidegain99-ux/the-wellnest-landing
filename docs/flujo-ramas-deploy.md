@@ -9,6 +9,7 @@ hotfix/y ──PR──▶ main ──▶ merge main → develop (mismo día)
 
 - `develop` = QA, `https://qa.wellneststudio.net`. `main` = producción, `https://wellneststudio.net`.
 - Vercel solo construye `main` y `develop`. El `ignoreCommand` de `vercel.json` omite cualquier otra rama, y también un deploy sin metadatos de git (por ejemplo, desde la CLI).
+- El `ignoreCommand` solo frena previews nuevas. Las previews viejas de otras ramas siguen vivas con las variables con las que se construyeron (posiblemente las de producción: base, PayWay, Facturo). Al poner en marcha el flujo, José borra en Vercel (Deployments) todos los preview deployments que no sean de `main` ni `develop`, o los deja tras Deployment Protection.
 - GitHub Actions (`.github/workflows/ci.yml`, job `checks`) corre en cada PR a `main` y `develop` y en push a ambas: `npm ci`, `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build`. Debe estar en verde para mergear.
 - Quién hace qué: José mergea PRs y corre todo lo que toca la base de producción. Claude prepara ramas, PRs y scripts, y nunca mergea una promoción.
 
@@ -69,23 +70,45 @@ QA es una copia anonimizada de producción. Lo corre José, no Claude.
 ## Scripts: local = QA, producción a propósito
 
 - Sin señal, `scripts/loadEnv.ts` carga `.env` y `.env.local` (QA). Importa `./loadEnv` de primero en cada script.
-- Contra producción: `WELLNEST_ENV=prod npx tsx scripts/<x>.ts`. Carga solo `.env.prod` e imprime `*** PRODUCCIÓN — base <host> ***`. Si falta `.env.prod`, el script termina con error. Un `.env.prod` presente sin la señal nunca se carga.
+- En ese modo el script termina con error si, tras cargar, `APP_ENV` no es `qa`: "el .env local no es de QA (falta APP_ENV=qa); para producción usa WELLNEST_ENV=prod". Hasta hacer el paso de `.env` de la puesta en marcha (sección abajo), todo script con `./loadEnv` aborta así; es a propósito.
+- Contra producción: `WELLNEST_ENV=prod npx tsx scripts/<x>.ts`. Carga solo `.env.prod` e imprime `*** PRODUCCIÓN — base <host> ***`, con el host que usará Prisma (`DATABASE_POOLED_URL`, si no `DATABASE_URL`; `POSTGRES_URL` de respaldo). Si falta `.env.prod`, el script termina con error. Un `.env.prod` presente sin la señal nunca se carga.
 - Prefiere `WELLNEST_ENV=prod` sobre `--prod`: `--prod` también funciona (`src/lib/envFiles.ts`), pero rompe scripts que leen `argv[2]`.
-- `.env.prod` debe estar completo. Si falta una variable, Prisma puede completarla desde el `.env` de QA y mezclar entornos.
+- Prisma lee `.env` por su cuenta y rellena lo que no esté definido. Para que el `.env` de QA no se mezcle con producción, en modo producción `loadEnv` deja en `''` toda variable de `.env`, `.env.local` y `prisma/.env` que `.env.prod` no definió, y fija `APP_ENV=production` si nadie la definió. Una variable que falta en `.env.prod` queda vacía (y falla a la vista) en lugar de tomar el valor de QA. Igual, `.env.prod` debe estar completo.
+- `WELLNEST_ENV=prod` en un script que no importa `./loadEnv` no se ignora: `src/lib/prisma.ts` lanza "WELLNEST_ENV=prod requiere importar ./loadEnv primero" antes de crear el cliente. Solo cubre scripts que usan `@/lib/prisma`; uno que haga `new PrismaClient()` por su cuenta no tiene ese candado.
 - Los scripts contra producción los corre José (auditorías mensuales, lista de seguimiento, reportes). Nunca `prisma db push` contra ninguna base.
+
+### CLI de Prisma contra producción
+
+La CLI de Prisma no usa `loadEnv`: lee `.env`, que es QA. Para producción, carga `.env.prod` explícitamente en una subshell (no queda en tu terminal):
+
+```
+( set -a; . ./.env.prod; set +a; npx prisma studio )
+```
+
+- `dotenv-cli` no está instalado; no lo agregues solo para esto. El `. ./.env.prod` exige que `.env.prod` tenga sintaxis de shell (`CLAVE=valor`, comillas si hay espacios).
+- Solo comandos de lectura (`prisma studio`, `prisma migrate status`). Nunca `prisma db push` (borra el índice único parcial anti-duplicados), ni `migrate reset`/`migrate dev`, contra ninguna base.
+- Lo corre José, no Claude.
+
+### Puesta en marcha del entorno local (una vez)
+
+1. Mueve el `.env` y `.env.local` actuales (producción) a `.env.prod` (unidos) y agrégale `APP_ENV=production` explícito.
+2. Crea `.env` y `.env.local` con los valores de QA. `.env` lleva `APP_ENV=qa`.
+3. Migra los scripts mensuales no trackeados (auditorías, lista de seguimiento, reportes) a `import './loadEnv'` como primera línea; los que crean `new PrismaClient()` propio, a `@/lib/prisma`.
+4. En el checkout principal, `npx prisma generate` (no toca ninguna base): el cliente generado guarda la ruta del `.env` que lee, y conviene regenerarlo una vez que `.env` ya es QA.
+5. Verifica: un script con `./loadEnv` muestra el host de QA; con `WELLNEST_ENV=prod`, el aviso `*** PRODUCCIÓN ***` y el host de producción.
 
 ## Variables por entorno
 
 | Variable | QA (`develop`) | Producción (`main`) |
 |---|---|---|
-| `APP_ENV` | `qa` (franja "QA", noindex y robots; ver nota) | sin definir |
+| `APP_ENV` | `qa` (franja "QA", noindex y robots; ver nota) | sin definir en Vercel; `production` en `.env.prod` local |
 | `DATABASE_URL` / `POSTGRES_URL` | base de QA (Accelerate / directa) | base de producción |
 | `QA_ACCESS_PASSWORD` | contraseña de QA (Basic Auth del sitio) | sin definir |
 | `QA_EMAIL_ALLOWLIST` | correos de José y Adriana: reciben el suyo | sin definir |
 | `QA_EMAIL_SINK` | casilla de prueba de José; recibe el resto | sin definir |
-| `PAYWAY_ENV` | `TEST`, con credenciales de prueba | producción |
+| `PAYWAY_ENV` | `TEST`, con credenciales de prueba (con `APP_ENV=qa`, `PROD` hace fallar el pago: candado en `src/lib/payments/payway.ts`) | producción |
 | `PAYWAY_CALLBACK_PUBLIC_BASE_URL` | `https://qa.wellneststudio.net` | dominio de producción |
-| `FACTURADOR_SV_API_URL` | QA de Facturo, o vacío (facturación deshabilitada) | producción de Facturo |
+| `FACTURADOR_SV_API_URL` | `https://api-qa.facturoelectronicosv.com`, o vacío (facturación deshabilitada); con `APP_ENV=qa` cualquier otro host deshabilita la facturación (`src/lib/facturador/client.ts`) | producción de Facturo |
 | `NEXTAUTH_URL` / `NEXTAUTH_SECRET` | propios de QA | propios de producción |
 | `CRON_SECRET`, `BOOTSTRAP_SECRET`, `PAYWAY_CALLBACK_SECRET`, `FACTURADOR_SV_WEBHOOK_SECRET` | distintos de producción | los de producción |
 
