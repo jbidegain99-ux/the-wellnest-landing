@@ -1,3 +1,5 @@
+import { isQa } from './appEnv'
+import { routeQaEmail } from './qaEmail'
 
 /**
  * Escapa HTML en datos de usuario interpolados en plantillas (nombres, notas):
@@ -88,9 +90,27 @@ async function getAccessToken(): Promise<string> {
   return cachedToken
 }
 
-export async function sendEmail({ to, subject, html, attachments }: SendEmailOptions): Promise<SendEmailResult> {
+export async function sendEmail({ to, subject: originalSubject, html, attachments }: SendEmailOptions): Promise<SendEmailResult> {
   try {
-    const recipients = Array.isArray(to) ? to : [to]
+    let recipients = Array.isArray(to) ? to : [to]
+    let subject = originalSubject
+
+    // En QA ningún correo llega a clientes reales: se desvía al sink o a la lista permitida.
+    if (isQa()) {
+      const routed = routeQaEmail({
+        to: recipients,
+        subject,
+        sink: process.env.QA_EMAIL_SINK,
+        allowlist: process.env.QA_EMAIL_ALLOWLIST,
+      })
+      if (!routed) {
+        console.log(`[EMAIL][QA] descartado: ${recipients.join(', ')}`)
+        return { success: true }
+      }
+      recipients = routed.to
+      subject = routed.subject
+    }
+
     console.log(`[EMAIL] Sending to ${recipients.join(', ')} via Microsoft Graph...`)
 
     const token = await getAccessToken()
