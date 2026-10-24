@@ -55,7 +55,8 @@ describe('adminEvents', () => {
       { eventId: 'e1', status: 'PENDING', _sum: { quantity: 2 } },
     ])
     prismaMock.eventTicket.groupBy.mockResolvedValue([{ eventId: 'e1', _count: { _all: 3 } }])
-    const rows = await listEventsWithCounts(new Date('2026-10-22T00:00:00Z'))
+    const rows = await listEventsWithCounts()
+    expect(prismaMock.eventOrder.groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: { status: { in: ['PAID', 'PENDING'] } } }))
     expect(rows).toEqual([
       expect.objectContaining({ id: 'e1', paidTickets: 5, pendingTickets: 2, checkedIn: 3 }),
       expect.objectContaining({ id: 'e2', paidTickets: 0, pendingTickets: 0, checkedIn: 0 }),

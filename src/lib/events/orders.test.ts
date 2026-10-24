@@ -16,7 +16,7 @@ const { txMock, prismaMock } = vi.hoisted(() => {
 })
 vi.mock('@/lib/prisma', () => ({ prisma: prismaMock }))
 
-import { isOrderExpired, hasCapacity, createEventOrder, confirmEventOrder, cancelEventOrder, buildPaidOrdersCsv, getOrderView, claimTicket } from './orders'
+import { hasCapacity, createEventOrder, confirmEventOrder, cancelEventOrder, buildPaidOrdersCsv, getOrderView, claimTicket } from './orders'
 
 const NOW = new Date('2026-10-22T15:00:00Z')
 const EVENT = {
@@ -29,12 +29,6 @@ const INPUT = { name: 'Ana Martínez', phone: '7792-3957', email: 'Ana@Gmail.com
 function knownError(code: string, target?: string[]) {
   return new Prisma.PrismaClientKnownRequestError('boom', { code, clientVersion: 'test', meta: target ? { target } : undefined })
 }
-
-describe('isOrderExpired', () => {
-  it('PENDING vencido', () => expect(isOrderExpired({ status: 'PENDING', expiresAt: new Date(NOW.getTime() - 1) }, NOW)).toBe(true))
-  it('PENDING vigente', () => expect(isOrderExpired({ status: 'PENDING', expiresAt: new Date(NOW.getTime() + 1) }, NOW)).toBe(false))
-  it('PAID nunca vence', () => expect(isOrderExpired({ status: 'PAID', expiresAt: new Date(0) }, NOW)).toBe(false))
-})
 
 describe('hasCapacity', () => {
   it('sin tope', () => expect(hasCapacity(null, 999, 6)).toBe(true))
@@ -87,10 +81,10 @@ describe('createEventOrder', () => {
     expect(await createEventOrder('villains-ball', INPUT, NOW)).toEqual({ ok: false, status: 409, error: 'Las entradas se agotaron' })
   })
 
-  it('cuenta PAID + PENDING vigentes para el cupo', async () => {
+  it('cuenta PAID + todos los PENDING para el cupo (los pendientes no vencen)', async () => {
     await createEventOrder('villains-ball', INPUT, NOW)
     expect(txMock.eventOrder.aggregate).toHaveBeenCalledWith({
-      where: { eventId: 'evt1', OR: [{ status: 'PAID' }, { status: 'PENDING', expiresAt: { gt: NOW } }] },
+      where: { eventId: 'evt1', status: { in: ['PAID', 'PENDING'] } },
       _sum: { quantity: true },
     })
   })
@@ -101,13 +95,13 @@ describe('createEventOrder', () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled()
   })
 
-  it('feliz: crea PENDING con monto, vencimiento 24h, correo y teléfono normalizados', async () => {
+  it('feliz: crea PENDING con monto, correo y teléfono normalizados', async () => {
     const r = await createEventOrder('villains-ball', INPUT, NOW)
     expect(r.ok).toBe(true)
     const data = txMock.eventOrder.create.mock.calls[0][0].data
     expect(data).toMatchObject({
       eventId: 'evt1', buyerName: 'Ana Martínez', buyerEmail: 'ana@gmail.com', buyerPhone: '+50377923957',
-      quantity: 2, amountCents: 2000, marketingOptIn: true, expiresAt: new Date('2026-10-23T15:00:00Z'),
+      quantity: 2, amountCents: 2000, marketingOptIn: true, expiresAt: EVENT.endsAt,
     })
     expect(data.code).toMatch(/^HW-[A-Z2-9]{4}$/)
     expect(data.accessToken).toMatch(/^[0-9a-f]{64}$/)
@@ -189,8 +183,8 @@ describe('confirmEventOrder', () => {
     }
   })
 
-  it('vencido y sobre el cupo: confirma igual y avisa', async () => {
-    txMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, expiresAt: new Date(0), event: { ...EVENT, capacity: 10 } })
+  it('sobre el cupo: confirma igual y avisa', async () => {
+    txMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, event: { ...EVENT, capacity: 10 } })
     txMock.eventOrder.aggregate.mockResolvedValue({ _sum: { quantity: 13 } })
     const r = await confirmEventOrder('o1', 'admin1', NOW)
     expect(r.ok).toBe(true)
@@ -239,16 +233,16 @@ describe('getOrderView', () => {
   beforeEach(() => { vi.clearAllMocks(); process.env.NEXTAUTH_URL = 'https://wellneststudio.net' })
   it('inexistente → null', async () => {
     prismaMock.eventOrder.findUnique.mockResolvedValue(null)
-    expect(await getOrderView('nope', NOW)).toBeNull()
+    expect(await getOrderView('nope')).toBeNull()
   })
-  it('PENDING vencido → expired sin entradas', async () => {
-    prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, expiresAt: new Date(0), tickets: [] })
-    const v = await getOrderView('acc', NOW)
-    expect(v).toMatchObject({ state: 'expired', code: 'HW-7K3P', quantity: 3, amountCents: 3000, tickets: [] })
+  it('PENDING de hace días sigue pendiente, sin entradas', async () => {
+    prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, expiresAt: new Date(0), createdAt: new Date(0), tickets: [] })
+    const v = await getOrderView('acc')
+    expect(v).toMatchObject({ state: 'pending', code: 'HW-7K3P', quantity: 3, amountCents: 3000, tickets: [] })
   })
   it('PAID → entradas ordenadas por seq con su URL', async () => {
     prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, status: 'PAID', tickets: [{ seq: 2, token: 'tb' }, { seq: 1, token: 'ta' }] })
-    const v = await getOrderView('acc', NOW)
+    const v = await getOrderView('acc')
     expect(v?.state).toBe('paid')
     expect(v?.tickets).toEqual([
       { label: 'HW-7K3P-1', url: 'https://wellneststudio.net/entrada/ta' },
@@ -257,7 +251,7 @@ describe('getOrderView', () => {
   })
   it('CANCELLED → cancelled', async () => {
     prismaMock.eventOrder.findUnique.mockResolvedValue({ ...ORDER, status: 'CANCELLED', tickets: [] })
-    expect((await getOrderView('acc', NOW))?.state).toBe('cancelled')
+    expect((await getOrderView('acc'))?.state).toBe('cancelled')
   })
 })
 

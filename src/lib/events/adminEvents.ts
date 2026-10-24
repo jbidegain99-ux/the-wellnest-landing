@@ -54,12 +54,12 @@ export type AdminEventRow = {
   paidTickets: number; pendingTickets: number; checkedIn: number
 }
 
-export async function listEventsWithCounts(now: Date = new Date()): Promise<AdminEventRow[]> {
+export async function listEventsWithCounts(): Promise<AdminEventRow[]> {
   const [events, orderSums, inside] = await Promise.all([
     prisma.event.findMany({ orderBy: { startsAt: 'desc' } }),
     prisma.eventOrder.groupBy({
       by: ['eventId', 'status'],
-      where: { OR: [{ status: 'PAID' }, { status: 'PENDING', expiresAt: { gt: now } }] },
+      where: { status: { in: ['PAID', 'PENDING'] } },
       _sum: { quantity: true },
     }),
     prisma.eventTicket.groupBy({

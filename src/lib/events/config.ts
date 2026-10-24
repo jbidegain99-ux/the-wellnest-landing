@@ -3,7 +3,6 @@
 
 export const VILLAINS_BALL_SLUG = 'villains-ball'
 export const EVENT_ORDER_MAX_QTY = 6
-export const EVENT_ORDER_HOLD_HOURS = 24
 
 export const EVENT_BANK = {
   name: 'Banco Cuscatlán',

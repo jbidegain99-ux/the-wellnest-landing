@@ -1,6 +1,5 @@
-import { Prisma, type EventOrderStatus } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { EVENT_ORDER_HOLD_HOURS } from './config'
 import { generateOrderCode, generateToken, ticketLabel } from './codes'
 import { findOrCreateUserByEmail } from './accounts'
 import { buyerTicketsMessage, waLink, ticketUrl } from './whatsapp'
@@ -11,18 +10,18 @@ import type { EmailEvent } from './emails'
 
 type Tx = Prisma.TransactionClient
 
-export function isOrderExpired(o: { status: EventOrderStatus; expiresAt: Date }, now: Date): boolean {
-  return o.status === 'PENDING' && o.expiresAt.getTime() <= now.getTime()
-}
-
 export function hasCapacity(capacity: number | null, taken: number, requested: number): boolean {
   return capacity === null || taken + requested <= capacity
 }
 
-/** Entradas ocupadas: pedidos pagados + pendientes que no han vencido. */
-export async function seatsTaken(db: Pick<Tx, 'eventOrder'>, eventId: string, now: Date): Promise<number> {
+/**
+ * Entradas ocupadas: pedidos pagados + pendientes. Los pendientes no vencen
+ * (una transferencia puede tardar días): siguen apartados hasta que un admin
+ * los confirme o los anule.
+ */
+export async function seatsTaken(db: Pick<Tx, 'eventOrder'>, eventId: string): Promise<number> {
   const agg = await db.eventOrder.aggregate({
-    where: { eventId, OR: [{ status: 'PAID' }, { status: 'PENDING', expiresAt: { gt: now } }] },
+    where: { eventId, status: { in: ['PAID', 'PENDING'] } },
     _sum: { quantity: true },
   })
   return agg._sum.quantity ?? 0
@@ -53,7 +52,7 @@ export async function createEventOrder(slug: string, input: CreateOrderInput, no
       if (!event.isActive || !event.ticketsEnabled || !event.salesOpen || now.getTime() >= event.startsAt.getTime()) {
         return { ok: false, status: 409, error: 'La venta de entradas está cerrada' }
       }
-      const taken = await seatsTaken(tx, event.id, now)
+      const taken = await seatsTaken(tx, event.id)
       if (!hasCapacity(event.capacity, taken, input.quantity)) {
         return { ok: false, status: 409, error: 'Las entradas se agotaron' }
       }
@@ -68,7 +67,8 @@ export async function createEventOrder(slug: string, input: CreateOrderInput, no
           quantity: input.quantity,
           amountCents: event.priceCents * input.quantity,
           marketingOptIn: input.marketingOptIn,
-          expiresAt: new Date(now.getTime() + EVENT_ORDER_HOLD_HOURS * 3600 * 1000),
+          // Columna heredada (NOT NULL): ya no vence el pedido, solo guarda el fin del evento.
+          expiresAt: event.endsAt,
         },
       })
       return {
@@ -106,7 +106,6 @@ export type ConfirmResult =
 /**
  * Confirma el pago (después de verlo en el banco): PENDING → PAID atómico,
  * crea las entradas (la 1 queda del comprador) y su cuenta.
- * Un pedido vencido se puede confirmar: la transferencia pudo llegar tarde.
  */
 export async function confirmEventOrder(orderId: string, adminId: string, now: Date = new Date()): Promise<ConfirmResult> {
   return prisma.$transaction(async (tx): Promise<ConfirmResult> => {
@@ -120,7 +119,7 @@ export async function confirmEventOrder(orderId: string, adminId: string, now: D
     })
     if (claim.count === 0) return { ok: false, status: 409, error: 'Ya estaba confirmado' }
 
-    const taken = await seatsTaken(tx, order.eventId, now)
+    const taken = await seatsTaken(tx, order.eventId)
     const overCapacity = order.event.capacity !== null && taken > order.event.capacity
 
     const user = await findOrCreateUserByEmail(tx, { name: order.buyerName, email: order.buyerEmail, phone: order.buyerPhone })
@@ -206,16 +205,15 @@ export function buildPaidOrdersCsv(rows: PaidOrderCsvRow[]): string {
 
 export type OrderView = {
   event: { name: string; slug: string; startsAt: Date; venue: string; theme: string; imageUrl: string | null }
-  state: 'pending' | 'expired' | 'paid' | 'cancelled'
+  state: 'pending' | 'paid' | 'cancelled'
   code: string
   quantity: number
   amountCents: number
-  expiresAt: Date
   tickets: { label: string; url: string }[]
 }
 
 /** Lo que ve el comprador en /halloween/pedido/[accessToken]. */
-export async function getOrderView(accessToken: string, now: Date = new Date()): Promise<OrderView | null> {
+export async function getOrderView(accessToken: string): Promise<OrderView | null> {
   const order = await prisma.eventOrder.findUnique({
     where: { accessToken },
     include: {
@@ -225,12 +223,12 @@ export async function getOrderView(accessToken: string, now: Date = new Date()):
   })
   if (!order) return null
   const state: OrderView['state'] =
-    order.status === 'PAID' ? 'paid' : order.status === 'CANCELLED' ? 'cancelled' : isOrderExpired(order, now) ? 'expired' : 'pending'
+    order.status === 'PAID' ? 'paid' : order.status === 'CANCELLED' ? 'cancelled' : 'pending'
   const tickets =
     state === 'paid'
       ? [...order.tickets].sort((a, b) => a.seq - b.seq).map((t) => ({ label: ticketLabel(order.code, t.seq), url: ticketUrl(t.token) }))
       : []
-  return { event: order.event, state, code: order.code, quantity: order.quantity, amountCents: order.amountCents, expiresAt: order.expiresAt, tickets }
+  return { event: order.event, state, code: order.code, quantity: order.quantity, amountCents: order.amountCents, tickets }
 }
 
 export type ClaimResult = { ok: true } | { ok: false; status: 400 | 404 | 409; error: string }

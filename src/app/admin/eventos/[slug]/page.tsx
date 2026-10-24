@@ -15,7 +15,7 @@ import type { AdminOrderRow, AdminCounts, AdminTab } from '@/lib/events/admin'
 const TABS: { id: AdminTab; label: string }[] = [
   { id: 'pendientes', label: 'Pendientes' },
   { id: 'pagados', label: 'Pagados' },
-  { id: 'otros', label: 'Vencidos y anulados' },
+  { id: 'otros', label: 'Anulados' },
 ]
 
 const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`
@@ -146,7 +146,7 @@ export default function AdminEventoPedidosPage() {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {[
             ['Entradas pagadas', String(counts.paidTickets)],
-            ['Pendientes vigentes', String(counts.pendingTickets)],
+            ['Pendientes', String(counts.pendingTickets)],
             ['Adentro', String(counts.checkedIn)],
             ['Cupo', counts.capacity === null ? 'Sin tope' : `${counts.paidTickets + counts.pendingTickets} / ${counts.capacity}`],
           ].map(([label, value]) => (
@@ -194,7 +194,7 @@ export default function AdminEventoPedidosPage() {
                     <td className="p-3">
                       {o.status === 'PAID' ? <Badge variant="success">Pagado{o.whatsappSentAt ? ' · WhatsApp ✓' : ''}</Badge>
                         : o.status === 'CANCELLED' ? <Badge variant="error" title={o.adminNote ?? undefined}>Anulado</Badge>
-                        : o.expired ? <Badge variant="warning">Vencido</Badge> : <Badge>Pendiente</Badge>}
+                        : <Badge>Pendiente</Badge>}
                     </td>
                     <td className="p-3">
                       <div className="flex justify-end gap-2">
@@ -222,7 +222,7 @@ export default function AdminEventoPedidosPage() {
                   ¿Viste <strong>{usd(dialog.order.amountCents)}</strong> con concepto <strong>{dialog.order.code}</strong> en el banco?
                 </ModalDescription>
               </ModalHeader>
-              <p className="text-sm text-gray-600">{dialog.order.buyerName} · {dialog.order.quantity} entrada{dialog.order.quantity > 1 ? 's' : ''}{dialog.order.expired ? ' · el apartado está vencido' : ''}</p>
+              <p className="text-sm text-gray-600">{dialog.order.buyerName} · {dialog.order.quantity} entrada{dialog.order.quantity > 1 ? 's' : ''}</p>
               {actionError && <p role="alert" className="text-sm text-[var(--color-error)]">{actionError}</p>}
               <ModalFooter>
                 <Button variant="ghost" onClick={close} disabled={busy}>Todavía no</Button>
