@@ -7,34 +7,22 @@
  * mismos destinatarios que el cron: jbidegain@republicode.com y
  * alexis2293@gmail.com, override con SALES_REPORT_RECIPIENT).
  *
+ * Por defecto apunta a QA (.env). Contra producción:
+ *   WELLNEST_ENV=prod npx tsx scripts/report-ventas-mensual.ts …   (carga .env.prod y avisa el host)
+ *
  * Uso:
  *   npx tsx scripts/report-ventas-mensual.ts 2026-06            # solo consola
  *   npx tsx scripts/report-ventas-mensual.ts 2026-06 --export   # + Excel
  *   npx tsx scripts/report-ventas-mensual.ts 2026-06 --send     # + Excel + correo
  */
 
+// Primero: carga el entorno (QA por defecto; producción con WELLNEST_ENV=prod)
+// antes de importar prisma/email.
+import './loadEnv'
+
 import * as fs from 'fs'
 import * as path from 'path'
 
-// --- Carga manual de env (.env + .env.local) antes de importar prisma/email ---
-function loadEnvFile(file: string) {
-  if (!fs.existsSync(file)) return
-  const content = fs.readFileSync(file, 'utf8')
-  for (const rawLine of content.split('\n')) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith('#')) continue
-    const eq = line.indexOf('=')
-    if (eq === -1) continue
-    const key = line.slice(0, eq).trim()
-    let val = line.slice(eq + 1).trim()
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1)
-    }
-    if (!(key in process.env)) process.env[key] = val
-  }
-}
-loadEnvFile(path.resolve(process.cwd(), '.env'))
-loadEnvFile(path.resolve(process.cwd(), '.env.local'))
 
 const DEFAULT_RECIPIENTS = ['jbidegain@republicode.com', 'alexis2293@gmail.com']
 

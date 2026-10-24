@@ -2,6 +2,9 @@
  * Preview del reporte semanal de pago a instructores — NO envía email.
  * Imprime resumen y escribe Excel a tasks/reports/ para inspección.
  *
+ * Por defecto apunta a QA (.env). Contra producción:
+ *   WELLNEST_ENV=prod npx tsx scripts/preview-instructor-payments-week.ts …   (carga .env.prod y avisa el host)
+ *
  * Uso:
  *   pnpm tsx scripts/preview-instructor-payments-week.ts
  *     → semana cerrada anterior (Mon-Sun en hora SV)
@@ -9,6 +12,9 @@
  *   pnpm tsx scripts/preview-instructor-payments-week.ts 2026-05-04
  *     → semana específica empezando el lunes dado (formato YYYY-MM-DD)
  */
+
+// Primero: carga el entorno antes de importar prisma.
+import './loadEnv'
 
 import * as fs from 'fs'
 import * as path from 'path'
