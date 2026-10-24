@@ -10,9 +10,22 @@ interface ProgressRingProps {
 export function ProgressRing({ value, target, unit = 'min', size = 148 }: ProgressRingProps) {
   const stroke = 12
   const r = (size - stroke) / 2
-  const c = 2 * Math.PI * r
+  const cx = size / 2
+  const cy = size / 2
   const ratio = target > 0 ? Math.min(Math.max(value / target, 0), 1) : 0
   const reached = value >= target && target > 0
+  // Clases completas (no interpoladas) para que Tailwind las detecte.
+  const strokeClass = reached ? 'stroke-primary-600' : 'stroke-primary'
+  const fillClass = reached ? 'fill-primary-600' : 'fill-primary'
+
+  // El arco es un <path> de la longitud exacta, con extremos "butt" más dos puntos
+  // rellenos como extremos redondeados. Ni <circle> con dash ni strokeLinecap="round":
+  // en Skia (Chrome escritorio y Android) ambos dejan líneas finas del centro hacia
+  // los extremos del arco a este tamaño.
+  const angle = ratio * 2 * Math.PI
+  const endX = cx + r * Math.sin(angle)
+  const endY = cy - r * Math.cos(angle)
+  const arcPath = `M ${cx} ${cy - r} A ${r} ${r} 0 ${ratio > 0.5 ? 1 : 0} 1 ${endX} ${endY}`
 
   return (
     <svg
@@ -24,29 +37,23 @@ export function ProgressRing({ value, target, unit = 'min', size = 148 }: Progre
       className="shrink-0"
     >
       <circle
-        cx={size / 2}
-        cy={size / 2}
+        cx={cx}
+        cy={cy}
         r={r}
         fill="none"
         strokeWidth={stroke}
         className="stroke-beige-dark"
       />
-      {ratio > 0 && (
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - ratio)}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          className={
-            (reached ? 'stroke-primary-600' : 'stroke-primary') +
-            ' transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none'
-          }
-        />
+      {ratio >= 1 ? (
+        <circle cx={cx} cy={cy} r={r} fill="none" strokeWidth={stroke} className={strokeClass} />
+      ) : (
+        ratio > 0 && (
+          <>
+            <path d={arcPath} fill="none" strokeWidth={stroke} className={strokeClass} />
+            <circle cx={cx} cy={cy - r} r={stroke / 2} className={fillClass} />
+            <circle cx={endX} cy={endY} r={stroke / 2} className={fillClass} />
+          </>
+        )
       )}
       <text
         x="50%"
