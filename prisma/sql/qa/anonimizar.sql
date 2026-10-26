@@ -215,4 +215,16 @@ BEGIN
 END
 $$;
 
+-- Pedidos de comida del evento (nombre, teléfono y nota libre).
+UPDATE "EventFoodOrder" f
+SET "customerName"  = 'Cliente QA ' || s.n,
+    "customerPhone" = CASE WHEN f."customerPhone" IS NULL THEN NULL
+                           ELSE '+5030' || lpad(s.n::text, 7, '0') END,
+    "note"          = NULL
+FROM (
+  SELECT "id", row_number() OVER (ORDER BY "createdAt", "id") AS n
+  FROM "EventFoodOrder"
+) s
+WHERE f."id" = s."id";
+
 COMMIT;
