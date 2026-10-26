@@ -731,6 +731,7 @@ model Event {
 
   orders     EventOrder[]
   tickets    EventTicket[]
+  foodOrders EventFoodOrder[]
 
   @@index([isActive, startsAt])
 }
@@ -790,4 +791,26 @@ model EventTicket {
 
   @@unique([orderId, seq])
   @@index([eventId, checkedInAt])
+}
+
+// Pedidos de comida del evento (ej. Carne Calle en The Villains Ball). Los registra
+// el equipo a mano desde WhatsApp. Fuera de ventas y finanzas: es venta de un tercero.
+// SQL: prisma/sql/2026-10-26-evento-comida.sql
+model EventFoodOrder {
+  id            String    @id @default(cuid())
+  eventId       String
+  customerName  String
+  customerPhone String?   // E.164
+  items         Json      // [{ id, name, priceCents, qty }]: copia del menú al registrar
+  totalCents    Int
+  note          String?
+  paidAt        DateTime? // "cancelado" = ya pagó
+  deliveredAt   DateTime?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, createdAt])
 }
