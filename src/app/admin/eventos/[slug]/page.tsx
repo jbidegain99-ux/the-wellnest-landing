@@ -11,6 +11,8 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalDescription, ModalFooter } from '@/components/ui/Modal'
 import type { AdminOrderRow, AdminCounts, AdminTab } from '@/lib/events/admin'
+import { foodMenuFor } from '@/lib/events/food'
+import { Comida } from './Comida'
 
 const TABS: { id: AdminTab; label: string }[] = [
   { id: 'pendientes', label: 'Pendientes' },
@@ -35,6 +37,8 @@ export default function AdminEventoPedidosPage() {
   const { slug } = useParams<{ slug: string }>()
   const [eventInfo, setEventInfo] = React.useState<{ name: string; startsAt: string; venue: string } | null>(null)
   const [tab, setTab] = React.useState<AdminTab>('pendientes')
+  const hasFood = foodMenuFor(slug) !== null
+  const [vista, setVista] = React.useState<'entradas' | 'comida'>('entradas')
   const [query, setQuery] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [orders, setOrders] = React.useState<AdminOrderRow[]>([])
@@ -46,6 +50,19 @@ export default function AdminEventoPedidosPage() {
   const [actionError, setActionError] = React.useState('')
   const [note, setNote] = React.useState('')
   const seq = React.useRef(0)
+
+  // ?vista=comida abre directo la comida (enlace para el equipo el día del evento).
+  React.useEffect(() => {
+    if (hasFood && new URLSearchParams(window.location.search).get('vista') === 'comida') setVista('comida')
+  }, [hasFood])
+
+  function cambiarVista(v: 'entradas' | 'comida') {
+    setVista(v)
+    const url = new URL(window.location.href)
+    if (v === 'comida') url.searchParams.set('vista', 'comida')
+    else url.searchParams.delete('vista')
+    window.history.replaceState(null, '', url)
+  }
 
   React.useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 300)
@@ -133,7 +150,7 @@ export default function AdminEventoPedidosPage() {
         <div>
           <Link href="/admin/eventos" className="mb-2 inline-flex items-center gap-1 text-sm text-gray-600 hover:text-foreground"><ArrowLeft className="h-4 w-4" />Eventos</Link>
           <h1 className="font-serif text-3xl font-semibold text-foreground">{eventInfo?.name ?? '…'}</h1>
-          <p className="mt-1 text-gray-600">Pedidos por transferencia{eventInfo ? ` · ${dt(eventInfo.startsAt)} · ${eventInfo.venue}` : ''}</p>
+          <p className="mt-1 text-gray-600">{vista === 'comida' ? 'Pedidos de comida' : 'Pedidos por transferencia'}{eventInfo ? ` · ${dt(eventInfo.startsAt)} · ${eventInfo.venue}` : ''}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm"><Link href={`/admin/eventos/checkin?evento=${slug}`}><ScanLine className="mr-2 h-4 w-4" />Check-in</Link></Button>
@@ -142,6 +159,20 @@ export default function AdminEventoPedidosPage() {
         </div>
       </div>
 
+      {hasFood && (
+        <div className="flex gap-1 self-start rounded-full bg-beige p-1" role="tablist" aria-label="Sección del evento">
+          {([['entradas', 'Entradas'], ['comida', 'Comida']] as const).map(([id, label]) => (
+            <button key={id} role="tab" aria-selected={vista === id} onClick={() => cambiarVista(id)}
+              className={`rounded-full px-5 py-2 text-sm font-medium ${vista === id ? 'bg-white shadow-sm' : 'text-gray-600'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {vista === 'comida' && <Comida slug={slug} />}
+
+      {vista === 'entradas' && <>
       {counts && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {[
@@ -211,6 +242,7 @@ export default function AdminEventoPedidosPage() {
           )}
         </CardContent>
       </Card>
+      </>}
 
       <Modal open={dialog !== null} onOpenChange={(open) => !open && !busy && close()}>
         <ModalContent className="sm:max-w-md">

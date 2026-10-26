@@ -96,6 +96,12 @@ SELECT 'entradas_evento_datos_reales', count(*)
      OR "holderName" !~ '^Asistente QA [0-9]+$'
      OR "holderPhone" !~ '^\+5030[0-9]{7}$'
 UNION ALL
+SELECT 'pedidos_comida_datos_reales', count(*)
+  FROM "EventFoodOrder"
+  WHERE "customerName" !~ '^Cliente QA [0-9]+$'
+     OR "customerPhone" !~ '^\+5030[0-9]{7}$'
+     OR "note" IS NOT NULL
+UNION ALL
 SELECT 'tablas_sin_revisar', count(*)
   FROM information_schema.tables
   WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
@@ -104,7 +110,7 @@ SELECT 'tablas_sin_revisar', count(*)
       'User', 'Account', 'Session', 'VerificationToken', 'PasswordResetToken',
       'Reservation', 'Referral', 'ContactMessage', 'PaymentTransaction', 'PaymentMethod',
       'Purchase', 'webhook_logs', 'PrivateSessionRequest', 'Class', 'RefundRequest',
-      'ExcludedPurchase', 'EventOrder', 'EventTicket',
+      'ExcludedPurchase', 'EventOrder', 'EventTicket', 'EventFoodOrder',
       -- revisadas: sin datos personales de clientas
       'Discipline', 'Instructor', 'Package', 'PackageDiscipline', 'Waitlist', 'DiscountCode',
       'BlogPost', 'GalleryImage', 'Testimonial', 'CartItem', 'NotificationSettings',
