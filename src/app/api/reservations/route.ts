@@ -8,6 +8,11 @@ import { formatDate, formatDateTimeFull } from '@/lib/utils'
 import { checkPackageClassCompatibility } from '@/lib/booking/packageCompatibility'
 import { TRIAL_PACKAGE_ID, isTrialBlockedForClass } from '@/lib/booking/trialCutoff'
 import { checkGuestBookingAllowed, GUEST_TOTAL_COST } from '@/lib/booking/guestBooking'
+import {
+  confirmHostAndGuestInTx,
+  GUEST_ALREADY_ACTIVE,
+  RESERVATION_CHANGED_RACE,
+} from '@/lib/booking/guestReservationTx'
 
 // Force dynamic - this route uses headers/session
 export const dynamic = 'force-dynamic'
@@ -419,18 +424,11 @@ export async function POST(request: Request) {
         }, { status: 200 })
       }
 
-      // If user had a cancelled reservation, we need to reactivate it instead of creating new
-      if (existingReservation.status === 'CANCELLED') {
+      // If user had a cancelled reservation, we need to reactivate it instead of creating new.
+      // Con invitado sigue al flujo normal de invitado, que reutiliza las
+      // filas canceladas (titular e invitado) en vez de crearlas.
+      if (existingReservation.status === 'CANCELLED' && !guestData?.email) {
         console.log('[RESERVATIONS API] Found cancelled reservation, will reactivate:', existingReservation.id)
-
-        // La reactivación no soporta invitado — antes lo ignoraba en silencio
-        // y el usuario creía haber reservado para dos
-        if (guestData?.email) {
-          return NextResponse.json({
-            error: 'Ya tuviste una reserva en esta clase. Reserva primero tu cupo y luego agrega al invitado desde "Mis Reservas".',
-            code: ERROR_CODES.UNKNOWN_ERROR,
-          }, { status: 400 })
-        }
 
         // Find purchase to use
         let purchase
@@ -874,33 +872,15 @@ export async function POST(request: Request) {
           throw new Error('INSUFFICIENT_CREDITS')
         }
 
-        // Host reservation
-        const hostRes = await tx.reservation.create({
-          data: {
-            userId,
-            classId,
-            purchaseId: purchase.id,
-            status: 'CONFIRMED',
-            isGuestReservation: false,
-          },
-          include: {
-            class: { include: { discipline: true, instructor: true } },
-            purchase: { include: { package: true } },
-          },
-        })
-
-        // Guest reservation — auto-accepted, occupies a 2nd seat
-        await tx.reservation.create({
-          data: {
-            userId,
-            classId,
-            purchaseId: purchase.id,
-            status: 'CONFIRMED',
-            isGuestReservation: true,
-            guestEmail: guestData!.email!.trim(),
-            guestName: guestData!.name?.trim() || null,
-            guestStatus: 'ACCEPTED',
-          },
+        // Titular + invitado (reutiliza las filas si ya tuvo reserva cancelada)
+        const hostRes = await confirmHostAndGuestInTx(tx, {
+          userId,
+          classId,
+          purchaseId: purchase.id,
+          guestEmail: guestData!.email!.trim(),
+          guestName: guestData!.name?.trim() || null,
+          cancelledHostId:
+            existingReservation?.status === 'CANCELLED' ? existingReservation.id : null,
         })
 
         return { reservation: hostRes, updatedPurchase: updPurchase }
@@ -1069,6 +1049,20 @@ export async function POST(request: Request) {
         error: 'La clase se llenó mientras procesábamos tu reserva. No se descontaron clases de tu paquete.',
         code: ERROR_CODES.CLASS_FULL
       }, { status: 400 })
+    }
+
+    if (error?.message === GUEST_ALREADY_ACTIVE) {
+      return NextResponse.json({
+        error: 'Tu invitado ya tiene un cupo en esta clase. Revisa "Mis Reservas".',
+        code: ERROR_CODES.ALREADY_RESERVED,
+      }, { status: 400 })
+    }
+
+    if (error?.message === RESERVATION_CHANGED_RACE) {
+      return NextResponse.json({
+        error: 'Tu reserva cambió mientras la procesábamos. Recarga la página y revisa "Mis Reservas". No se descontaron clases de tu paquete.',
+        code: ERROR_CODES.UNIQUE_CONSTRAINT,
+      }, { status: 409 })
     }
 
     // The class was cancelled while booking
