@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { Calendar, Clock, User, UserPlus, MapPin, X, Plus, Loader2, AlertCircle, Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardContent } from '@/components/ui/Card'
 import {
@@ -24,6 +25,14 @@ interface Reservation {
   guestEmail: string | null
   guestName: string | null
   guestStatus: string | null
+  purchase: {
+    classesRemaining: number
+    package: {
+      name: string
+      isShareable: boolean
+      maxShares: number
+    }
+  }
   class: {
     id: string
     dateTime: string
@@ -61,6 +70,14 @@ export default function ReservasPage() {
   const [isCancelling, setIsCancelling] = React.useState(false)
   const [cancelSuccess, setCancelSuccess] = React.useState(false)
   const [cancelError, setCancelError] = React.useState<string | null>(null)
+
+  // Add-guest modal state
+  const [guestModalFor, setGuestModalFor] = React.useState<Reservation | null>(null)
+  const [guestEmail, setGuestEmail] = React.useState('')
+  const [guestName, setGuestName] = React.useState('')
+  const [isAddingGuest, setIsAddingGuest] = React.useState(false)
+  const [addGuestError, setAddGuestError] = React.useState<string | null>(null)
+  const [addGuestSuccess, setAddGuestSuccess] = React.useState(false)
 
   // Fetch reservations from API
   const fetchReservations = React.useCallback(async () => {
@@ -148,6 +165,45 @@ export default function ReservasPage() {
     }, 150)
   }
 
+  const openGuestModal = (reservation: Reservation) => {
+    setGuestModalFor(reservation)
+    setGuestEmail('')
+    setGuestName('')
+    setAddGuestError(null)
+    setAddGuestSuccess(false)
+  }
+
+  const closeGuestModal = () => {
+    setGuestModalFor(null)
+  }
+
+  const handleAddGuest = async () => {
+    if (!guestModalFor) return
+    setIsAddingGuest(true)
+    setAddGuestError(null)
+    try {
+      const response = await fetch('/api/reservations/guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reservationId: guestModalFor.id,
+          guest: { email: guestEmail.trim(), name: guestName.trim() || undefined },
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (response.ok) {
+        setAddGuestSuccess(true)
+        await fetchReservations()
+      } else {
+        setAddGuestError(data.error || 'No pudimos agregar a tu invitado.')
+      }
+    } catch {
+      setAddGuestError('Error de conexión. Por favor intenta de nuevo.')
+    } finally {
+      setIsAddingGuest(false)
+    }
+  }
+
   const guestByClassId = React.useMemo(
     () =>
       new Map(
@@ -223,6 +279,11 @@ export default function ReservasPage() {
             const guestSibling = guestByClassId.get(reservation.class.id)
             const classDate = new Date(reservation.class.dateTime)
             const canCancelReservation = canCancel(reservation)
+            const canAddGuest =
+              !guestSibling &&
+              reservation.purchase?.package?.isShareable === true &&
+              reservation.purchase.package.maxShares >= 1 &&
+              classDate.getTime() > Date.now()
 
             return (
               <Card key={reservation.id} className="overflow-hidden">
@@ -288,7 +349,18 @@ export default function ReservasPage() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        {canAddGuest && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openGuestModal(reservation)}
+                            className="text-[#2D5A4A] hover:bg-[#2D5A4A]/10"
+                          >
+                            <UserPlus className="h-4 w-4 mr-1" />
+                            Agregar invitado
+                          </Button>
+                        )}
                         {canCancelReservation ? (
                           <Button
                             variant="ghost"
@@ -336,7 +408,7 @@ export default function ReservasPage() {
                   Reserva Cancelada
                 </h3>
                 <p className="text-gray-600">
-                  Tu reserva ha sido cancelada y la clase ha sido devuelta a tu paquete.
+                  Tu reserva ha sido cancelada y las clases se devolvieron a tu paquete.
                 </p>
               </div>
               <ModalFooter>
@@ -366,8 +438,8 @@ export default function ReservasPage() {
                   </div>
 
                   <p className="text-gray-600">
-                    {selectedReservation?.guestEmail
-                      ? 'Se cancelará tu reserva y la invitación de tu acompañante. Se devolverá 1 clase a tu paquete. Esta acción no se puede deshacer.'
+                    {guestByClassId.has(selectedReservation.class.id)
+                      ? 'Se cancelará tu reserva y la de tu invitado. Se devolverán 2 clases a tu paquete. Esta acción no se puede deshacer.'
                       : 'Al cancelar esta reserva, se devolverá 1 clase a tu paquete. Esta acción no se puede deshacer.'
                     }
                   </p>
@@ -390,6 +462,101 @@ export default function ReservasPage() {
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >
                   Sí, Cancelar Reserva
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Add Guest Modal */}
+      <Modal open={guestModalFor !== null} onOpenChange={(open) => !open && closeGuestModal()}>
+        <ModalContent>
+          {addGuestSuccess ? (
+            <>
+              <div className="text-center py-6">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Check className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-serif text-2xl font-semibold text-foreground mb-2">
+                  Invitado agregado
+                </h3>
+                <p className="text-gray-600">
+                  Tu invitado ya tiene su cupo en esta clase.
+                </p>
+              </div>
+              <ModalFooter>
+                <Button onClick={closeGuestModal} className="w-full">
+                  Entendido
+                </Button>
+              </ModalFooter>
+            </>
+          ) : (
+            <>
+              <ModalHeader>
+                <ModalTitle>Agregar invitado</ModalTitle>
+              </ModalHeader>
+
+              {guestModalFor && (
+                <form
+                  id="add-guest-form"
+                  className="space-y-4"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    handleAddGuest()
+                  }}
+                >
+                  <div
+                    className={`p-4 rounded-xl text-white ${classColors[guestModalFor.class.discipline.slug] || 'bg-primary'}`}
+                  >
+                    <p className="font-serif text-xl font-semibold">
+                      {guestModalFor.class.discipline.name}
+                    </p>
+                    <p className="text-sm opacity-90">
+                      {formatDate(new Date(guestModalFor.class.dateTime))} a las {formatTime(new Date(guestModalFor.class.dateTime))}
+                    </p>
+                  </div>
+
+                  <Input
+                    label="Correo del invitado"
+                    type="email"
+                    required
+                    autoComplete="off"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    placeholder="correo@ejemplo.com"
+                  />
+                  <Input
+                    label="Nombre del invitado (opcional)"
+                    autoComplete="off"
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                  />
+
+                  <p className="text-sm text-gray-600">
+                    Tu invitado usa 1 clase de tu paquete &quot;{guestModalFor.purchase.package.name}&quot;
+                    {' '}(te quedan {guestModalFor.purchase.classesRemaining}).
+                  </p>
+
+                  {addGuestError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                      {addGuestError}
+                    </div>
+                  )}
+                </form>
+              )}
+
+              <ModalFooter>
+                <Button variant="ghost" onClick={closeGuestModal} disabled={isAddingGuest}>
+                  Volver
+                </Button>
+                <Button
+                  type="submit"
+                  form="add-guest-form"
+                  isLoading={isAddingGuest}
+                  disabled={!guestEmail.trim() || (guestModalFor?.purchase.classesRemaining ?? 0) < 1}
+                >
+                  Agregar invitado
                 </Button>
               </ModalFooter>
             </>
