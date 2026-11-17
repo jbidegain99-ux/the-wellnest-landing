@@ -7,6 +7,18 @@
   "background_color": "#FFF8EF",
   "theme_color": "#9CAF88",
   "scope": "/",
+  "shortcuts": [
+    {
+      "name": "Mi progreso",
+      "url": "/perfil/progreso",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Reservar",
+      "url": "/reservar",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
   "icons": [
     {
       "src": "/icon-192.png",

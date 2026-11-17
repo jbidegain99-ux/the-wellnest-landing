@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/Select'
 import { format } from 'date-fns'
+import { LastClassCard } from '@/components/progress/LastClassCard'
 import { StatusCard } from '@/components/dashboard/StatusCard'
 
 interface UserProfile {
@@ -244,6 +245,9 @@ export default function PerfilPage() {
           </div>
         )}
       </div>
+
+      {/* Atajo a Mi progreso */}
+      <LastClassCard />
 
       {/* Status Card */}
       <StatusCard />

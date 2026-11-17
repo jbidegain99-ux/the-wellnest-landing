@@ -44,6 +44,8 @@ model User {
   referralsUsed          Referral[] @relation("ReferredRelation")
   orders                 Order[]
   privateSessionRequests PrivateSessionRequest[]
+  progressEmailLogs      ProgressEmailLog[]
+  progressEmailOptOut    ProgressEmailOptOut?
 }
 
 model Account {
@@ -341,8 +343,30 @@ model Reservation {
   guestStatus        String?           // PENDING, ACCEPTED, DECLINED
   guestToken         String?  @unique  // token for guest to accept/decline without login
   isGuestReservation Boolean           @default(false) // legacy — kept for backward compat
+  progressEmailLog   ProgressEmailLog?
 
   @@unique([userId, classId, isGuestReservation])
+}
+
+// Resumen de clase por correo: una fila por reserva ya reclamada/enviada
+// (único por reserva para no mandar dos veces). SQL manual:
+// prisma/sql/2026-10-24-logros-correo-progreso.sql
+model ProgressEmailLog {
+  id            String      @id @default(cuid())
+  reservationId String      @unique
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentAt        DateTime    @default(now())
+
+  @@index([userId])
+}
+
+// Usuarias que no quieren el resumen de clase por correo.
+model ProgressEmailOptOut {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
 
 enum ReservationStatus {

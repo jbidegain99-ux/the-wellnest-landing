@@ -5,7 +5,7 @@ import { routeQaEmail } from './qaEmail'
  * Escapa HTML en datos de usuario interpolados en plantillas (nombres, notas):
  * sin esto, un nombre como "<img src=x onerror=...>" se inyecta en los emails.
  */
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
