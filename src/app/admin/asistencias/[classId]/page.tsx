@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, ScanLine, UserCheck, Clock, User, Users,
-  Check, X, Loader2, AlertCircle, Trash2, Hourglass,
+  Check, X, Loader2, AlertCircle, Trash2, Hourglass, ChevronUp, ChevronDown,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -171,6 +171,36 @@ export default function ClassAttendancePage() {
       setScanResult({ type: 'error', message: 'Error de conexión al registrar check-in' })
     } finally {
       setCheckingInId(null)
+    }
+  }
+
+  // Mover a alguien de lugar en la lista de espera. Un solo movimiento a la vez
+  // para que el orden que se ve en pantalla sea el que quedó guardado.
+  const [movingId, setMovingId] = React.useState<string | null>(null)
+
+  const handleMoveWaitlist = async (waitlistId: string, toPosition: number) => {
+    if (movingId) return
+    setMovingId(waitlistId)
+    setCancelMessage(null)
+    try {
+      const response = await fetch('/api/admin/attendance/waitlist', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waitlistId, toPosition }),
+      })
+      const data = await response.json().catch(() => null)
+      if (response.ok) {
+        setCancelMessage({ type: 'success', text: data?.message || 'Lista de espera actualizada' })
+        setTimeout(() => setCancelMessage(null), 5000)
+      } else {
+        setCancelMessage({ type: 'error', text: data?.error || 'No se pudo mover en la lista de espera' })
+      }
+      // Siempre recargar: si falló, el orden en pantalla puede estar desfasado
+      await fetchClassData()
+    } catch {
+      setCancelMessage({ type: 'error', text: 'Error de conexión al mover en la lista de espera' })
+    } finally {
+      setMovingId(null)
     }
   }
 
@@ -417,7 +447,7 @@ export default function ClassAttendancePage() {
               <Badge variant="warning">{classData.waitlist.length} en espera</Badge>
             </div>
             <p className="px-4 pt-3 text-xs text-gray-500">
-              Si se libera un cupo, se asigna automáticamente a la primera de la lista que tenga un paquete válido.
+              Si se libera un cupo, se asigna automáticamente a la primera de la lista que tenga un paquete válido. Usa las flechas para cambiar el orden.
             </p>
             <div className="divide-y divide-gray-100">
               {classData.waitlist.map((entry) => (
@@ -434,13 +464,45 @@ export default function ClassAttendancePage() {
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 text-right">
-                    Se anotó el{' '}
-                    {new Date(entry.createdAt).toLocaleString('es-SV', {
-                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
-                      timeZone: 'America/El_Salvador',
-                    })}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs text-gray-500 text-right">
+                      Se anotó el{' '}
+                      {new Date(entry.createdAt).toLocaleString('es-SV', {
+                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
+                        timeZone: 'America/El_Salvador',
+                      })}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {entry.position > 1 && (
+                        <button
+                          onClick={() => handleMoveWaitlist(entry.id, 1)}
+                          disabled={movingId !== null}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-primary bg-primary/5 hover:bg-primary/10 transition-colors disabled:opacity-50"
+                          title="Poner de primera en la lista"
+                        >
+                          Poner #1
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleMoveWaitlist(entry.id, entry.position - 1)}
+                        disabled={movingId !== null || entry.position === 1}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                        title="Subir un lugar"
+                        aria-label={`Subir a ${entry.user.name} un lugar`}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleMoveWaitlist(entry.id, entry.position + 1)}
+                        disabled={movingId !== null || entry.position === classData.waitlist.length}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-foreground hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                        title="Bajar un lugar"
+                        aria-label={`Bajar a ${entry.user.name} un lugar`}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
