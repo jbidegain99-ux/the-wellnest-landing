@@ -36,6 +36,12 @@ export async function GET(
           },
           orderBy: { createdAt: 'asc' },
         },
+        waitlist: {
+          orderBy: { position: 'asc' },
+          include: {
+            user: { select: { id: true, name: true, email: true, phone: true } },
+          },
+        },
       },
     })
 
@@ -61,6 +67,12 @@ export async function GET(
         guestName: r.guestName,
         guestEmail: r.guestEmail,
         guestStatus: r.guestStatus,
+      })),
+      waitlist: classData.waitlist.map((w) => ({
+        id: w.id,
+        position: w.position,
+        createdAt: w.createdAt.toISOString(),
+        user: w.user,
       })),
     }
 

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Calendar, Users, UserCheck, Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Calendar, Users, UserCheck, Clock, Hourglass, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -18,6 +18,7 @@ interface AttendanceClass {
   instructor: { id: string; name: string }
   totalReservations: number
   checkedInCount: number
+  waitlistCount: number
 }
 
 const disciplineColors: Record<string, string> = {
@@ -107,6 +108,7 @@ export default function AsistenciasPage() {
 
   const totalReservations = classes.reduce((sum, c) => sum + c.totalReservations, 0)
   const totalCheckedIn = classes.reduce((sum, c) => sum + c.checkedInCount, 0)
+  const totalWaitlist = classes.reduce((sum, c) => sum + c.waitlistCount, 0)
   const attendanceRate = totalReservations > 0 ? Math.round((totalCheckedIn / totalReservations) * 100) : 0
 
   return (
@@ -134,7 +136,7 @@ export default function AsistenciasPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -167,6 +169,17 @@ export default function AsistenciasPage() {
                 {totalCheckedIn} <span className="text-sm font-normal text-gray-500">({attendanceRate}%)</span>
               </p>
               <p className="text-sm text-gray-500">Presentes</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+              <Hourglass className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-serif font-semibold text-foreground">{totalWaitlist}</p>
+              <p className="text-sm text-gray-500">En lista de espera</p>
             </div>
           </CardContent>
         </Card>
@@ -228,6 +241,11 @@ export default function AsistenciasPage() {
                             >
                               {status === 'active' ? 'En curso' : status === 'ended' ? 'Finalizada' : 'Próxima'}
                             </Badge>
+                            {cls.waitlistCount > 0 && (
+                              <Badge variant="warning">
+                                {cls.waitlistCount} en espera
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-4 text-sm text-gray-600">
                             <span className="flex items-center gap-1">
