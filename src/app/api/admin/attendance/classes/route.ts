@@ -50,6 +50,7 @@ export async function GET(request: Request) {
           where: { status: { in: ['CONFIRMED', 'ATTENDED'] } },
           select: { id: true, checkedIn: true },
         },
+        _count: { select: { waitlist: true } },
       },
       orderBy: { dateTime: 'asc' },
     })
@@ -64,6 +65,7 @@ export async function GET(request: Request) {
       instructor: cls.instructor,
       totalReservations: cls.reservations.length,
       checkedInCount: cls.reservations.filter((r) => r.checkedIn).length,
+      waitlistCount: cls._count.waitlist,
     }))
 
     return NextResponse.json(result)

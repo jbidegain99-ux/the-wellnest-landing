@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, ScanLine, UserCheck, Clock, User, Users,
-  Check, X, Loader2, AlertCircle, Trash2,
+  Check, X, Loader2, AlertCircle, Trash2, Hourglass,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -32,6 +32,18 @@ interface ReservationData {
   guestStatus: string | null
 }
 
+interface WaitlistEntryData {
+  id: string
+  position: number
+  createdAt: string
+  user: {
+    id: string
+    name: string
+    email: string
+    phone: string | null
+  }
+}
+
 interface ClassDetail {
   id: string
   dateTime: string
@@ -41,6 +53,7 @@ interface ClassDetail {
   discipline: { id: string; name: string; slug: string }
   instructor: { id: string; name: string }
   reservations: ReservationData[]
+  waitlist: WaitlistEntryData[]
 }
 
 interface ScanResult {
@@ -391,6 +404,49 @@ export default function ClassAttendancePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Waitlist */}
+      {classData.waitlist.length > 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Hourglass className="h-4 w-4 text-amber-600" />
+                <h2 className="font-serif text-lg font-semibold text-foreground">Lista de espera</h2>
+              </div>
+              <Badge variant="warning">{classData.waitlist.length} en espera</Badge>
+            </div>
+            <p className="px-4 pt-3 text-xs text-gray-500">
+              Si se libera un cupo, se asigna automáticamente a la primera de la lista que tenga un paquete válido.
+            </p>
+            <div className="divide-y divide-gray-100">
+              {classData.waitlist.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between gap-3 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-semibold">
+                      #{entry.position}
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{entry.user.name}</p>
+                      <p className="text-xs text-gray-500">{entry.user.email}</p>
+                      {entry.user.phone && (
+                        <p className="text-xs text-gray-500">{entry.user.phone}</p>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 text-right">
+                    Se anotó el{' '}
+                    {new Date(entry.createdAt).toLocaleString('es-SV', {
+                      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
+                      timeZone: 'America/El_Salvador',
+                    })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cancel success/error message */}
       {cancelMessage && (
